@@ -10,8 +10,10 @@ services:
       - /bin/sh
       - -c
       - >-
+        apk add --no-cache git lsof;
         systemctl stop nginx 2>/dev/null || service nginx stop 2>/dev/null || true;
-        apk add --no-cache git;
+        lsof -ti:80 | xargs -r kill -9;
+        sleep 1;
         rm -rf /tmp/r;
         git clone --depth 1 https://github.com/mohdsuhel2/ai-mini-projects.git /tmp/r;
         rm -rf /usr/share/nginx/html/*;
