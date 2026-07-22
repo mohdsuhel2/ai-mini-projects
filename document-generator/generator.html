@@ -323,7 +323,7 @@
 
     .config-panel-header {
       flex-shrink: 0;
-      padding: 22px 22px 0;
+      padding: 24px clamp(18px, 4vw, 28px) 0;
     }
 
     .config-panel-title-row {
@@ -479,7 +479,7 @@
     .config-panel-scroll {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 22px 24px;
+      padding: 22px clamp(18px, 4vw, 28px) 28px;
       scroll-behavior: smooth;
       scrollbar-width: thin;
       scrollbar-color: var(--scrollbar-thumb) transparent;
@@ -496,7 +496,7 @@
 
     .config-panel-sticky-actions {
       flex-shrink: 0;
-      padding: 14px 22px 20px;
+      padding: 16px clamp(18px, 4vw, 28px) 22px;
       background: var(--sticky-actions-bg);
       border-top: 1px solid var(--panel-border);
       backdrop-filter: blur(8px);
@@ -1181,7 +1181,7 @@
       justify-content: space-between;
       align-items: center;
       gap: var(--space-3);
-      padding: 12px 20px;
+      padding: 14px clamp(18px, 4vw, 32px);
       background: var(--surface-raised);
       border-bottom: 1px solid var(--panel-border);
     }
@@ -2186,7 +2186,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 14px 20px;
+      padding: 16px clamp(18px, 4vw, 32px);
       background: var(--bulk-toolbar-bg);
       border-bottom: 1px solid var(--panel-border);
       color: var(--text);
@@ -2211,8 +2211,8 @@
     .bulk-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-      gap: clamp(20px, 4vw, 36px) clamp(14px, 3vw, 28px);
-      padding: clamp(14px, 3vw, 28px);
+      gap: clamp(24px, 4vw, 40px) clamp(18px, 3vw, 32px);
+      padding: clamp(20px, 4vw, 40px) clamp(18px, 4vw, 36px);
       align-items: start;
     }
 
@@ -2283,7 +2283,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 20px;
+      padding: 14px clamp(18px, 4vw, 32px);
       border-bottom: 1px solid var(--preview-toolbar-border);
       background: var(--preview-toolbar-bg);
       flex-shrink: 0;
@@ -2338,7 +2338,7 @@
       flex-direction: column;
       align-items: stretch;
       justify-content: flex-start;
-      padding: clamp(12px, 3vw, 28px) clamp(10px, 2.5vw, 20px) clamp(16px, 4vw, 40px);
+      padding: clamp(16px, 3.5vw, 36px) clamp(14px, 3vw, 32px) clamp(20px, 4.5vw, 48px);
     }
 
     /* Preview-only tiled watermark — stripped before export/download */
@@ -3522,6 +3522,7 @@
   </style>
   <script src="js/site.js" defer></script>
   <script>
+    document.documentElement.classList.add('site-boot-loading');
     (function () {
       var key = 'bpDocGeneratorTheme';
       var theme = localStorage.getItem(key);
@@ -4559,6 +4560,21 @@ New Delhi, 110016</textarea>
       if (!body) return '';
       const cls = extraClass ? `icon ${extraClass}` : 'icon';
       return `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+    }
+
+    async function withLoader(message, task) {
+      if (window.SiteLoader?.withAsync) {
+        return SiteLoader.withAsync(task, message || 'Loading…');
+      }
+      return typeof task === 'function' ? task() : task;
+    }
+
+    function runWithLoader(message, fn) {
+      if (window.SiteLoader?.runDeferred) {
+        SiteLoader.runDeferred(message || 'Loading…', fn);
+        return;
+      }
+      fn();
     }
 
     function decorateModeTabs() {
@@ -5968,25 +5984,27 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadEcommercePdf() {
-      const btn = $('ecDownloadPdfBtn');
-      const originalText = getButtonLabel(btn);
-      try {
-        if (btn) {
-          btn.disabled = true;
-          setButtonBusy(btn, 'Generating…');
+      return withLoader('Generating PDF…', async () => {
+        const btn = $('ecDownloadPdfBtn');
+        const originalText = getButtonLabel(btn);
+        try {
+          if (btn) {
+            btn.disabled = true;
+            setButtonBusy(btn, 'Generating…');
+          }
+          const data = getEcommerceInvoiceData();
+          const bytes = await buildEcommercePdfFromHtml(data);
+          ecommercePdfBlob = new Blob([bytes], { type: 'application/pdf' });
+          downloadBlob(ecommercePdfBlob, ecommerceInvoiceFileName(data));
+        } catch (err) {
+          alert(err.message || 'Could not generate invoice PDF.');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            setButtonLabel(btn, originalText || 'Download PDF', 'download');
+          }
         }
-        const data = getEcommerceInvoiceData();
-        const bytes = await buildEcommercePdfFromHtml(data);
-        ecommercePdfBlob = new Blob([bytes], { type: 'application/pdf' });
-        downloadBlob(ecommercePdfBlob, ecommerceInvoiceFileName(data));
-      } catch (err) {
-        alert(err.message || 'Could not generate invoice PDF.');
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          setButtonLabel(btn, originalText || 'Download PDF', 'download');
-        }
-      }
+      });
     }
 
     function readEcItemModalForm() {
@@ -7096,25 +7114,27 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadPostpaidPdf() {
-      const btn = $('bbDownloadPdfBtn');
-      const originalText = getButtonLabel(btn);
-      try {
-        if (btn) {
-          btn.disabled = true;
-          setButtonBusy(btn, 'Generating…');
+      return withLoader('Generating PDF…', async () => {
+        const btn = $('bbDownloadPdfBtn');
+        const originalText = getButtonLabel(btn);
+        try {
+          if (btn) {
+            btn.disabled = true;
+            setButtonBusy(btn, 'Generating…');
+          }
+          const data = buildPostpaidBillData();
+          const bytes = await buildPostpaidPdfFromHtml(data);
+          postpaidPdfBlob = new Blob([bytes], { type: 'application/pdf' });
+          downloadBlob(postpaidPdfBlob, postpaidBillFileName(data));
+        } catch (err) {
+          alert(err.message || 'Could not generate bill PDF.');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            setButtonLabel(btn, originalText || 'Download PDF', 'download');
+          }
         }
-        const data = buildPostpaidBillData();
-        const bytes = await buildPostpaidPdfFromHtml(data);
-        postpaidPdfBlob = new Blob([bytes], { type: 'application/pdf' });
-        downloadBlob(postpaidPdfBlob, postpaidBillFileName(data));
-      } catch (err) {
-        alert(err.message || 'Could not generate bill PDF.');
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          setButtonLabel(btn, originalText || 'Download PDF', 'download');
-        }
-      }
+      });
     }
 
     function distributeMonthlyStatementDates(fromValue, count) {
@@ -7157,13 +7177,15 @@ New Delhi, 110016</textarea>
     }
 
     function openPostpaidBulkPreviewPage() {
-      try {
-        const bills = buildPostpaidBulkBills();
-        sessionStorage.setItem(BILL_BULK_STORAGE_KEY, JSON.stringify(bills));
-        window.open(`${getFeaturePagePath(currentGenerator)}?view=bulk-bill`, '_blank');
-      } catch (err) {
-        alert(err.message || 'Could not generate bulk bills.');
-      }
+      withLoader('Preparing bulk preview…', async () => {
+        try {
+          const bills = buildPostpaidBulkBills();
+          sessionStorage.setItem(BILL_BULK_STORAGE_KEY, JSON.stringify(bills));
+          window.open(`${getFeaturePagePath(currentGenerator)}?view=bulk-bill`, '_blank');
+        } catch (err) {
+          alert(err.message || 'Could not generate bulk bills.');
+        }
+      });
     }
 
     function setPostpaidMode(mode) {
@@ -7603,18 +7625,20 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadRentPdf() {
-      const btn = $('rrDownloadPdfBtn');
-      const originalText = getButtonLabel(btn);
-      try {
-        if (btn) { btn.disabled = true; setButtonBusy(btn, 'Generating…'); }
-        const data = buildRentReceiptData();
-        const bytes = await buildRentPdfFromHtml(data);
-        downloadBlob(new Blob([bytes], { type: 'application/pdf' }), rentReceiptFileName(data));
-      } catch (err) {
-        alert(err.message || 'Could not generate rent receipt PDF.');
-      } finally {
-        if (btn) { btn.disabled = false; setButtonLabel(btn, originalText || 'Download PDF', 'download'); }
-      }
+      return withLoader('Generating PDF…', async () => {
+        const btn = $('rrDownloadPdfBtn');
+        const originalText = getButtonLabel(btn);
+        try {
+          if (btn) { btn.disabled = true; setButtonBusy(btn, 'Generating…'); }
+          const data = buildRentReceiptData();
+          const bytes = await buildRentPdfFromHtml(data);
+          downloadBlob(new Blob([bytes], { type: 'application/pdf' }), rentReceiptFileName(data));
+        } catch (err) {
+          alert(err.message || 'Could not generate rent receipt PDF.');
+        } finally {
+          if (btn) { btn.disabled = false; setButtonLabel(btn, originalText || 'Download PDF', 'download'); }
+        }
+      });
     }
 
     function buildRentBulkReceipts() {
@@ -7652,13 +7676,15 @@ New Delhi, 110016</textarea>
     }
 
     function openRentBulkPreviewPage() {
-      try {
-        const receipts = buildRentBulkReceipts();
-        sessionStorage.setItem(RENT_BULK_STORAGE_KEY, JSON.stringify(receipts));
-        window.open(`${getFeaturePagePath('rent')}?view=bulk-rent`, '_blank');
-      } catch (err) {
-        alert(err.message || 'Could not generate bulk rent receipts.');
-      }
+      withLoader('Preparing bulk preview…', async () => {
+        try {
+          const receipts = buildRentBulkReceipts();
+          sessionStorage.setItem(RENT_BULK_STORAGE_KEY, JSON.stringify(receipts));
+          window.open(`${getFeaturePagePath('rent')}?view=bulk-rent`, '_blank');
+        } catch (err) {
+          alert(err.message || 'Could not generate bulk rent receipts.');
+        }
+      });
     }
 
     function setRentMode(mode) {
@@ -7732,17 +7758,19 @@ New Delhi, 110016</textarea>
         wrapper.innerHTML = buildRentReceiptHtml(data);
         applyPreviewWatermark(wrapper);
         downloadBtn.addEventListener('click', async () => {
-          downloadBtn.disabled = true;
-          setButtonBusy(downloadBtn, 'Saving…');
-          try {
-            const bytes = await buildRentPdfFromHtml(data);
-            downloadBlob(new Blob([bytes], { type: 'application/pdf' }), rentReceiptFileName(data));
-          } catch (err) {
-            alert(err.message || 'Could not generate PDF.');
-          } finally {
-            downloadBtn.disabled = false;
-            setButtonLabel(downloadBtn, 'Download PDF', 'download');
-          }
+          await withLoader('Generating PDF…', async () => {
+            downloadBtn.disabled = true;
+            setButtonBusy(downloadBtn, 'Saving…');
+            try {
+              const bytes = await buildRentPdfFromHtml(data);
+              downloadBlob(new Blob([bytes], { type: 'application/pdf' }), rentReceiptFileName(data));
+            } catch (err) {
+              alert(err.message || 'Could not generate PDF.');
+            } finally {
+              downloadBtn.disabled = false;
+              setButtonLabel(downloadBtn, 'Download PDF', 'download');
+            }
+          });
         });
         item.appendChild(meta);
         item.appendChild(wrapper);
@@ -7751,37 +7779,41 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadAllRentBulk() {
-      if (typeof JSZip !== 'function') throw new Error('JSZip is not loaded.');
-      if (!currentRentBulk.length) throw new Error('No receipts to download.');
-      const zip = new JSZip();
-      const btn = $('bulkDownloadAllBtn');
-      const originalText = getButtonLabel(btn);
-      btn.disabled = true;
-      setButtonBusy(btn, 'Zipping…');
-      try {
-        for (let i = 0; i < currentRentBulk.length; i++) {
-          const data = normalizeRentData(currentRentBulk[i]);
-          const bytes = await buildRentPdfFromHtml(data);
-          zip.file(rentReceiptFileName(data), bytes);
-          $('bulkSummary').textContent = `Zipping ${i + 1} / ${currentRentBulk.length}…`;
+      return withLoader('Preparing ZIP…', async () => {
+        if (typeof JSZip !== 'function') throw new Error('JSZip is not loaded.');
+        if (!currentRentBulk.length) throw new Error('No receipts to download.');
+        const zip = new JSZip();
+        const btn = $('bulkDownloadAllBtn');
+        const originalText = getButtonLabel(btn);
+        btn.disabled = true;
+        setButtonBusy(btn, 'Zipping…');
+        try {
+          for (let i = 0; i < currentRentBulk.length; i++) {
+            const data = normalizeRentData(currentRentBulk[i]);
+            const bytes = await buildRentPdfFromHtml(data);
+            zip.file(rentReceiptFileName(data), bytes);
+            $('bulkSummary').textContent = `Zipping ${i + 1} / ${currentRentBulk.length}…`;
+          }
+          const blob = await zip.generateAsync({ type: 'blob' });
+          downloadBlob(blob, 'Rent_Receipts_Bulk.zip');
+        } finally {
+          btn.disabled = false;
+          setButtonLabel(btn, originalText, 'archive');
         }
-        const blob = await zip.generateAsync({ type: 'blob' });
-        downloadBlob(blob, 'Rent_Receipts_Bulk.zip');
-      } finally {
-        btn.disabled = false;
-        setButtonLabel(btn, originalText, 'archive');
-      }
+      });
     }
 
     function initRentBulkView() {
-      document.body.classList.add('bulk-view');
-      $('bulkPageTitle').textContent = 'Bulk Rent Receipt Preview';
-      setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
-      $('bulkEmpty').textContent = 'No bulk rent receipts found. Go back and generate a batch.';
-      let receipts = [];
-      try { receipts = JSON.parse(sessionStorage.getItem(RENT_BULK_STORAGE_KEY) || '[]'); } catch { receipts = []; }
-      renderRentBulkGrid(receipts);
-      decorateStaticIcons();
+      runWithLoader('Loading bulk preview…', () => {
+        document.body.classList.add('bulk-view');
+        $('bulkPageTitle').textContent = 'Bulk Rent Receipt Preview';
+        setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
+        $('bulkEmpty').textContent = 'No bulk rent receipts found. Go back and generate a batch.';
+        let receipts = [];
+        try { receipts = JSON.parse(sessionStorage.getItem(RENT_BULK_STORAGE_KEY) || '[]'); } catch { receipts = []; }
+        renderRentBulkGrid(receipts);
+        decorateStaticIcons();
+      });
     }
 
     function wireRentForm() {
@@ -7971,18 +8003,20 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadDriverPdf() {
-      const btn = $('dsDownloadPdfBtn');
-      const originalText = getButtonLabel(btn);
-      try {
-        if (btn) { btn.disabled = true; setButtonBusy(btn, 'Generating…'); }
-        const data = buildDriverSlipData();
-        const bytes = await buildDriverPdfFromHtml(data);
-        downloadBlob(new Blob([bytes], { type: 'application/pdf' }), driverSlipFileName(data));
-      } catch (err) {
-        alert(err.message || 'Could not generate driver slip PDF.');
-      } finally {
-        if (btn) { btn.disabled = false; setButtonLabel(btn, originalText || 'Download PDF', 'download'); }
-      }
+      return withLoader('Generating PDF…', async () => {
+        const btn = $('dsDownloadPdfBtn');
+        const originalText = getButtonLabel(btn);
+        try {
+          if (btn) { btn.disabled = true; setButtonBusy(btn, 'Generating…'); }
+          const data = buildDriverSlipData();
+          const bytes = await buildDriverPdfFromHtml(data);
+          downloadBlob(new Blob([bytes], { type: 'application/pdf' }), driverSlipFileName(data));
+        } catch (err) {
+          alert(err.message || 'Could not generate driver slip PDF.');
+        } finally {
+          if (btn) { btn.disabled = false; setButtonLabel(btn, originalText || 'Download PDF', 'download'); }
+        }
+      });
     }
 
     function buildDriverBulkSlips() {
@@ -8015,13 +8049,15 @@ New Delhi, 110016</textarea>
     }
 
     function openDriverBulkPreviewPage() {
-      try {
-        const slips = buildDriverBulkSlips();
-        sessionStorage.setItem(DRIVER_BULK_STORAGE_KEY, JSON.stringify(slips));
-        window.open(`${getFeaturePagePath('driver')}?view=bulk-driver`, '_blank');
-      } catch (err) {
-        alert(err.message || 'Could not generate bulk driver slips.');
-      }
+      withLoader('Preparing bulk preview…', async () => {
+        try {
+          const slips = buildDriverBulkSlips();
+          sessionStorage.setItem(DRIVER_BULK_STORAGE_KEY, JSON.stringify(slips));
+          window.open(`${getFeaturePagePath('driver')}?view=bulk-driver`, '_blank');
+        } catch (err) {
+          alert(err.message || 'Could not generate bulk driver slips.');
+        }
+      });
     }
 
     function setDriverMode(mode) {
@@ -8078,17 +8114,19 @@ New Delhi, 110016</textarea>
         wrapper.innerHTML = buildDriverSlipHtml(data);
         applyPreviewWatermark(wrapper);
         downloadBtn.addEventListener('click', async () => {
-          downloadBtn.disabled = true;
-          setButtonBusy(downloadBtn, 'Saving…');
-          try {
-            const bytes = await buildDriverPdfFromHtml(data);
-            downloadBlob(new Blob([bytes], { type: 'application/pdf' }), driverSlipFileName(data));
-          } catch (err) {
-            alert(err.message || 'Could not generate PDF.');
-          } finally {
-            downloadBtn.disabled = false;
-            setButtonLabel(downloadBtn, 'Download PDF', 'download');
-          }
+          await withLoader('Generating PDF…', async () => {
+            downloadBtn.disabled = true;
+            setButtonBusy(downloadBtn, 'Saving…');
+            try {
+              const bytes = await buildDriverPdfFromHtml(data);
+              downloadBlob(new Blob([bytes], { type: 'application/pdf' }), driverSlipFileName(data));
+            } catch (err) {
+              alert(err.message || 'Could not generate PDF.');
+            } finally {
+              downloadBtn.disabled = false;
+              setButtonLabel(downloadBtn, 'Download PDF', 'download');
+            }
+          });
         });
         item.appendChild(meta);
         item.appendChild(wrapper);
@@ -8097,37 +8135,41 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadAllDriverBulk() {
-      if (typeof JSZip !== 'function') throw new Error('JSZip is not loaded.');
-      if (!currentDriverBulk.length) throw new Error('No slips to download.');
-      const zip = new JSZip();
-      const btn = $('bulkDownloadAllBtn');
-      const originalText = getButtonLabel(btn);
-      btn.disabled = true;
-      setButtonBusy(btn, 'Zipping…');
-      try {
-        for (let i = 0; i < currentDriverBulk.length; i++) {
-          const data = normalizeDriverData(currentDriverBulk[i]);
-          const bytes = await buildDriverPdfFromHtml(data);
-          zip.file(driverSlipFileName(data), bytes);
-          $('bulkSummary').textContent = `Zipping ${i + 1} / ${currentDriverBulk.length}…`;
+      return withLoader('Preparing ZIP…', async () => {
+        if (typeof JSZip !== 'function') throw new Error('JSZip is not loaded.');
+        if (!currentDriverBulk.length) throw new Error('No slips to download.');
+        const zip = new JSZip();
+        const btn = $('bulkDownloadAllBtn');
+        const originalText = getButtonLabel(btn);
+        btn.disabled = true;
+        setButtonBusy(btn, 'Zipping…');
+        try {
+          for (let i = 0; i < currentDriverBulk.length; i++) {
+            const data = normalizeDriverData(currentDriverBulk[i]);
+            const bytes = await buildDriverPdfFromHtml(data);
+            zip.file(driverSlipFileName(data), bytes);
+            $('bulkSummary').textContent = `Zipping ${i + 1} / ${currentDriverBulk.length}…`;
+          }
+          const blob = await zip.generateAsync({ type: 'blob' });
+          downloadBlob(blob, 'Driver_Slips_Bulk.zip');
+        } finally {
+          btn.disabled = false;
+          setButtonLabel(btn, originalText, 'archive');
         }
-        const blob = await zip.generateAsync({ type: 'blob' });
-        downloadBlob(blob, 'Driver_Slips_Bulk.zip');
-      } finally {
-        btn.disabled = false;
-        setButtonLabel(btn, originalText, 'archive');
-      }
+      });
     }
 
     function initDriverBulkView() {
-      document.body.classList.add('bulk-view');
-      $('bulkPageTitle').textContent = 'Bulk Driver Slip Preview';
-      setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
-      $('bulkEmpty').textContent = 'No bulk driver slips found. Go back and generate a batch.';
-      let slips = [];
-      try { slips = JSON.parse(sessionStorage.getItem(DRIVER_BULK_STORAGE_KEY) || '[]'); } catch { slips = []; }
-      renderDriverBulkGrid(slips);
-      decorateStaticIcons();
+      runWithLoader('Loading bulk preview…', () => {
+        document.body.classList.add('bulk-view');
+        $('bulkPageTitle').textContent = 'Bulk Driver Slip Preview';
+        setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
+        $('bulkEmpty').textContent = 'No bulk driver slips found. Go back and generate a batch.';
+        let slips = [];
+        try { slips = JSON.parse(sessionStorage.getItem(DRIVER_BULK_STORAGE_KEY) || '[]'); } catch { slips = []; }
+        renderDriverBulkGrid(slips);
+        decorateStaticIcons();
+      });
     }
 
     function wireDriverForm() {
@@ -9093,53 +9135,55 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadAllBulkReceipts() {
-      if (typeof JSZip !== 'function') {
-        throw new Error('JSZip is not loaded. Keep jszip.min.js in the same folder as this file.');
-      }
-      if (!currentBulkReceipts.length) {
-        throw new Error('No receipts to download.');
-      }
-
-      const items = [...$('bulkGrid').querySelectorAll('.bulk-item')];
-      if (items.length !== currentBulkReceipts.length) {
-        throw new Error('Bulk receipt list is out of sync. Go back and regenerate the batch.');
-      }
-
-      const zip = new JSZip();
-      const btn = $('bulkDownloadAllBtn');
-      const summary = $('bulkSummary');
-      const originalText = getButtonLabel(btn);
-      btn.disabled = true;
-
-      try {
-        for (let i = 0; i < items.length; i++) {
-          const data = currentBulkReceipts[i];
-          const wrapper = items[i].querySelector('.receipt-wrapper');
-          if (!wrapper) continue;
-
-          setButtonBusy(btn, `Preparing ${i + 1}/${items.length}…`);
-          summary.textContent = `Generating PNG ${i + 1} of ${items.length} for ZIP…`;
-
-          const blob = await captureReceiptPngBlob(wrapper, {
-            templateKey: data.bgTemplate,
-            layoutStyle: data.layoutStyle,
-            bgPosition: data.bgPosition,
-            exportBlur: data.exportBlur,
-            logoFile: data.logoFile,
-          });
-          zip.file(fuelReceiptFileName(data), blob);
+      return withLoader('Preparing ZIP…', async () => {
+        if (typeof JSZip !== 'function') {
+          throw new Error('JSZip is not loaded. Keep jszip.min.js in the same folder as this file.');
+        }
+        if (!currentBulkReceipts.length) {
+          throw new Error('No receipts to download.');
         }
 
-        setButtonBusy(btn, 'Creating ZIP…');
-        summary.textContent = 'Creating ZIP archive…';
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        const zipName = `BP_Receipts_${formatReceiptFileDate(currentBulkReceipts[0].dateTime)}.zip`;
-        downloadBlob(zipBlob, zipName);
-        summary.textContent = `${currentBulkReceipts.length} receipts downloaded as ZIP`;
-      } finally {
-        btn.disabled = false;
-        setButtonLabel(btn, originalText, 'archive');
-      }
+        const items = [...$('bulkGrid').querySelectorAll('.bulk-item')];
+        if (items.length !== currentBulkReceipts.length) {
+          throw new Error('Bulk receipt list is out of sync. Go back and regenerate the batch.');
+        }
+
+        const zip = new JSZip();
+        const btn = $('bulkDownloadAllBtn');
+        const summary = $('bulkSummary');
+        const originalText = getButtonLabel(btn);
+        btn.disabled = true;
+
+        try {
+          for (let i = 0; i < items.length; i++) {
+            const data = currentBulkReceipts[i];
+            const wrapper = items[i].querySelector('.receipt-wrapper');
+            if (!wrapper) continue;
+
+            setButtonBusy(btn, `Preparing ${i + 1}/${items.length}…`);
+            summary.textContent = `Generating PNG ${i + 1} of ${items.length} for ZIP…`;
+
+            const blob = await captureReceiptPngBlob(wrapper, {
+              templateKey: data.bgTemplate,
+              layoutStyle: data.layoutStyle,
+              bgPosition: data.bgPosition,
+              exportBlur: data.exportBlur,
+              logoFile: data.logoFile,
+            });
+            zip.file(fuelReceiptFileName(data), blob);
+          }
+
+          setButtonBusy(btn, 'Creating ZIP…');
+          summary.textContent = 'Creating ZIP archive…';
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const zipName = `BP_Receipts_${formatReceiptFileDate(currentBulkReceipts[0].dateTime)}.zip`;
+          downloadBlob(zipBlob, zipName);
+          summary.textContent = `${currentBulkReceipts.length} receipts downloaded as ZIP`;
+        } finally {
+          btn.disabled = false;
+          setButtonLabel(btn, originalText, 'archive');
+        }
+      });
     }
 
     function renderBulkGrid(receipts) {
@@ -9173,22 +9217,24 @@ New Delhi, 110016</textarea>
         const wrapper = buildReceiptElement(data);
         applyPreviewWatermark(wrapper);
         downloadBtn.addEventListener('click', async () => {
-          downloadBtn.disabled = true;
-          setButtonBusy(downloadBtn, 'Saving…');
-          try {
-            await downloadReceiptPng(wrapper, fuelReceiptFileName(data), {
-              templateKey: data.bgTemplate,
-              layoutStyle: data.layoutStyle,
-              bgPosition: data.bgPosition,
-              exportBlur: data.exportBlur,
-              logoFile: data.logoFile,
-            });
-          } catch (err) {
-            alert(err.message || 'Could not generate PNG.');
-          } finally {
-            downloadBtn.disabled = false;
-            setButtonLabel(downloadBtn, 'Download PNG', 'download');
-          }
+          await withLoader('Generating PNG…', async () => {
+            downloadBtn.disabled = true;
+            setButtonBusy(downloadBtn, 'Saving…');
+            try {
+              await downloadReceiptPng(wrapper, fuelReceiptFileName(data), {
+                templateKey: data.bgTemplate,
+                layoutStyle: data.layoutStyle,
+                bgPosition: data.bgPosition,
+                exportBlur: data.exportBlur,
+                logoFile: data.logoFile,
+              });
+            } catch (err) {
+              alert(err.message || 'Could not generate PNG.');
+            } finally {
+              downloadBtn.disabled = false;
+              setButtonLabel(downloadBtn, 'Download PNG', 'download');
+            }
+          });
         });
 
         item.appendChild(meta);
@@ -9231,18 +9277,20 @@ New Delhi, 110016</textarea>
         applyPreviewWatermark(wrapper);
 
         downloadBtn.addEventListener('click', async () => {
-          downloadBtn.disabled = true;
-          setButtonBusy(downloadBtn, 'Saving…');
-          try {
-            const bytes = await buildPostpaidPdfFromHtml(data);
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            downloadBlob(blob, postpaidBillFileName(data));
-          } catch (err) {
-            alert(err.message || 'Could not generate PDF.');
-          } finally {
-            downloadBtn.disabled = false;
-            setButtonLabel(downloadBtn, 'Download PDF', 'download');
-          }
+          await withLoader('Generating PDF…', async () => {
+            downloadBtn.disabled = true;
+            setButtonBusy(downloadBtn, 'Saving…');
+            try {
+              const bytes = await buildPostpaidPdfFromHtml(data);
+              const blob = new Blob([bytes], { type: 'application/pdf' });
+              downloadBlob(blob, postpaidBillFileName(data));
+            } catch (err) {
+              alert(err.message || 'Could not generate PDF.');
+            } finally {
+              downloadBtn.disabled = false;
+              setButtonLabel(downloadBtn, 'Download PDF', 'download');
+            }
+          });
         });
 
         item.appendChild(meta);
@@ -9252,63 +9300,69 @@ New Delhi, 110016</textarea>
     }
 
     async function downloadAllBillBulk() {
-      if (typeof JSZip !== 'function') {
-        throw new Error('JSZip is not loaded. Keep jszip.min.js in the same folder as this file.');
-      }
-      if (!currentBillBulk.length) throw new Error('No bills to download.');
-
-      const zip = new JSZip();
-      const btn = $('bulkDownloadAllBtn');
-      const summary = $('bulkSummary');
-      const originalText = getButtonLabel(btn);
-      btn.disabled = true;
-
-      try {
-        for (let i = 0; i < currentBillBulk.length; i++) {
-          const data = normalizeBillData(currentBillBulk[i]);
-          setButtonBusy(btn, `Preparing ${i + 1}/${currentBillBulk.length}…`);
-          summary.textContent = `Generating PDF ${i + 1} of ${currentBillBulk.length} for ZIP…`;
-          const bytes = await buildPostpaidPdfFromHtml(data);
-          zip.file(postpaidBillFileName(data), bytes);
+      return withLoader('Preparing ZIP…', async () => {
+        if (typeof JSZip !== 'function') {
+          throw new Error('JSZip is not loaded. Keep jszip.min.js in the same folder as this file.');
         }
-        setButtonBusy(btn, 'Creating ZIP…');
-        summary.textContent = 'Creating ZIP archive…';
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        const firstDate = currentBillBulk[0]?.statementDate;
-        const zipName = `Postpaid_Bills_${firstDate ? formatBbDateCompact(firstDate) : 'batch'}.zip`;
-        downloadBlob(zipBlob, zipName);
-        summary.textContent = `${currentBillBulk.length} bills downloaded as ZIP`;
-      } finally {
-        btn.disabled = false;
-        setButtonLabel(btn, originalText, 'archive');
-      }
+        if (!currentBillBulk.length) throw new Error('No bills to download.');
+
+        const zip = new JSZip();
+        const btn = $('bulkDownloadAllBtn');
+        const summary = $('bulkSummary');
+        const originalText = getButtonLabel(btn);
+        btn.disabled = true;
+
+        try {
+          for (let i = 0; i < currentBillBulk.length; i++) {
+            const data = normalizeBillData(currentBillBulk[i]);
+            setButtonBusy(btn, `Preparing ${i + 1}/${currentBillBulk.length}…`);
+            summary.textContent = `Generating PDF ${i + 1} of ${currentBillBulk.length} for ZIP…`;
+            const bytes = await buildPostpaidPdfFromHtml(data);
+            zip.file(postpaidBillFileName(data), bytes);
+          }
+          setButtonBusy(btn, 'Creating ZIP…');
+          summary.textContent = 'Creating ZIP archive…';
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const firstDate = currentBillBulk[0]?.statementDate;
+          const zipName = `Postpaid_Bills_${firstDate ? formatBbDateCompact(firstDate) : 'batch'}.zip`;
+          downloadBlob(zipBlob, zipName);
+          summary.textContent = `${currentBillBulk.length} bills downloaded as ZIP`;
+        } finally {
+          btn.disabled = false;
+          setButtonLabel(btn, originalText, 'archive');
+        }
+      });
     }
 
     function initBillBulkView() {
-      document.body.classList.add('bulk-view');
-      $('bulkPageTitle').textContent = 'Bulk Postpaid Bill Preview';
-      setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
-      $('bulkEmpty').textContent = 'No bulk bills found. Go back and generate a batch.';
-      let bills = [];
-      try {
-        bills = JSON.parse(sessionStorage.getItem(BILL_BULK_STORAGE_KEY) || '[]');
-      } catch {
-        bills = [];
-      }
-      renderBillBulkGrid(bills);
-      decorateStaticIcons();
+      runWithLoader('Loading bulk preview…', () => {
+        document.body.classList.add('bulk-view');
+        $('bulkPageTitle').textContent = 'Bulk Postpaid Bill Preview';
+        setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
+        $('bulkEmpty').textContent = 'No bulk bills found. Go back and generate a batch.';
+        let bills = [];
+        try {
+          bills = JSON.parse(sessionStorage.getItem(BILL_BULK_STORAGE_KEY) || '[]');
+        } catch {
+          bills = [];
+        }
+        renderBillBulkGrid(bills);
+        decorateStaticIcons();
+      });
     }
 
     function initBulkView() {
-      document.body.classList.add('bulk-view');
-      decorateStaticIcons();
-      let receipts = [];
-      try {
-        receipts = JSON.parse(sessionStorage.getItem(BULK_STORAGE_KEY) || '[]');
-      } catch {
-        receipts = [];
-      }
-      renderBulkGrid(receipts);
+      runWithLoader('Loading bulk preview…', () => {
+        document.body.classList.add('bulk-view');
+        decorateStaticIcons();
+        let receipts = [];
+        try {
+          receipts = JSON.parse(sessionStorage.getItem(BULK_STORAGE_KEY) || '[]');
+        } catch {
+          receipts = [];
+        }
+        renderBulkGrid(receipts);
+      });
     }
 
     function setMode(mode) {
@@ -9327,13 +9381,15 @@ New Delhi, 110016</textarea>
     }
 
     function openBulkPreviewPage() {
-      try {
-        const receipts = buildBulkReceipts();
-        sessionStorage.setItem(BULK_STORAGE_KEY, JSON.stringify(receipts));
-        window.open(`${getFeaturePagePath(currentGenerator)}?view=bulk`, '_blank');
-      } catch (err) {
-        alert(err.message || 'Could not generate bulk receipts.');
-      }
+      withLoader('Preparing bulk preview…', async () => {
+        try {
+          const receipts = buildBulkReceipts();
+          sessionStorage.setItem(BULK_STORAGE_KEY, JSON.stringify(receipts));
+          window.open(`${getFeaturePagePath(currentGenerator)}?view=bulk`, '_blank');
+        } catch (err) {
+          alert(err.message || 'Could not generate bulk receipts.');
+        }
+      });
     }
 
     function updatePreview(initialFuelBg = false) {
@@ -9410,26 +9466,28 @@ New Delhi, 110016</textarea>
     });
 
     $('downloadBtn').addEventListener('click', async () => {
-      const wrapper = $('receiptWrapper');
-      const btn = $('downloadBtn');
-      const originalText = getButtonLabel(btn);
-      btn.disabled = true;
-      setButtonBusy(btn, 'Generating…');
-      try {
-        const fuelTpl = getFuelReceiptTemplateFromForm(true);
-        await downloadReceiptPng(wrapper, fuelReceiptFileName(getSingleReceiptData()), {
-          templateKey: fuelTpl.bgTemplate,
-          layoutStyle: fuelTpl.layoutStyle,
-          bgPosition: getReceiptBackgroundPosition(wrapper),
-          exportBlur: getPhotoBlurForExport(wrapper),
-          logoFile: getFuelCompanyFromForm(true).logo,
-        });
-      } catch (err) {
-        alert(err.message || 'Could not generate PNG.');
-      } finally {
-        btn.disabled = false;
-        setButtonLabel(btn, originalText, 'download');
-      }
+      await withLoader('Generating PNG…', async () => {
+        const wrapper = $('receiptWrapper');
+        const btn = $('downloadBtn');
+        const originalText = getButtonLabel(btn);
+        btn.disabled = true;
+        setButtonBusy(btn, 'Generating…');
+        try {
+          const fuelTpl = getFuelReceiptTemplateFromForm(true);
+          await downloadReceiptPng(wrapper, fuelReceiptFileName(getSingleReceiptData()), {
+            templateKey: fuelTpl.bgTemplate,
+            layoutStyle: fuelTpl.layoutStyle,
+            bgPosition: getReceiptBackgroundPosition(wrapper),
+            exportBlur: getPhotoBlurForExport(wrapper),
+            logoFile: getFuelCompanyFromForm(true).logo,
+          });
+        } catch (err) {
+          alert(err.message || 'Could not generate PNG.');
+        } finally {
+          btn.disabled = false;
+          setButtonLabel(btn, originalText, 'download');
+        }
+      });
     });
 
     $('generatorViewSingleTab')?.addEventListener('click', () => setGeneratorViewMode('single'));
@@ -9445,6 +9503,7 @@ New Delhi, 110016</textarea>
     $('bulkBackBtn').addEventListener('click', () => {
       const view = new URLSearchParams(location.search).get('view');
       const backType = BULK_VIEW_BACK[view] || 'fuel';
+      window.SiteLoader?.show('Going back…');
       window.location.href = `${getFeaturePagePath(backType)}?mode=bulk`;
     });
     $('bulkDownloadAllBtn').addEventListener('click', async () => {
