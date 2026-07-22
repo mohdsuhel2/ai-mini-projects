@@ -1,0 +1,150 @@
+2026-07-15 10:36:30 | INFO     | → Fetching market data… (GNA.NS)
+2026-07-15 10:36:31 | INFO     | → Loaded GNA.NS — GNA AXLES LIMITED | last daily bar 2026-07-15
+2026-07-15 10:36:32 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:36:40 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:36:46 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:36:48 | INFO     | → Fetching market data… (CARTRADE.NS)
+2026-07-15 10:36:49 | INFO     | → Loaded CARTRADE.NS — CARTRADE TECH LIMITED | last daily bar 2026-07-15
+2026-07-15 10:36:50 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:36:52 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:36:58 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:37:00 | INFO     | → Fetching market data… (CUPID.NS)
+2026-07-15 10:37:01 | INFO     | → Loaded CUPID.NS — CUPID LIMITED | last daily bar 2026-07-15
+2026-07-15 10:37:02 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:37:05 | ERROR    | CUPID.NS: No earnings dates found, symbol may be delisted
+2026-07-15 10:37:05 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:37:11 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:37:12 | INFO     | → Fetching market data… (MAPMYINDIA.NS)
+2026-07-15 10:37:13 | INFO     | → Loaded MAPMYINDIA.NS — C.E. INFO SYSTEMS LIMITED | last daily bar 2026-07-15
+2026-07-15 10:37:14 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:37:17 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:37:23 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:37:24 | INFO     | → Fetching market data… (SENORES.NS)
+2026-07-15 10:37:25 | INFO     | → Loaded SENORES.NS — SENORES PHARMACEUTICALS L | last daily bar 2026-07-15
+2026-07-15 10:37:26 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:37:28 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:37:34 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:37:36 | INFO     | → Fetching market data… (CAPLIPOINT.NS)
+2026-07-15 10:37:37 | INFO     | → Loaded CAPLIPOINT.NS — CAPLIN POINT LAB LTD. | last daily bar 2026-07-15
+2026-07-15 10:37:38 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:37:40 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:37:46 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:37:48 | INFO     | → Fetching market data… (THANGAMAYL.NS)
+2026-07-15 10:37:49 | INFO     | → Loaded THANGAMAYL.NS — THANGAMAYIL JEWELLERY LTD | last daily bar 2026-07-15
+2026-07-15 10:37:50 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:37:53 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:37:58 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:38:00 | INFO     | → Fetching market data… (WELCORP.NS)
+2026-07-15 10:38:01 | INFO     | → Loaded WELCORP.NS — WELSPUN CORP LIMITED | last daily bar 2026-07-15
+2026-07-15 10:38:02 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:38:04 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:38:10 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:38:12 | INFO     | → Fetching market data… (JNKINDIA.NS)
+2026-07-15 10:38:13 | INFO     | → Loaded JNKINDIA.NS — JNK INDIA LIMITED | last daily bar 2026-07-15
+2026-07-15 10:38:14 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:38:17 | ERROR    | JNKINDIA.NS: No earnings dates found, symbol may be delisted
+2026-07-15 10:38:17 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:38:22 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:38:24 | INFO     | → Fetching market data… (EPACKPEB.NS)
+2026-07-15 10:38:25 | INFO     | → Loaded EPACKPEB.NS — EPACK PREFAB TECHN LTD | last daily bar 2026-07-15
+2026-07-15 10:38:26 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:38:28 | ERROR    | EPACKPEB.NS: No earnings dates found, symbol may be delisted
+2026-07-15 10:38:28 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:38:34 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:38:36 | INFO     | → Fetching market data… (IKIO.NS)
+2026-07-15 10:38:37 | INFO     | → Loaded IKIO.NS — IKIO TECHNOLOGIES LIMITED | last daily bar 2026-07-15
+2026-07-15 10:38:38 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:38:41 | ERROR    | IKIO.NS: No earnings dates found, symbol may be delisted
+2026-07-15 10:38:41 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:38:46 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:38:48 | INFO     | → Fetching market data… (GREAVESCOT.NS)
+2026-07-15 10:38:49 | INFO     | → Loaded GREAVESCOT.NS — GREAVES COTTON LTD. | last daily bar 2026-07-15
+2026-07-15 10:38:51 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:38:53 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:38:59 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:39:00 | INFO     | → Fetching market data… (PAISALO.NS)
+2026-07-15 10:39:02 | INFO     | → Loaded PAISALO.NS — PAISALO DIGITAL LIMITED | last daily bar 2026-07-15
+2026-07-15 10:39:03 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:39:05 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:39:11 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:39:12 | INFO     | → Fetching market data… (PAYTM.NS)
+2026-07-15 10:39:14 | INFO     | → Loaded PAYTM.NS — ONE 97 COMMUNICATIONS LTD | last daily bar 2026-07-15
+2026-07-15 10:39:15 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:39:17 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:39:25 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:39:27 | INFO     | → Fetching market data… (MOREPENLAB.NS)
+2026-07-15 10:39:33 | INFO     | → Loaded MOREPENLAB.NS — MOREPEN LAB. LTD | last daily bar 2026-07-15
+2026-07-15 10:39:35 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:39:37 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:39:45 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:39:47 | INFO     | → Fetching market data… (RPTECH.NS)
+2026-07-15 10:39:52 | INFO     | → Loaded RPTECH.NS — RASHI PERIPHERALS LIMITED | last daily bar 2026-07-15
+2026-07-15 10:39:54 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:39:56 | ERROR    | RPTECH.NS: No earnings dates found, symbol may be delisted
+2026-07-15 10:39:56 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:40:04 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:40:05 | INFO     | → Fetching market data… (CARYSIL.NS)
+2026-07-15 10:40:10 | INFO     | → Loaded CARYSIL.NS — CARYSIL LIMITED | last daily bar 2026-07-15
+2026-07-15 10:40:12 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:40:14 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:40:21 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:40:22 | INFO     | → Fetching market data… (LTTS.NS)
+2026-07-15 10:40:24 | INFO     | → Loaded LTTS.NS — L&T TECHNOLOGY SER. LTD. | last daily bar 2026-07-15
+2026-07-15 10:40:25 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:40:28 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:40:34 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:40:36 | INFO     | → Fetching market data… (AURUM.NS)
+2026-07-15 10:40:37 | INFO     | → Loaded AURUM.NS — AURUM PROPTECH LIMITED | last daily bar 2026-07-15
+2026-07-15 10:40:39 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:40:41 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:40:47 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:40:48 | INFO     | → Fetching market data… (CENTENKA.NS)
+2026-07-15 10:40:50 | INFO     | → Loaded CENTENKA.NS — CENTURY ENKA LTD | last daily bar 2026-07-15
+2026-07-15 10:40:51 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:40:54 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:41:00 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:41:01 | INFO     | → Fetching market data… (CAPACITE.NS)
+2026-07-15 10:41:03 | INFO     | → Loaded CAPACITE.NS — CAPACITE INFRAPROJECT LTD | last daily bar 2026-07-15
+2026-07-15 10:41:04 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:41:06 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:41:12 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:41:14 | INFO     | → Fetching market data… (KEC.NS)
+2026-07-15 10:41:15 | INFO     | → Loaded KEC.NS — KEC INTL. LIMITED | last daily bar 2026-07-15
+2026-07-15 10:41:17 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:41:19 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:41:25 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:41:26 | INFO     | → Fetching market data… (VIMTALABS.NS)
+2026-07-15 10:41:28 | INFO     | → Loaded VIMTALABS.NS — VIMTA LABS LIMITED | last daily bar 2026-07-15
+2026-07-15 10:41:29 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:41:31 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:41:37 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:41:39 | INFO     | → Fetching market data… (PIRAMALFIN.NS)
+2026-07-15 10:41:40 | INFO     | → Loaded PIRAMALFIN.NS — PIRAMAL FINANCE LIMITED | last daily bar 2026-07-15
+2026-07-15 10:41:41 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:41:43 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:41:49 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:41:51 | INFO     | → Fetching market data… (INDIAGLYCO.NS)
+2026-07-15 10:41:52 | INFO     | → Loaded INDIAGLYCO.NS — INDIA GLYCOLS LTD | last daily bar 2026-07-15
+2026-07-15 10:41:53 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:41:56 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:42:01 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:42:03 | INFO     | → Fetching market data… (TIPSMUSIC.NS)
+2026-07-15 10:42:04 | INFO     | → Loaded TIPSMUSIC.NS — TIPS MUSIC LIMITED | last daily bar 2026-07-15
+2026-07-15 10:42:05 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:42:08 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:42:14 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:42:15 | INFO     | → Fetching market data… (RUBICON.NS)
+2026-07-15 10:42:16 | INFO     | → Loaded RUBICON.NS — RUBICON RESEARCH LIMITED | last daily bar 2026-07-15
+2026-07-15 10:42:17 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:42:20 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:42:26 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:42:27 | INFO     | → Fetching market data… (RRKABEL.NS)
+2026-07-15 10:42:28 | INFO     | → Loaded RRKABEL.NS — R R KABEL LIMITED | last daily bar 2026-07-15
+2026-07-15 10:42:30 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:42:32 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:42:38 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.
+2026-07-15 10:42:39 | INFO     | → Fetching market data… (JINDALSAW.NS)
+2026-07-15 10:42:41 | INFO     | → Loaded JINDALSAW.NS — JINDAL SAW LIMITED | last daily bar 2026-07-15
+2026-07-15 10:42:42 | INFO     | → Deep fundamentals (yfinance / Yahoo)…
+2026-07-15 10:42:44 | INFO     | → Deep fundamentals loaded via yfinance
+2026-07-15 10:42:50 | WARNING  | Yahoo search rate-limited (429) — sector/listing + Yahoo headlines skipped for this run.

@@ -1,0 +1,6 @@
+growwapi
+pyotp>=2.9.0
+pytest>=8.0
+anthropic
+streamlit
+pyyaml

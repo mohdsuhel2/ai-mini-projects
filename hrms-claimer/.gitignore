@@ -1,0 +1,9 @@
+node_modules/
+.hrms-browser-profile/
+hrms-config.json
+hrms-fields-dump.json
+hrms-field-map.json
+test-results/
+playwright-report/
+playwright/.cache/
+.DS_Store

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page not found — NOOBius</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/site.css" />
+  <script src="js/site.js" defer></script>
+  <style>
+    .error-page {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 72px var(--space-5);
+      text-align: center;
+    }
+    .error-page h1 {
+      font-size: 4rem;
+      color: var(--accent);
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+    }
+    .error-page h2 {
+      color: var(--heading);
+      margin-bottom: 12px;
+    }
+    .error-page p {
+      color: var(--muted);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body class="site-page" data-page="home">
+  <div class="site-shell">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="fuel-receipt.html" class="site-logo">
+          <span class="site-logo-word"><span class="site-logo-noob">NOOB</span><span class="site-logo-ius">ius</span></span>
+        </a>
+        <nav class="site-nav" aria-label="Main navigation">
+          <a href="fuel-receipt.html" class="site-nav-link" data-nav="fuel">Fuel Receipt</a>
+          <a href="ecommerce-invoice.html" class="site-nav-link" data-nav="ecommerce">Ecommerce Invoice</a>
+          <a href="postpaid-bill.html" class="site-nav-link" data-nav="postpaid">Postpaid Bill</a>
+          <a href="rent-receipt.html" class="site-nav-link" data-nav="rent">Rent Receipt</a>
+          <a href="driver-slip.html" class="site-nav-link" data-nav="driver">Driver Slip</a>
+          <a href="about.html" class="site-nav-link" data-nav="about">About</a>
+        </nav>
+        <div class="site-header-actions">
+          <button type="button" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme"></button>
+          <button type="button" class="site-menu-btn" id="siteMenuBtn" aria-label="Open menu" aria-expanded="false"></button>
+        </div>
+      </div>
+    </header>
+    <main class="site-main">
+      <div class="error-page">
+        <h1>404</h1>
+        <h2>Page not found</h2>
+        <p>The page you're looking for doesn't exist or has been moved.</p>
+        <a href="fuel-receipt.html" class="btn btn-primary">Open Generator</a>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <p>© 2026 NOOBius.</p>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

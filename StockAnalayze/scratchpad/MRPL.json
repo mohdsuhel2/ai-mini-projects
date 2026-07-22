@@ -1,0 +1,184 @@
+{
+  "symbol": "MRPL",
+  "resolved_ticker": "MRPL.NS",
+  "data_source": "yahoo_intraday",
+  "interval": "15min",
+  "as_of": "2026-07-16 10:56:30",
+  "as_of_note": "IST clock",
+  "meta": {
+    "currency": "INR",
+    "exchange": "NSE"
+  },
+  "price": {
+    "last": 174.35,
+    "day_open": 162.43,
+    "day_high": 178.4,
+    "day_low": 160.67,
+    "position_in_day_range_pct": 77.2
+  },
+  "vwap": {
+    "vwap": 172.96,
+    "above_vwap": true,
+    "distance_pct": 0.8
+  },
+  "opening_range": {
+    "high": 169.39,
+    "low": 160.67,
+    "formed": true,
+    "bars_used": 2
+  },
+  "opening_range_state": {
+    "breakout_up": true,
+    "breakdown_down": false
+  },
+  "gap": {
+    "gap_pct": 3.46,
+    "direction": "up"
+  },
+  "prior_day_levels": {
+    "prior_day": "2026-07-15",
+    "PDH": 162.26,
+    "PDL": 156.28,
+    "PDC": 157.0,
+    "pivot": 158.51,
+    "R1": 160.75,
+    "S1": 154.77,
+    "R2": 164.49,
+    "S2": 152.53
+  },
+  "nearest_levels": {
+    "nearest_resistance": {
+      "label": "day_high",
+      "level": 178.4
+    },
+    "nearest_support": {
+      "label": "VWAP",
+      "level": 172.96
+    }
+  },
+  "indicators": {
+    "rsi14": 79.01,
+    "macd_line": 4.339587,
+    "macd_signal": 2.832287,
+    "macd_histogram": 1.5073,
+    "atr14_intraday": 2.58,
+    "recent_bar_direction": "down"
+  },
+  "volume": {
+    "rvol_vs_prior_days": 35.67,
+    "last_bar_volume": 0.0
+  },
+  "intraday_structure": {
+    "structure": "range / mixed",
+    "recent_highs": "falling",
+    "recent_lows": "rising",
+    "bars_since_day_high": 3,
+    "pct_off_day_high": -2.27,
+    "bars_since_day_low": 7,
+    "pct_off_day_low": 8.51,
+    "exhaustion_flags": [],
+    "volume_climax_ratio": 0.6,
+    "blowoff_top": false,
+    "vwap_distance_pct": 0.8,
+    "pullback_long_ok": false,
+    "short_setup_ok": false,
+    "directional_bias": "neutral",
+    "note": "sideways / no clear edge — NO TRADE"
+  },
+  "breakout": {
+    "direction": "up",
+    "level": 169.39,
+    "bars_since_break": 5,
+    "pct_beyond_level": 2.93,
+    "fresh": false,
+    "extended_past_level": false,
+    "retest_zone": 169.39
+  },
+  "reversal_watch": {
+    "reversal_short_watch": false
+  },
+  "institutional": {
+    "ema9": 171.91,
+    "ema20": 167.32,
+    "ema50": 163.34,
+    "ema200": 158.03,
+    "ema_alignment": "bullish_stack",
+    "price_vs_ema20_pct": 4.2,
+    "adx": {
+      "adx": 44.2,
+      "plus_di": 49.9,
+      "minus_di": 14.9
+    },
+    "supertrend": {
+      "direction": "up",
+      "level": 169.85
+    },
+    "bollinger": {
+      "upper": 180.161049,
+      "mid": 164.686001,
+      "lower": 149.210953,
+      "percent_b": 0.8122
+    }
+  },
+  "higher_timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "ema9": 159.09,
+      "ema20": 156.3,
+      "ema50": 157.99,
+      "ema20_slope": "up"
+    },
+    "hour_1": {
+      "trend": "bullish",
+      "ema9": 166.11,
+      "ema20": 162.71,
+      "ema50": 158.51,
+      "ema20_slope": "up"
+    },
+    "min_15": {
+      "trend": "bullish",
+      "ema9": 171.91,
+      "ema20": 167.32,
+      "ema50": 163.34,
+      "ema20_slope": "up"
+    },
+    "min_5": {
+      "trend": "neutral",
+      "ema9": 175.14,
+      "ema20": 172.89,
+      "ema50": 167.63,
+      "ema20_slope": "up"
+    },
+    "overall_bias": "strong bullish"
+  },
+  "market_context": {
+    "india_vix": {
+      "level": 12.86,
+      "change_pct": -3.11,
+      "regime": "low"
+    },
+    "nifty": {
+      "last": 24158.5,
+      "day_change_pct": 0.07,
+      "trend_15m": "bullish"
+    }
+  },
+  "session": {
+    "last_bar_time_ist": "10:56",
+    "minutes_elapsed": 101,
+    "minutes_to_squareoff": 264,
+    "session_progress_pct": 26.9,
+    "bars_remaining": 18
+  },
+  "projection": {
+    "atr_projected_remaining_move_pts": 10.96,
+    "atr_projected_remaining_move_pct": 6.29,
+    "basis": "atr14_intraday * sqrt(bars_remaining) — rough cap on rest-of-session travel"
+  },
+  "bars_today": 8,
+  "bars_total": 527,
+  "news": [],
+  "warnings": [
+    "AV intraday unavailable (Thank you for using Alpha Vantage! This is a premium endpoint. You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly unlock all premium endpoints) — fell back to Yahoo intraday"
+  ]
+}

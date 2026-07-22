@@ -1,0 +1,6 @@
+{
+  "billNo": "input[id*='BillNo']",
+  "billDetails": "input[id*='BillDetails'], textarea[id*='BillDetails']",
+  "billDate": "input[id*='BillDate']",
+  "billAmount": "input[id*='BillAmount'], input[id*='Amount']"
+}

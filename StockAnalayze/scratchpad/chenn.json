@@ -1,0 +1,191 @@
+{
+  "symbol": "CHENNPETRO",
+  "resolved_ticker": "CHENNPETRO.NS",
+  "data_source": "yahoo_intraday",
+  "interval": "15min",
+  "as_of": "2026-07-16 11:06:26",
+  "as_of_note": "IST clock",
+  "meta": {
+    "currency": "INR",
+    "exchange": "NSE"
+  },
+  "price": {
+    "last": 1251.7,
+    "day_open": 1173.3,
+    "day_high": 1276.0,
+    "day_low": 1168.8,
+    "position_in_day_range_pct": 77.3
+  },
+  "vwap": {
+    "vwap": 1236.04,
+    "above_vwap": true,
+    "distance_pct": 1.27
+  },
+  "opening_range": {
+    "high": 1215.4,
+    "low": 1168.8,
+    "formed": true,
+    "bars_used": 2
+  },
+  "opening_range_state": {
+    "breakout_up": true,
+    "breakdown_down": false
+  },
+  "gap": {
+    "gap_pct": 0.72,
+    "direction": "up"
+  },
+  "prior_day_levels": {
+    "prior_day": "2026-07-15",
+    "PDH": 1177.8,
+    "PDL": 1101.7,
+    "PDC": 1164.9,
+    "pivot": 1148.13,
+    "R1": 1194.57,
+    "S1": 1118.47,
+    "R2": 1224.23,
+    "S2": 1072.03
+  },
+  "nearest_levels": {
+    "nearest_resistance": {
+      "label": "day_high",
+      "level": 1276.0
+    },
+    "nearest_support": {
+      "label": "VWAP",
+      "level": 1236.04
+    }
+  },
+  "indicators": {
+    "rsi14": 80.89,
+    "macd_line": 27.674098,
+    "macd_signal": 20.501921,
+    "macd_histogram": 7.172177,
+    "atr14_intraday": 20.3,
+    "recent_bar_direction": "up"
+  },
+  "volume": {
+    "rvol_vs_prior_days": 11.1,
+    "last_bar_volume": 0.0
+  },
+  "intraday_structure": {
+    "structure": "uptrend (higher highs/lows)",
+    "recent_highs": "rising",
+    "recent_lows": "rising",
+    "bars_since_day_high": 2,
+    "pct_off_day_high": -1.9,
+    "bars_since_day_low": 8,
+    "pct_off_day_low": 7.09,
+    "exhaustion_flags": [],
+    "volume_climax_ratio": 1.88,
+    "blowoff_top": false,
+    "vwap_distance_pct": 1.27,
+    "pullback_long_ok": true,
+    "short_setup_ok": false,
+    "directional_bias": "long",
+    "note": "structure up + momentum intact — pullbacks are buyable"
+  },
+  "breakout": {
+    "direction": "up",
+    "level": 1215.4,
+    "bars_since_break": 5,
+    "pct_beyond_level": 2.99,
+    "fresh": false,
+    "extended_past_level": false,
+    "retest_zone": 1215.4
+  },
+  "reversal_watch": {
+    "reversal_short_watch": true,
+    "topping_signals": [
+      "rsi_overbought_extreme",
+      "parabolic_vs_ema20"
+    ],
+    "short_trigger": "15m close below VWAP ₹1236.04 (or a lower high, then loss of the last swing low)",
+    "early_short": null,
+    "note": "uptrend showing exhaustion/over-extension — SHORT-ON-BREAKDOWN watch: do NOT short into strength; short only AFTER the trigger. It is still a BUY-the-dip until then. Once it CLOSES below VWAP it becomes a first-class SHORT (backtested ~100% to the VWAP-cover target) — treat that as an actionable short, not a passive wait."
+  },
+  "institutional": {
+    "ema9": 1231.79,
+    "ema20": 1204.37,
+    "ema50": 1174.76,
+    "ema200": 1149.56,
+    "ema_alignment": "bullish_stack",
+    "price_vs_ema20_pct": 3.93,
+    "adx": {
+      "adx": 58.6,
+      "plus_di": 45.2,
+      "minus_di": 4.4
+    },
+    "supertrend": {
+      "direction": "up",
+      "level": 1199.99
+    },
+    "bollinger": {
+      "upper": 1273.962744,
+      "mid": 1191.264996,
+      "lower": 1108.567248,
+      "percent_b": 0.8654
+    }
+  },
+  "higher_timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "ema9": 1155.74,
+      "ema20": 1141.18,
+      "ema50": 1110.55,
+      "ema20_slope": "up"
+    },
+    "hour_1": {
+      "trend": "bullish",
+      "ema9": 1191.27,
+      "ema20": 1169.4,
+      "ema50": 1152.2,
+      "ema20_slope": "up"
+    },
+    "min_15": {
+      "trend": "bullish",
+      "ema9": 1231.79,
+      "ema20": 1204.37,
+      "ema50": 1174.76,
+      "ema20_slope": "up"
+    },
+    "min_5": {
+      "trend": "bullish",
+      "ema9": 1250.29,
+      "ema20": 1235.6,
+      "ema50": 1205.2,
+      "ema20_slope": "up"
+    },
+    "overall_bias": "strong bullish"
+  },
+  "market_context": {
+    "india_vix": {
+      "level": 12.87,
+      "change_pct": -3.0,
+      "regime": "low"
+    },
+    "nifty": {
+      "last": 24164.8,
+      "day_change_pct": 0.1,
+      "trend_15m": "bullish"
+    }
+  },
+  "session": {
+    "last_bar_time_ist": "11:06",
+    "minutes_elapsed": 111,
+    "minutes_to_squareoff": 254,
+    "session_progress_pct": 29.6,
+    "bars_remaining": 17
+  },
+  "projection": {
+    "atr_projected_remaining_move_pts": 83.7,
+    "atr_projected_remaining_move_pct": 6.69,
+    "basis": "atr14_intraday * sqrt(bars_remaining) — rough cap on rest-of-session travel"
+  },
+  "bars_today": 9,
+  "bars_total": 527,
+  "news": [],
+  "warnings": [
+    "AV intraday unavailable (Thank you for using Alpha Vantage! This is a premium endpoint. You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly unlock all premium endpoints) — fell back to Yahoo intraday"
+  ]
+}

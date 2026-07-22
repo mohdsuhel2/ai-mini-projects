@@ -1,0 +1,50 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+
+# App-specific local config
+config.yaml
+config.local.yaml
+hrms-config.json
+hrms-fields-dump.json
+hrms-field-map.json
+.hrms-browser-profile/
+
+# Test / tooling artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+.coverage
+htmlcov/
+.superpowers/
+
+# Databases & logs
+*.db
+*.sqlite
+*.sqlite3
+*.log

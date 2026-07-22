@@ -1,0 +1,12 @@
+{
+  "loginUrl": "https://gthrms.wcgt.in/HRMS2020/Login.aspx?CID=DTDL",
+  "companyId": "DTDL",
+  "username": "YOUR_USER_ID",
+  "password": "YOUR_PASSWORD",
+  "defaultAmount": 2800,
+  "dateFormats": ["dd/MM/yyyy"],
+  "receiptsDirectory": "/Users/mohdsuhel/Downloads/fuel-receipts",
+  "claimType": "fuel",
+  "manualNavigation": true,
+  "delayMs": 600
+}

@@ -1,0 +1,186 @@
+{
+  "symbol": "EMMVEE",
+  "resolved_ticker": "EMMVEE.NS",
+  "data_source": "yahoo_intraday",
+  "interval": "15min",
+  "as_of": "2026-07-16 10:56:25",
+  "as_of_note": "IST clock",
+  "meta": {
+    "currency": "INR",
+    "exchange": "NSE"
+  },
+  "price": {
+    "last": 366.3,
+    "day_open": 358.2,
+    "day_high": 371.55,
+    "day_low": 349.0,
+    "position_in_day_range_pct": 76.7
+  },
+  "vwap": {
+    "vwap": 364.97,
+    "above_vwap": true,
+    "distance_pct": 0.36
+  },
+  "opening_range": {
+    "high": 371.55,
+    "low": 349.0,
+    "formed": true,
+    "bars_used": 2
+  },
+  "opening_range_state": {
+    "breakout_up": false,
+    "breakdown_down": false
+  },
+  "gap": {
+    "gap_pct": 5.2,
+    "direction": "up"
+  },
+  "prior_day_levels": {
+    "prior_day": "2026-07-15",
+    "PDH": 341.25,
+    "PDL": 332.05,
+    "PDC": 340.5,
+    "pivot": 337.93,
+    "R1": 343.82,
+    "S1": 334.62,
+    "R2": 347.13,
+    "S2": 328.73
+  },
+  "nearest_levels": {
+    "nearest_resistance": {
+      "label": "day_high",
+      "level": 371.55
+    },
+    "nearest_support": {
+      "label": "VWAP",
+      "level": 364.97
+    }
+  },
+  "indicators": {
+    "rsi14": 80.93,
+    "macd_line": 8.527695,
+    "macd_signal": 6.143008,
+    "macd_histogram": 2.384687,
+    "atr14_intraday": 5.5,
+    "recent_bar_direction": "down"
+  },
+  "volume": {
+    "rvol_vs_prior_days": 16.73,
+    "last_bar_volume": 0.0
+  },
+  "intraday_structure": {
+    "structure": "uptrend (higher highs/lows)",
+    "recent_highs": "rising",
+    "recent_lows": "rising",
+    "bars_since_day_high": 7,
+    "pct_off_day_high": -1.41,
+    "bars_since_day_low": 7,
+    "pct_off_day_low": 4.96,
+    "exhaustion_flags": [],
+    "volume_climax_ratio": 0.61,
+    "blowoff_top": false,
+    "vwap_distance_pct": 0.36,
+    "pullback_long_ok": true,
+    "short_setup_ok": false,
+    "directional_bias": "long",
+    "note": "structure up + momentum intact — pullbacks are buyable"
+  },
+  "breakout": {
+    "direction": "none",
+    "note": "price inside the opening range (no breakout)"
+  },
+  "reversal_watch": {
+    "reversal_short_watch": true,
+    "topping_signals": [
+      "rsi_overbought_extreme",
+      "parabolic_vs_ema20"
+    ],
+    "short_trigger": "15m close below VWAP ₹364.97 (or a lower high, then loss of the last swing low)",
+    "early_short": null,
+    "note": "uptrend showing exhaustion/over-extension — SHORT-ON-BREAKDOWN watch: do NOT short into strength; short only AFTER the trigger. It is still a BUY-the-dip until then. Once it CLOSES below VWAP it becomes a first-class SHORT (backtested ~100% to the VWAP-cover target) — treat that as an actionable short, not a passive wait."
+  },
+  "institutional": {
+    "ema9": 361.5,
+    "ema20": 352.83,
+    "ema50": 344.57,
+    "ema200": 339.91,
+    "ema_alignment": "bullish_stack",
+    "price_vs_ema20_pct": 3.82,
+    "adx": {
+      "adx": 43.2,
+      "plus_di": 44.4,
+      "minus_di": 12.7
+    },
+    "supertrend": {
+      "direction": "up",
+      "level": 352.83
+    },
+    "bollinger": {
+      "upper": 378.548056,
+      "mid": 348.195003,
+      "lower": 317.841949,
+      "percent_b": 0.7982
+    }
+  },
+  "higher_timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "ema9": 343.3,
+      "ema20": 338.5,
+      "ema50": 316.97,
+      "ema20_slope": "up"
+    },
+    "hour_1": {
+      "trend": "bullish",
+      "ema9": 351.45,
+      "ema20": 344.66,
+      "ema50": 341.14,
+      "ema20_slope": "up"
+    },
+    "min_15": {
+      "trend": "bullish",
+      "ema9": 361.5,
+      "ema20": 352.83,
+      "ema50": 344.57,
+      "ema20_slope": "up"
+    },
+    "min_5": {
+      "trend": "neutral",
+      "ema9": 366.59,
+      "ema20": 363.07,
+      "ema50": 353.5,
+      "ema20_slope": "up"
+    },
+    "overall_bias": "strong bullish"
+  },
+  "market_context": {
+    "india_vix": {
+      "level": 12.86,
+      "change_pct": -3.11,
+      "regime": "low"
+    },
+    "nifty": {
+      "last": 24160.65,
+      "day_change_pct": 0.08,
+      "trend_15m": "bullish"
+    }
+  },
+  "session": {
+    "last_bar_time_ist": "10:56",
+    "minutes_elapsed": 101,
+    "minutes_to_squareoff": 264,
+    "session_progress_pct": 26.9,
+    "bars_remaining": 18
+  },
+  "projection": {
+    "atr_projected_remaining_move_pts": 23.35,
+    "atr_projected_remaining_move_pct": 6.37,
+    "basis": "atr14_intraday * sqrt(bars_remaining) — rough cap on rest-of-session travel"
+  },
+  "bars_today": 8,
+  "bars_total": 527,
+  "news": [],
+  "warnings": [
+    "AV intraday unavailable (Thank you for using Alpha Vantage! This is a premium endpoint. You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly unlock all premium endpoints) — fell back to Yahoo intraday"
+  ]
+}

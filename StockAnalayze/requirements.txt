@@ -1,0 +1,6 @@
+# Pull model: ollama pull llama3.1:8b
+# Deep fundamentals: pip install yfinance   OR use project venv (python3 -m venv .venv && .venv/bin/pip install -r requirements.txt)
+yfinance>=0.2.40
+# Verbose logs: LOG_LEVEL=DEBUG or python3 stock_analyze.py ... --log-level DEBUG
+# Dev/test: pip install pytest   (run: .venv/bin/python -m pytest -q)
+pytest>=8.0

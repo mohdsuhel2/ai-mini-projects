@@ -1,0 +1,19 @@
+{
+  "name": "hrms-claimer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Upload reimbursement claims to GT HRMS (DTDL)",
+  "type": "module",
+  "scripts": {
+    "login": "node src/login-cli.js",
+    "upload": "node src/upload-claim.js",
+    "inspect": "node src/inspect-fields.js",
+    "test:parse": "node src/parse-receipt-filename.test.js",
+    "test:date": "node src/date-formats.test.js",
+    "record": "npx playwright codegen https://gthrms.wcgt.in/HRMS2020/Login.aspx?CID=DTDL --save-storage=.hrms-auth.json"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.51.0",
+    "playwright": "^1.51.0"
+  }
+}

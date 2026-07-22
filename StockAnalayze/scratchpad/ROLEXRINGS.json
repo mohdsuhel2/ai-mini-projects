@@ -1,0 +1,186 @@
+{
+  "symbol": "ROLEXRINGS",
+  "resolved_ticker": "ROLEXRINGS.NS",
+  "data_source": "yahoo_intraday",
+  "interval": "15min",
+  "as_of": "2026-07-16 11:01:22",
+  "as_of_note": "IST clock",
+  "meta": {
+    "currency": "INR",
+    "exchange": "NSE"
+  },
+  "price": {
+    "last": 151.98,
+    "day_open": 157.0,
+    "day_high": 157.0,
+    "day_low": 151.23,
+    "position_in_day_range_pct": 13.0
+  },
+  "vwap": {
+    "vwap": 153.61,
+    "above_vwap": false,
+    "distance_pct": -1.06
+  },
+  "opening_range": {
+    "high": 157.0,
+    "low": 152.47,
+    "formed": true,
+    "bars_used": 2
+  },
+  "opening_range_state": {
+    "breakout_up": false,
+    "breakdown_down": true
+  },
+  "gap": {
+    "gap_pct": 0.64,
+    "direction": "up"
+  },
+  "prior_day_levels": {
+    "prior_day": "2026-07-15",
+    "PDH": 161.9,
+    "PDL": 145.0,
+    "PDC": 156.0,
+    "pivot": 154.3,
+    "R1": 163.6,
+    "S1": 146.7,
+    "R2": 171.2,
+    "S2": 137.4
+  },
+  "nearest_levels": {
+    "nearest_resistance": {
+      "label": "OR_low",
+      "level": 152.47
+    },
+    "nearest_support": {
+      "label": "day_low",
+      "level": 151.23
+    }
+  },
+  "indicators": {
+    "rsi14": 54.68,
+    "macd_line": 1.087016,
+    "macd_signal": 1.498187,
+    "macd_histogram": -0.41117,
+    "atr14_intraday": 2.34,
+    "recent_bar_direction": "down"
+  },
+  "volume": {
+    "rvol_vs_prior_days": 1.53,
+    "last_bar_volume": 0.0
+  },
+  "intraday_structure": {
+    "structure": "range / mixed",
+    "recent_highs": "falling",
+    "recent_lows": "rising",
+    "bars_since_day_high": 8,
+    "pct_off_day_high": -3.2,
+    "bars_since_day_low": 4,
+    "pct_off_day_low": 0.5,
+    "exhaustion_flags": [
+      "faded_from_high"
+    ],
+    "volume_climax_ratio": 0.29,
+    "blowoff_top": false,
+    "vwap_distance_pct": -1.06,
+    "pullback_long_ok": false,
+    "short_setup_ok": true,
+    "directional_bias": "short-on-breakdown",
+    "note": "exhausted/distribution near VWAP — SHORT on loss of VWAP/OR-low, do NOT buy the dip"
+  },
+  "breakout": {
+    "direction": "down",
+    "level": 152.47,
+    "bars_since_break": 5,
+    "pct_beyond_level": 0.32,
+    "fresh": false,
+    "extended_past_level": false,
+    "retest_zone": 152.47
+  },
+  "reversal_watch": {
+    "reversal_short_watch": false
+  },
+  "institutional": {
+    "ema9": 152.4,
+    "ema20": 151.8,
+    "ema50": 149.35,
+    "ema200": 145.18,
+    "ema_alignment": "mixed",
+    "price_vs_ema20_pct": 0.12,
+    "adx": {
+      "adx": 49.5,
+      "plus_di": 33.7,
+      "minus_di": 17.5
+    },
+    "supertrend": {
+      "direction": "down",
+      "level": 156.46
+    },
+    "bollinger": {
+      "upper": 157.004398,
+      "mid": 152.356499,
+      "lower": 147.708601,
+      "percent_b": 0.4595
+    }
+  },
+  "higher_timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "ema9": 147.17,
+      "ema20": 145.45,
+      "ema50": 143.08,
+      "ema20_slope": "up"
+    },
+    "hour_1": {
+      "trend": "bullish",
+      "ema9": 150.77,
+      "ema20": 148.07,
+      "ema50": 145.42,
+      "ema20_slope": "up"
+    },
+    "min_15": {
+      "trend": "neutral",
+      "ema9": 152.4,
+      "ema20": 151.8,
+      "ema50": 149.35,
+      "ema20_slope": "up"
+    },
+    "min_5": {
+      "trend": "bearish",
+      "ema9": 152.06,
+      "ema20": 152.47,
+      "ema50": 152.11,
+      "ema20_slope": "down"
+    },
+    "overall_bias": "moderately bullish"
+  },
+  "market_context": {
+    "india_vix": {
+      "level": 12.86,
+      "change_pct": -3.07,
+      "regime": "low"
+    },
+    "nifty": {
+      "last": 24181.4,
+      "day_change_pct": 0.17,
+      "trend_15m": "bullish"
+    }
+  },
+  "session": {
+    "last_bar_time_ist": "11:01",
+    "minutes_elapsed": 106,
+    "minutes_to_squareoff": 259,
+    "session_progress_pct": 28.3,
+    "bars_remaining": 17
+  },
+  "projection": {
+    "atr_projected_remaining_move_pts": 9.65,
+    "atr_projected_remaining_move_pct": 6.35,
+    "basis": "atr14_intraday * sqrt(bars_remaining) — rough cap on rest-of-session travel"
+  },
+  "bars_today": 9,
+  "bars_total": 527,
+  "news": [],
+  "warnings": [
+    "AV intraday unavailable (Thank you for using Alpha Vantage! This is a premium endpoint. You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly unlock all premium endpoints) — fell back to Yahoo intraday"
+  ]
+}

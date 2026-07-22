@@ -1,0 +1,34 @@
+# autoIntraday configuration (Spring-Boot application.yml style).
+# Copy to config.yaml (gitignored) and edit. Precedence: env var > this file > built-in default.
+# Secrets use ${VAR} placeholders — real values stay in env / .env / the launchd plist,
+# never in this file.
+
+db_path: ~/.autointraday/autointraday.db
+
+decision:
+  backend: claude_cli          # api (Anthropic API, needs ANTHROPIC_API_KEY) | claude_cli (your Claude subscription)
+  model: claude-opus-4-8
+  web_search: true
+  screen_mode: skill           # skill (one-shot top-5 via full intraday-analyst skill) | classic (movers screener + per-name decisions)
+
+credentials:
+  # For backend: claude_cli, LEAVE anthropic_api_key unset (a set ANTHROPIC_API_KEY forces API billing).
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  groww_api_key: ${GROWW_API_KEY}
+  groww_totp_secret: ${GROWW_TOTP_SECRET}
+
+tools:
+  claude_bin: claude
+  indicator_python: /Users/mohdsuhel/ai-mini-projects/StockAnalayze/.venv/bin/python
+  indicator_script: /Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_intraday.py
+  screener_python: /Users/mohdsuhel/ai-mini-projects/StockAnalayze/.venv/bin/python
+  screener_script: /Users/mohdsuhel/ai-mini-projects/StockAnalayze/groww_intraday_screener.py
+
+# First-run seed for the DB trading config. After `scripts/init_config.py` writes these to the DB,
+# the DB is the live source of truth — change mode/pool/caps/pause in the dashboard, not here.
+trading_defaults:
+  mode: paper
+  total_pool: 100000
+  max_open_positions: 5
+  capital_per_position: 20000
+  is_paused: false

@@ -1,0 +1,186 @@
+{
+  "symbol": "ABB",
+  "resolved_ticker": "ABB.NS",
+  "data_source": "yahoo_intraday",
+  "interval": "15min",
+  "as_of": "2026-07-16 13:15:01",
+  "as_of_note": "IST clock",
+  "meta": {
+    "currency": "INR",
+    "exchange": "NSE"
+  },
+  "price": {
+    "last": 7696.0,
+    "day_open": 7262.5,
+    "day_high": 7924.5,
+    "day_low": 7191.0,
+    "position_in_day_range_pct": 68.8
+  },
+  "vwap": {
+    "vwap": 7705.23,
+    "above_vwap": false,
+    "distance_pct": -0.12
+  },
+  "opening_range": {
+    "high": 7368.0,
+    "low": 7191.0,
+    "formed": true,
+    "bars_used": 2
+  },
+  "opening_range_state": {
+    "breakout_up": true,
+    "breakdown_down": false
+  },
+  "gap": {
+    "gap_pct": 0.81,
+    "direction": "up"
+  },
+  "prior_day_levels": {
+    "prior_day": "2026-07-15",
+    "PDH": 7270.0,
+    "PDL": 6938.0,
+    "PDC": 7204.5,
+    "pivot": 7137.5,
+    "R1": 7337.0,
+    "S1": 7005.0,
+    "R2": 7469.5,
+    "S2": 6805.5
+  },
+  "nearest_levels": {
+    "nearest_resistance": {
+      "label": "VWAP",
+      "level": 7705.23
+    },
+    "nearest_support": {
+      "label": "R2",
+      "level": 7469.5
+    }
+  },
+  "indicators": {
+    "rsi14": 71.16,
+    "macd_line": 151.686335,
+    "macd_signal": 161.201649,
+    "macd_histogram": -9.515314,
+    "atr14_intraday": 117.82,
+    "recent_bar_direction": "down"
+  },
+  "volume": {
+    "rvol_vs_prior_days": 14.01,
+    "last_bar_volume": 0.0
+  },
+  "intraday_structure": {
+    "structure": "downtrend (lower highs/lows)",
+    "recent_highs": "falling",
+    "recent_lows": "falling",
+    "bars_since_day_high": 10,
+    "pct_off_day_high": -2.88,
+    "bars_since_day_low": 15,
+    "pct_off_day_low": 7.02,
+    "exhaustion_flags": [
+      "faded_from_high"
+    ],
+    "volume_climax_ratio": 0.51,
+    "blowoff_top": false,
+    "vwap_distance_pct": -0.12,
+    "pullback_long_ok": false,
+    "short_setup_ok": true,
+    "directional_bias": "short-on-breakdown",
+    "note": "exhausted/distribution near VWAP — SHORT on loss of VWAP/OR-low, do NOT buy the dip"
+  },
+  "breakout": {
+    "direction": "up",
+    "level": 7368.0,
+    "bars_since_break": 11,
+    "pct_beyond_level": 4.45,
+    "fresh": false,
+    "extended_past_level": true,
+    "retest_zone": 7368.0
+  },
+  "reversal_watch": {
+    "reversal_short_watch": false
+  },
+  "institutional": {
+    "ema9": 7710.85,
+    "ema20": 7593.35,
+    "ema50": 7347.9,
+    "ema200": 7045.38,
+    "ema_alignment": "mixed",
+    "price_vs_ema20_pct": 1.35,
+    "adx": {
+      "adx": 66.5,
+      "plus_di": 37.6,
+      "minus_di": 12.5
+    },
+    "supertrend": {
+      "direction": "up",
+      "level": 7502.97
+    },
+    "bollinger": {
+      "upper": 8066.535373,
+      "mid": 7561.9,
+      "lower": 7057.264627,
+      "percent_b": 0.6329
+    }
+  },
+  "higher_timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "ema9": 7050.81,
+      "ema20": 7008.9,
+      "ema50": 6920.22,
+      "ema20_slope": "up"
+    },
+    "hour_1": {
+      "trend": "bullish",
+      "ema9": 7476.67,
+      "ema20": 7249.91,
+      "ema50": 7063.25,
+      "ema20_slope": "up"
+    },
+    "min_15": {
+      "trend": "neutral",
+      "ema9": 7710.85,
+      "ema20": 7593.35,
+      "ema50": 7347.9,
+      "ema20_slope": "up"
+    },
+    "min_5": {
+      "trend": "neutral",
+      "ema9": 7726.46,
+      "ema20": 7735.23,
+      "ema50": 7622.85,
+      "ema20_slope": "down"
+    },
+    "overall_bias": "moderately bullish"
+  },
+  "market_context": {
+    "india_vix": {
+      "level": 12.88,
+      "change_pct": -2.96,
+      "regime": "low"
+    },
+    "nifty": {
+      "last": 24120.95,
+      "day_change_pct": -0.08,
+      "trend_15m": "neutral"
+    }
+  },
+  "session": {
+    "last_bar_time_ist": "13:15",
+    "minutes_elapsed": 240,
+    "minutes_to_squareoff": 125,
+    "session_progress_pct": 64.0,
+    "bars_remaining": 8
+  },
+  "projection": {
+    "atr_projected_remaining_move_pts": 333.25,
+    "atr_projected_remaining_move_pct": 4.33,
+    "basis": "atr14_intraday * sqrt(bars_remaining) — rough cap on rest-of-session travel"
+  },
+  "bars_today": 17,
+  "bars_total": 526,
+  "news": [],
+  "warnings": [
+    "AV intraday unavailable (Thank you for using Alpha Vantage! This is a premium endpoint. You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly unlock all premium endpoints) — fell back to Yahoo intraday"
+  ]
+}

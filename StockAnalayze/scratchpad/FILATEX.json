@@ -1,0 +1,179 @@
+{
+  "symbol": "FILATEX",
+  "resolved_ticker": "FILATEX.NS",
+  "data_source": "yahoo_intraday",
+  "interval": "15min",
+  "as_of": "2026-07-16 11:01:28",
+  "as_of_note": "IST clock",
+  "meta": {
+    "currency": "INR",
+    "exchange": "NSE"
+  },
+  "price": {
+    "last": 71.2,
+    "day_open": 70.86,
+    "day_high": 72.7,
+    "day_low": 68.51,
+    "position_in_day_range_pct": 64.2
+  },
+  "vwap": {
+    "vwap": 70.43,
+    "above_vwap": true,
+    "distance_pct": 1.1
+  },
+  "opening_range": {
+    "high": 72.7,
+    "low": 69.55,
+    "formed": true,
+    "bars_used": 2
+  },
+  "opening_range_state": {
+    "breakout_up": false,
+    "breakdown_down": false
+  },
+  "gap": {
+    "gap_pct": 0.74,
+    "direction": "up"
+  },
+  "prior_day_levels": {
+    "prior_day": "2026-07-15",
+    "PDH": 72.34,
+    "PDL": 63.48,
+    "PDC": 70.34,
+    "pivot": 68.72,
+    "R1": 73.96,
+    "S1": 65.1,
+    "R2": 77.58,
+    "S2": 59.86
+  },
+  "nearest_levels": {
+    "nearest_resistance": {
+      "label": "PDH",
+      "level": 72.34
+    },
+    "nearest_support": {
+      "label": "VWAP",
+      "level": 70.43
+    }
+  },
+  "indicators": {
+    "rsi14": 65.67,
+    "macd_line": 1.0903,
+    "macd_signal": 1.076559,
+    "macd_histogram": 0.013742,
+    "atr14_intraday": 1.21,
+    "recent_bar_direction": "up"
+  },
+  "volume": {
+    "rvol_vs_prior_days": 4.5,
+    "last_bar_volume": 0.0
+  },
+  "intraday_structure": {
+    "structure": "uptrend (higher highs/lows)",
+    "recent_highs": "rising",
+    "recent_lows": "rising",
+    "bars_since_day_high": 8,
+    "pct_off_day_high": -2.06,
+    "bars_since_day_low": 3,
+    "pct_off_day_low": 3.93,
+    "exhaustion_flags": [],
+    "volume_climax_ratio": 1.35,
+    "blowoff_top": false,
+    "vwap_distance_pct": 1.1,
+    "pullback_long_ok": true,
+    "short_setup_ok": false,
+    "directional_bias": "long",
+    "note": "structure up + momentum intact — pullbacks are buyable"
+  },
+  "breakout": {
+    "direction": "none",
+    "note": "price inside the opening range (no breakout)"
+  },
+  "reversal_watch": {
+    "reversal_short_watch": false
+  },
+  "institutional": {
+    "ema9": 70.13,
+    "ema20": 69.26,
+    "ema50": 67.24,
+    "ema200": 62.39,
+    "ema_alignment": "bullish_stack",
+    "price_vs_ema20_pct": 2.8,
+    "adx": {
+      "adx": 45.0,
+      "plus_di": 41.3,
+      "minus_di": 14.9
+    },
+    "supertrend": {
+      "direction": "up",
+      "level": 68.09
+    },
+    "bollinger": {
+      "upper": 71.548399,
+      "mid": 69.277499,
+      "lower": 67.0066,
+      "percent_b": 0.9233
+    }
+  },
+  "higher_timeframe": {
+    "daily": {
+      "trend": "bullish",
+      "ema9": 63.65,
+      "ema20": 59.11,
+      "ema50": 53.4,
+      "ema20_slope": "up"
+    },
+    "hour_1": {
+      "trend": "bullish",
+      "ema9": 68.25,
+      "ema20": 66.08,
+      "ema50": 62.57,
+      "ema20_slope": "up"
+    },
+    "min_15": {
+      "trend": "bullish",
+      "ema9": 70.13,
+      "ema20": 69.26,
+      "ema50": 67.24,
+      "ema20_slope": "up"
+    },
+    "min_5": {
+      "trend": "bullish",
+      "ema9": 70.21,
+      "ema20": 69.8,
+      "ema50": 69.2,
+      "ema20_slope": "up"
+    },
+    "overall_bias": "strong bullish"
+  },
+  "market_context": {
+    "india_vix": {
+      "level": 12.86,
+      "change_pct": -3.09,
+      "regime": "low"
+    },
+    "nifty": {
+      "last": 24181.9,
+      "day_change_pct": 0.17,
+      "trend_15m": "bullish"
+    }
+  },
+  "session": {
+    "last_bar_time_ist": "11:01",
+    "minutes_elapsed": 106,
+    "minutes_to_squareoff": 259,
+    "session_progress_pct": 28.3,
+    "bars_remaining": 17
+  },
+  "projection": {
+    "atr_projected_remaining_move_pts": 5.0,
+    "atr_projected_remaining_move_pct": 7.03,
+    "basis": "atr14_intraday * sqrt(bars_remaining) — rough cap on rest-of-session travel"
+  },
+  "bars_today": 9,
+  "bars_total": 527,
+  "news": [],
+  "warnings": [
+    "AV intraday unavailable (Thank you for using Alpha Vantage! This is a premium endpoint. You may subscribe to any of the premium plans at https://www.alphavantage.co/premium/ to instantly unlock all premium endpoints) — fell back to Yahoo intraday"
+  ]
+}
