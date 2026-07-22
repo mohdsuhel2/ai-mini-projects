@@ -1,0 +1,9 @@
+services:
+  document-generator:
+    build:
+      context: ./document-generator
+      dockerfile: deploy/Dockerfile
+    container_name: document-generator-web
+    restart: unless-stopped
+    ports:
+      - "80:80"

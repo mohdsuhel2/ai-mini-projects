@@ -1,0 +1,7 @@
+deploy/
+docs/
+README.md
+*.md
+.git
+*.b64.txt
+netlify.toml
