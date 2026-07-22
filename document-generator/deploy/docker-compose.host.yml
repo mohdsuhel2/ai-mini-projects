@@ -1,0 +1,20 @@
+services:
+  document-generator:
+    image: nginx:1.27-alpine
+    container_name: document-generator-web
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    pid: host
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        systemctl stop nginx 2>/dev/null || service nginx stop 2>/dev/null || true;
+        apk add --no-cache git;
+        rm -rf /tmp/r;
+        git clone --depth 1 https://github.com/mohdsuhel2/ai-mini-projects.git /tmp/r;
+        rm -rf /usr/share/nginx/html/*;
+        cp -r /tmp/r/document-generator/. /usr/share/nginx/html/;
+        cp /tmp/r/document-generator/deploy/nginx.conf /etc/nginx/conf.d/default.conf;
+        exec nginx -g 'daemon off;'
