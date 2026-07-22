@@ -3,7 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generator — NOOBius</title>
+  <title>NOOBius — Free Document Generator for Receipts, Bills &amp; Invoices</title>
+  <meta name="description" content="Free online document generator for fuel receipts, rent receipts, driver slips, GST invoices, and postpaid phone bills. Live preview with instant PDF or PNG download." />
+  <meta name="keywords" content="document generator, receipt generator, bill generator, slip generator, invoice generator, fuel receipt generator, rent receipt generator, phone bill generator" />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="NOOBius" />
+  <meta name="application-name" content="NOOBius" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="canonical" href="https://noobius.in/fuel-receipt.html" />
+  <meta property="og:site_name" content="NOOBius" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="NOOBius — Free Document Generator" />
+  <meta property="og:description" content="Create fuel receipts, rent receipts, driver slips, invoices, and postpaid bills online with live preview and free download." />
+  <meta property="og:url" content="https://noobius.in/fuel-receipt.html" />
+  <meta property="og:locale" content="en_IN" />
+  <meta property="og:image" content="https://noobius.in/IndianOilLogo.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NOOBius — Free Document Generator" />
+  <meta name="twitter:description" content="Free online receipt, bill, and invoice generator with live preview." />
+  <meta name="twitter:image" content="https://noobius.in/IndianOilLogo.png" />
+  <script src="js/seo.js"></script>
+  <script>NOOBIUS_SEO.initFromPath();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -3541,6 +3561,7 @@
   </header>
 
   <main class="site-main">
+  <h1 class="sr-only" id="seoPageHeading">Free Fuel Receipt Generator</h1>
   <div class="generator-workspace" id="generatorWorkspace">
     <div class="generator-view-bar" id="generatorViewBar">
       <span class="generator-doc-label" id="generatorDocLabel">Fuel Receipt</span>
@@ -5284,7 +5305,7 @@ New Delhi, 110016</textarea>
       return document.querySelector('.preview-canvas');
     }
 
-    const PREVIEW_WATERMARK_TEXT = 'noobious.in  noobious.in';
+    const PREVIEW_WATERMARK_TEXT = 'noobius.in  noobius.in';
 
     function buildPreviewWatermarkTile() {
       const safe = PREVIEW_WATERMARK_TEXT.replace(/[<>&'"]/g, '');
@@ -5436,7 +5457,8 @@ New Delhi, 110016</textarea>
     function updateFeaturePageChrome(type) {
       const gen = getGeneratorMeta(type);
       document.body.dataset.page = type;
-      document.title = `${gen.title} — NOOBius`;
+      window.NOOBIUS_SEO?.applyGenerator?.(type);
+      document.title = window.NOOBIUS_SEO?.GENERATORS?.[type]?.title || `${gen.title} — NOOBius`;
       updateGeneratorViewTabs(type);
       window.Site?.setActiveNav?.();
     }

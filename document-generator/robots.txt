@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://noobius.in/sitemap.xml
