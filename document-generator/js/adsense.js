@@ -9,9 +9,9 @@
      * popupSlots: shown inside the download popup (recommend 2–3 display units).
      */
     popupSlots: [
-      // { key: 'popupPrimary', slotId: '', format: 'auto', fullWidthResponsive: true },
-      // { key: 'popupSecondary', slotId: '', format: 'rectangle', fullWidthResponsive: true },
-      // { key: 'popupTertiary', slotId: '', format: 'auto', fullWidthResponsive: true },
+      { key: 'horizontal_1', slotId: '1558430143', format: 'auto', fullWidthResponsive: true, variant: 'horizontal' },
+      { key: 'square_1', slotId: '5034374792', format: 'auto', fullWidthResponsive: true, variant: 'square' },
+      { key: 'horizontal_2', slotId: '1095129785', format: 'auto', fullWidthResponsive: true, variant: 'horizontal' },
     ],
   };
 

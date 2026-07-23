@@ -78,7 +78,8 @@
 
     slots.forEach((slot, index) => {
       const wrap = document.createElement('div');
-      wrap.className = 'ad-gate-slot';
+      const variant = slot.variant || 'auto';
+      wrap.className = `ad-gate-slot ad-gate-slot--${variant}`;
       wrap.dataset.adSlotKey = slot.key || `slot-${index}`;
       container.appendChild(wrap);
       global.NOOBIUS_ADSENSE?.mountSlot?.(wrap, slot);
@@ -155,7 +156,6 @@
       btn.dataset.downloadLabel = buttonLabel;
 
       buildAdSlots(slotsEl);
-      global.NOOBIUS_ADSENSE?.refreshPopupAds?.();
 
       activeResolve = onConfirm;
       activeReject = reject;

@@ -1443,29 +1443,37 @@
     }
 
     .ad-gate-slots {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 12px;
       margin-bottom: 12px;
     }
 
     .ad-gate-slot {
-      min-height: 120px;
-      border: 1px dashed var(--panel-border);
-      border-radius: 12px;
-      background: color-mix(in srgb, var(--panel-border) 18%, transparent);
       overflow: hidden;
+      border-radius: 8px;
+      background: transparent;
     }
 
-    .ad-gate-slot:first-child {
-      grid-column: 1 / -1;
-      min-height: 150px;
+    .ad-gate-slot--horizontal {
+      width: 100%;
+      min-height: 90px;
+    }
+
+    .ad-gate-slot--square {
+      width: min(336px, 100%);
+      min-height: 280px;
+      margin: 0 auto;
     }
 
     .ad-gate-slot-placeholder {
       display: flex;
       align-items: center;
       justify-content: center;
+      min-height: 120px;
+      border: 1px dashed var(--panel-border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--panel-border) 18%, transparent);
       color: var(--muted);
       font-size: 0.8rem;
       letter-spacing: 0.04em;
@@ -1474,7 +1482,8 @@
 
     .ad-gate-slot .adsbygoogle {
       display: block;
-      min-height: 120px;
+      width: 100%;
+      min-height: inherit;
     }
 
     .ad-gate-timer-note {
@@ -1497,12 +1506,9 @@
     }
 
     @media (max-width: 640px) {
-      .ad-gate-slots {
-        grid-template-columns: 1fr;
-      }
-
-      .ad-gate-slot:first-child {
-        grid-column: auto;
+      .ad-gate-slot--square {
+        width: 100%;
+        min-height: 250px;
       }
     }
 
@@ -4709,7 +4715,7 @@
           </div>
           <div class="field-group" id="dsBulkSignatureTextGroup">
             <label for="dsBulkSignatureText">Signature text</label>
-            <input type="text" id="dsBulkSignatureText" value="Rahul Mehta" />
+            <input type="text" id="dsBulkSignatureText" value="" placeholder="e.g. Rahul Mehta" />
           </div>
           <div class="field-group hidden" id="dsBulkSignatureUploadGroup">
             <label for="dsBulkSignature">Signature (upload)</label>
@@ -4883,7 +4889,7 @@
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="js/field-hints.js?v=20260723g"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
-  <script src="js/ad-gate.js?v=20260723e"></script>
+  <script src="js/ad-gate.js?v=20260723h"></script>
   <script>
     const ICON_PATHS = {
       fuel: '<path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998"/><path d="M4 13V5a2 2 0 0 1 2-2h2"/><path d="M4 13h12"/><path d="M6 5v8"/>',
