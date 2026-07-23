@@ -1,22 +1,61 @@
 (function (global) {
   'use strict';
 
-  const mountedSlotIds = new Set();
+  const PLACEMENT_UNITS = {
+    header: 'horizontal',
+    'form-end': 'banner',
+  };
 
-  function ensureMountPoint(container) {
-    let mount = container.querySelector('.site-ad-mount');
-    if (!mount) {
-      if (!container.querySelector('.site-ad-label')) {
-        const label = document.createElement('p');
-        label.className = 'site-ad-label';
-        label.textContent = 'Advertisement';
-        container.appendChild(label);
+  const LOAD_TIMEOUT_MS = 12000;
+
+  function watchAdLoad(container, ins) {
+    container.classList.add('site-ad-slot', 'site-ad-slot--pending');
+    container.setAttribute('role', 'complementary');
+    container.setAttribute('aria-label', 'Advertisement');
+
+    const reveal = () => {
+      container.classList.remove('site-ad-slot--pending');
+      container.classList.add('site-ad-slot--loaded');
+    };
+
+    const remove = () => {
+      container.remove();
+    };
+
+    const isFilled = () => {
+      const status = ins.getAttribute('data-ad-status');
+      if (status === 'filled') return true;
+      if (status === 'unfilled') return false;
+      const iframe = ins.querySelector('iframe');
+      if (!iframe) return false;
+      const height = iframe.offsetHeight || parseInt(ins.style.height, 10) || 0;
+      return height > 40;
+    };
+
+    const evaluate = () => {
+      const status = ins.getAttribute('data-ad-status');
+      if (status === 'unfilled') {
+        remove();
+        return true;
       }
-      mount = document.createElement('div');
-      mount.className = 'site-ad-mount';
-      container.appendChild(mount);
-    }
-    return mount;
+      if (isFilled()) {
+        reveal();
+        return true;
+      }
+      return false;
+    };
+
+    if (evaluate()) return;
+
+    const observer = new MutationObserver(() => {
+      if (evaluate()) observer.disconnect();
+    });
+    observer.observe(ins, { attributes: true, attributeFilter: ['data-ad-status', 'style'], childList: true, subtree: true });
+
+    window.setTimeout(() => {
+      observer.disconnect();
+      if (!container.classList.contains('site-ad-slot--loaded')) remove();
+    }, LOAD_TIMEOUT_MS);
   }
 
   function initPlacements(root = document) {
@@ -24,21 +63,19 @@
     if (!ads?.mountSlot || !ads?.getUnit) return;
 
     root.querySelectorAll('[data-ad-placement]').forEach((container) => {
-      const unitKey = container.getAttribute('data-ad-placement');
+      const placement = container.getAttribute('data-ad-placement');
+      const unitKey = PLACEMENT_UNITS[placement];
+      if (!unitKey) return;
+
       const unit = ads.getUnit(unitKey);
       if (!unit) return;
 
-      const slotId = String(unit.slotId || '').trim();
-      if (!slotId || mountedSlotIds.has(slotId)) return;
-      mountedSlotIds.add(slotId);
+      const mount = document.createElement('div');
+      mount.className = 'site-ad-mount';
+      container.appendChild(mount);
 
-      const variant = container.getAttribute('data-ad-variant') || unit.variant || unitKey;
-      container.classList.add('site-ad-slot', `site-ad-slot--${variant}`);
-      container.setAttribute('role', 'complementary');
-      container.setAttribute('aria-label', 'Advertisement');
-
-      const mount = ensureMountPoint(container);
-      ads.mountSlot(mount, unit);
+      const ins = ads.mountSlot(mount, unit);
+      if (ins) watchAdLoad(container, ins);
     });
   }
 

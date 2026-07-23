@@ -96,6 +96,8 @@
     try {
       (global.adsbygoogle = global.adsbygoogle || []).push({});
     } catch (_) {}
+
+    return ins;
   }
 
   function refreshPopupAds() {
