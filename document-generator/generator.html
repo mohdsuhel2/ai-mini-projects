@@ -3606,20 +3606,19 @@
       flex-wrap: wrap;
     }
 
+    .field-group label.has-ux-hint-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: 8px;
+    }
+
     .fuel-section-label.has-ux-hint {
       display: flex;
       align-items: center;
-      justify-content: flex-start;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .fuel-section-label.has-ux-hint-section .ux-hint-trigger--section {
-      margin-left: auto;
-    }
-
-    .has-ux-hint-label {
       justify-content: space-between;
+      gap: 8px;
       width: 100%;
     }
 
@@ -3627,33 +3626,42 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       padding: 0;
       border: none;
-      border-radius: 50%;
-      background: var(--accent);
+      border-radius: 0;
+      background: transparent;
       color: var(--accent);
       cursor: help;
       flex-shrink: 0;
-      vertical-align: middle;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      line-height: 1;
+      transition: color 0.15s ease, transform 0.15s ease;
     }
 
-    .ux-hint-trigger svg {
+    .ux-hint-trigger svg,
+    .ux-hint-trigger .ux-hint-icon {
       display: block;
+      width: 14px;
+      height: 14px;
     }
 
     .ux-hint-trigger:hover,
     .ux-hint-trigger:focus-visible {
+      color: var(--accent-hover);
       transform: scale(1.06);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
       outline: none;
     }
 
     .ux-hint-trigger--section {
-      width: 22px;
-      height: 22px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .ux-hint-trigger--section svg,
+    .ux-hint-trigger--section .ux-hint-icon {
+      width: 16px;
+      height: 16px;
     }
 
     .field-group.field-invalid input,
@@ -3701,7 +3709,7 @@
     .mode-tab .ux-hint-trigger:focus-visible,
     .ec-section-nav button .ux-hint-trigger:hover,
     .ec-section-nav button .ux-hint-trigger:focus-visible {
-      transform: translateY(-50%);
+      transform: translateY(-50%) scale(1.06);
     }
 
     .has-ux-hint-inline {
@@ -3709,6 +3717,11 @@
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .has-ux-hint-inline .ux-hint-trigger {
+      margin-left: auto;
     }
 
     .ux-hint-trigger--btn {
@@ -3859,7 +3872,7 @@
       box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
     }
   </style>
-  <script src="js/form-storage.js"></script>
+  <script src="js/form-storage.js?v=20260723k"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" defer></script>
   <script src="js/site.js" defer></script>
   <script>
@@ -4262,11 +4275,11 @@
         </div>
         <div class="field-group">
           <label for="ecBillingAddress">Billing Address</label>
-          <textarea id="ecBillingAddress" rows="3" placeholder="Billing address"></textarea>
+          <textarea id="ecBillingAddress" rows="3" placeholder="e.g. 12 MG Road, Bengaluru, Karnataka 560001"></textarea>
         </div>
         <div class="field-group">
           <label for="ecShippingAddress">Shipping Address</label>
-          <textarea id="ecShippingAddress" rows="3" placeholder="Shipping / delivery address"></textarea>
+          <textarea id="ecShippingAddress" rows="3" placeholder="e.g. 22 Park Street, Kolkata, West Bengal 700016"></textarea>
         </div>
         <div class="field-group">
           <label for="ecOrderedThrough">Ordered Through <span class="label-optional">(optional)</span></label>
@@ -4299,7 +4312,7 @@
           </div>
           <div class="field-group">
             <label for="bbAddress">Address</label>
-            <textarea id="bbAddress" rows="4" placeholder="Full billing address"></textarea>
+            <textarea id="bbAddress" rows="4" placeholder="e.g. 45 Nehru Place, New Delhi, Delhi 110019"></textarea>
           </div>
           <div class="field-group">
             <label for="bbEmail">Email Address <span class="label-optional">(optional)</span></label>
@@ -4394,7 +4407,7 @@
           </div>
           <div class="field-group">
             <label for="bbBulkAddress">Address</label>
-            <textarea id="bbBulkAddress" rows="3" placeholder="Full billing address"></textarea>
+            <textarea id="bbBulkAddress" rows="3" placeholder="e.g. 45 Nehru Place, New Delhi, Delhi 110019"></textarea>
           </div>
           <div class="field-group">
             <label for="bbBulkEmail">Email <span class="label-optional">(optional)</span></label>
@@ -4462,7 +4475,8 @@
             <div class="field-group">
               <label for="rrTenantSalutation">Tenant title</label>
               <select id="rrTenantSalutation">
-                <option value="Mr." selected>Mr.</option>
+                <option value="">Select title</option>
+                <option value="Mr.">Mr.</option>
                 <option value="Ms.">Ms.</option>
                 <option value="Smt.">Smt.</option>
               </select>
@@ -4478,7 +4492,7 @@
           </div>
           <div class="field-group">
             <label for="rrPropertyAddress">Property address (situated at)</label>
-            <textarea id="rrPropertyAddress" rows="3" placeholder="Full property address"></textarea>
+            <textarea id="rrPropertyAddress" rows="3" placeholder="e.g. Flat 402, Tower B, Green Park, New Delhi 110016"></textarea>
           </div>
 
           <p class="fuel-section-label" data-section-icon="user">House owner</p>
@@ -4550,7 +4564,8 @@
             <div class="field-group">
               <label for="rrBulkTenantSalutation">Tenant title</label>
               <select id="rrBulkTenantSalutation">
-                <option value="Mr." selected>Mr.</option>
+                <option value="">Select title</option>
+                <option value="Mr.">Mr.</option>
                 <option value="Ms.">Ms.</option>
                 <option value="Smt.">Smt.</option>
               </select>
@@ -4566,7 +4581,7 @@
           </div>
           <div class="field-group">
             <label for="rrBulkPropertyAddress">Property address</label>
-            <textarea id="rrBulkPropertyAddress" rows="3" placeholder="Full property address"></textarea>
+            <textarea id="rrBulkPropertyAddress" rows="3" placeholder="e.g. Flat 402, Tower B, Green Park, New Delhi 110016"></textarea>
           </div>
           <div class="field-group">
             <label for="rrBulkLandlordName">Owner name</label>
@@ -4887,7 +4902,7 @@
   <script src="html2canvas.min.js"></script>
   <script src="jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="js/field-hints.js?v=20260723g"></script>
+  <script src="js/field-hints.js?v=20260723i"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
   <script src="js/ad-gate.js?v=20260723h"></script>
   <script>
@@ -7010,6 +7025,7 @@
       } else {
         updateGeneratorNavMenus(type);
       }
+      refreshSavedUserFields();
       updateStickyActions();
       updatePreviewChrome();
       syncGeneratorLayoutMode();
@@ -7725,6 +7741,7 @@
           window.NOOBIUS_FIELD_HINTS?.dismissBulkCoachmark?.();
         }
       }
+      refreshSavedUserFields();
     }
 
     function wirePostpaidForm() {
@@ -7961,7 +7978,7 @@
         rentAmount,
         monthlyRent,
         amountInWords,
-        tenantSalutation: overrides.tenantSalutation ?? rrFields.tenantSalutation()?.value ?? 'Mr.',
+        tenantSalutation: overrides.tenantSalutation ?? rrFields.tenantSalutation()?.value ?? '',
         tenantName: overrides.tenantName ?? rrFields.tenantName()?.value ?? '',
         periodFromYear: overrides.periodFromYear ?? rrFields.periodFromYear()?.value ?? String(fy.fromYear),
         periodToYear: overrides.periodToYear ?? rrFields.periodToYear()?.value ?? String(fy.toYear),
@@ -8029,7 +8046,7 @@
               ${formField(words.second, 'form-line-full')}
             </div>
             <div class="form-line">
-              <span class="form-text">From ${escapeHtml(data.tenantSalutation || 'Mr.')}</span>
+              <span class="form-text">From ${escapeHtml(data.tenantSalutation || '')}</span>
               ${formField(data.tenantName, 'form-line-grow')}
               <span class="form-text">Towards rent @</span>
               ${formField(formatBbPlainMoney(data.monthlyRent), 'form-line-narrow')}
@@ -8173,7 +8190,7 @@
       const shared = {
         rentAmount: $('rrBulkRentAmount').value || 0,
         monthlyRent: $('rrBulkMonthlyRent').value || $('rrBulkRentAmount').value || 0,
-        tenantSalutation: $('rrBulkTenantSalutation').value || 'Mr.',
+        tenantSalutation: $('rrBulkTenantSalutation').value || '',
         tenantName: $('rrBulkTenantName').value || '',
         houseNo: $('rrBulkHouseNo').value || '',
         propertyAddress: $('rrBulkPropertyAddress').value || '',
@@ -8233,6 +8250,7 @@
           window.NOOBIUS_FIELD_HINTS?.dismissBulkCoachmark?.();
         }
       }
+      refreshSavedUserFields();
     }
 
     function normalizeRentData(raw) {
@@ -8620,6 +8638,7 @@
           window.NOOBIUS_FIELD_HINTS?.dismissBulkCoachmark?.();
         }
       }
+      refreshSavedUserFields();
     }
 
     function normalizeDriverData(raw) {
@@ -8949,26 +8968,6 @@
       });
     }
 
-    function applyDefaultPickerDates(now = new Date()) {
-      const FS = window.NOOBIUS_FORM_STORAGE;
-      if (!FS) return;
-      const monthAgo = new Date(now);
-      monthAgo.setDate(monthAgo.getDate() - 30);
-      const dateOnly = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (!FS.hasSaved('fuel_single')) setPickerDate(datePickers.dateTime, toDatetimeLocalValue(now));
-      if (!FS.hasSaved('fuel_bulk')) {
-        setPickerDate(datePickers.bulkFrom, toDatetimeLocalValue(monthAgo));
-        setPickerDate(datePickers.bulkTo, toDatetimeLocalValue(now));
-      }
-      if (!FS.hasSaved('ecommerce')) setPickerDate(datePickers.ecOrderDate, toDatetimeLocalValue(now));
-      if (!FS.hasSaved('postpaid_single')) setPickerDate(datePickers.bbStatementDate, dateOnly(now));
-      if (!FS.hasSaved('postpaid_bulk')) setPickerDate(datePickers.bbBulkDateFrom, dateOnly(now));
-      if (!FS.hasSaved('rent_single')) setPickerDate(datePickers.rrReceiptDate, dateOnly(now));
-      if (!FS.hasSaved('rent_bulk')) setPickerDate(datePickers.rrBulkDateFrom, dateOnly(now));
-      if (!FS.hasSaved('driver_single')) setPickerDate(datePickers.dsSlipDate, dateOnly(now));
-      if (!FS.hasSaved('driver_bulk')) setPickerDate(datePickers.dsBulkDateFrom, dateOnly(now));
-    }
-
     function setPickerDate(picker, value) {
       if (!picker || !value) return;
       picker.setDate(value, true);
@@ -9109,6 +9108,129 @@
       driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText'],
     };
 
+    const USER_PROFILE_GROUPS = {
+      fuel_vehicle: ['vehNo', 'bulkVehNo'],
+      fuel_customer: ['customerName', 'bulkCustomerName'],
+      ec_seller_name: ['ecSellerName'],
+      ec_seller_dispatch: ['ecSellerAddress'],
+      ec_seller_registered: ['ecSellerRegisteredAddress'],
+      ec_customer: ['ecCustomerName'],
+      ec_billing: ['ecBillingAddress'],
+      ec_shipping: ['ecShippingAddress'],
+      postpaid_customer: ['bbCustomerName', 'bbBulkCustomerName'],
+      postpaid_address: ['bbAddress', 'bbBulkAddress'],
+      postpaid_email: ['bbEmail', 'bbBulkEmail'],
+      postpaid_phone: ['bbPhone', 'bbBulkPhone'],
+      postpaid_plan: ['bbPlanName', 'bbBulkPlanName'],
+      postpaid_charges: ['bbPlanCharges', 'bbBulkPlanCharges'],
+      rent_tenant_title: ['rrTenantSalutation', 'rrBulkTenantSalutation'],
+      rent_tenant_name: ['rrTenantName', 'rrBulkTenantName'],
+      rent_house: ['rrHouseNo', 'rrBulkHouseNo'],
+      rent_property: ['rrPropertyAddress', 'rrBulkPropertyAddress'],
+      rent_owner: ['rrLandlordName', 'rrBulkLandlordName'],
+      rent_pan: ['rrLandlordPan', 'rrBulkLandlordPan'],
+      rent_signature_text: ['rrLandlordSignatureText', 'rrBulkLandlordSignatureText'],
+      driver_received_from: ['dsReceivedFrom', 'dsBulkReceivedFrom'],
+      driver_salary: ['dsSalaryAmount', 'dsBulkSalaryAmount'],
+      driver_vehicle: ['dsVehicleNo', 'dsBulkVehicleNo'],
+      driver_name: ['dsDriverName', 'dsBulkDriverName'],
+      driver_license: ['dsLicenseNo', 'dsBulkLicenseNo'],
+      driver_signature_text: ['dsSignatureText', 'dsBulkSignatureText'],
+    };
+
+    function refreshSavedUserFields() {
+      window.NOOBIUS_FORM_STORAGE?.restoreUserProfile?.(USER_PROFILE_GROUPS, { fillEmptyOnly: true });
+    }
+
+    const FIELDS_EMPTY_UNLESS_SAVED = [
+      'vehNo', 'bulkVehNo',
+      'customerName', 'bulkCustomerName',
+      'bulkMinTotalAmount',
+      'bulkDateFrom', 'bulkDateTo',
+      'ecOrderDate',
+      'ecCustomerName', 'ecBillingAddress', 'ecShippingAddress',
+      'bbCustomerName', 'bbBulkCustomerName',
+      'bbAddress', 'bbBulkAddress',
+      'bbEmail', 'bbBulkEmail',
+      'bbPhone', 'bbBulkPhone',
+      'rrReceiptDate', 'rrBulkDateFrom',
+      'rrRentAmount', 'rrMonthlyRent', 'rrBulkRentAmount', 'rrBulkMonthlyRent',
+      'rrTenantSalutation', 'rrBulkTenantSalutation',
+      'rrTenantName', 'rrBulkTenantName',
+      'rrHouseNo', 'rrBulkHouseNo',
+      'rrPropertyAddress', 'rrBulkPropertyAddress',
+      'rrLandlordName', 'rrBulkLandlordName',
+      'rrLandlordPan', 'rrBulkLandlordPan',
+      'dsReceivedFrom', 'dsBulkReceivedFrom',
+      'dsSalaryAmount', 'dsBulkSalaryAmount',
+      'dsVehicleNo', 'dsBulkVehicleNo',
+      'dsDriverName', 'dsBulkDriverName',
+      'dsLicenseNo', 'dsBulkLicenseNo',
+      'dsSlipDate', 'dsBulkDateFrom',
+    ];
+
+    const DATE_PICKER_FIELDS = {
+      bulkDateFrom: 'bulkFrom',
+      bulkDateTo: 'bulkTo',
+      ecOrderDate: 'ecOrderDate',
+      rrReceiptDate: 'rrReceiptDate',
+      rrBulkDateFrom: 'rrBulkDateFrom',
+      dsSlipDate: 'dsSlipDate',
+      dsBulkDateFrom: 'dsBulkDateFrom',
+    };
+
+    function fieldHasSavedValue(fieldId) {
+      const FS = window.NOOBIUS_FORM_STORAGE;
+      if (!FS?.hasSavedFieldValue) return false;
+      return FS.hasSavedFieldValue(fieldId, FORM_STORAGE_SCHEMAS, USER_PROFILE_GROUPS);
+    }
+
+    function clearPickerField(pickerKey) {
+      const picker = datePickers[pickerKey];
+      if (!picker) return;
+      try {
+        picker.clear();
+      } catch (_) {
+        if (picker.input) picker.input.value = '';
+      }
+    }
+
+    function clearFormFieldValue(fieldId) {
+      const el = document.getElementById(fieldId);
+      if (!el) return;
+      const pickerKey = DATE_PICKER_FIELDS[fieldId];
+      if (pickerKey) {
+        clearPickerField(pickerKey);
+        return;
+      }
+      if (el.type === 'checkbox') {
+        el.checked = false;
+      } else if (el.tagName === 'SELECT') {
+        el.value = '';
+      } else {
+        el.value = '';
+      }
+    }
+
+    function ensureEmptyUnlessSavedFields() {
+      FIELDS_EMPTY_UNLESS_SAVED.forEach(fieldId => {
+        if (!fieldHasSavedValue(fieldId)) clearFormFieldValue(fieldId);
+      });
+    }
+
+    function applyDefaultPickerDates(now = new Date()) {
+      const dateOnly = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!fieldHasSavedValue('dateTime')) {
+        setPickerDate(datePickers.dateTime, toDatetimeLocalValue(now));
+      }
+      if (!fieldHasSavedValue('bbStatementDate')) {
+        setPickerDate(datePickers.bbStatementDate, dateOnly(now));
+      }
+      if (!fieldHasSavedValue('bbBulkDateFrom')) {
+        setPickerDate(datePickers.bbBulkDateFrom, dateOnly(now));
+      }
+    }
+
     function formStorageExtra(key) {
       const extra = {};
       if (key === 'fuel_single' || key === 'fuel_bulk') extra.fuelTxnMode = currentFuelTxnMode;
@@ -9222,11 +9344,14 @@
       window.__persistFormKey = key => FS.saveSchemaNow(key);
 
       FS.bindSchemas(FORM_STORAGE_SCHEMAS, formStorageExtra, '#configPanelScroll');
+      FS.bindUserProfile(USER_PROFILE_GROUPS, '#configPanelScroll');
 
       let restored = false;
       Object.entries(FORM_STORAGE_SCHEMAS).forEach(([key, ids]) => {
         if (FS.restore(key, ids, saved => applyFormStorageExtra(key, saved))) restored = true;
       });
+
+      refreshSavedUserFields();
 
       if (restored) {
         syncDatePickersFromInputs();
@@ -9443,7 +9568,7 @@
     }
 
     function buildBulkReceipts() {
-      const minTotal = Math.max(1, Number($('bulkMinTotalAmount').value) || 50000);
+      const minTotal = Math.max(0, Number($('bulkMinTotalAmount').value) || 0);
       const from = $('bulkDateFrom').value;
       const to = $('bulkDateTo').value;
       const vehNo = $('bulkVehNo').value || '';
@@ -10127,6 +10252,7 @@
         window.NOOBIUS_FIELD_HINTS?.markBulkCoachmarkSeen?.('fuel');
         window.NOOBIUS_FIELD_HINTS?.dismissBulkCoachmark?.();
       }
+      refreshSavedUserFields();
     }
 
     function openBulkPreviewPage() {
@@ -10296,6 +10422,7 @@
       const now = new Date();
       initFormPersistence();
       applyDefaultPickerDates(now);
+      ensureEmptyUnlessSavedFields();
       applyRandomDocumentIds(now);
       setGeneratorType(getInitialDocType());
       initEcommerceMode();

@@ -7,9 +7,13 @@
     'signatureDataUrl',
     'lineItems',
   ]);
+  const USER_PROFILE_KEY = 'user_profile';
   const flushers = [];
   let schemaRegistry = null;
   let extraForKeyFn = null;
+  let profileGroups = null;
+  let idToProfileGroup = null;
+  let profileSyncing = false;
 
   function debounce(fn, wait) {
     let timer;
@@ -199,14 +203,191 @@
     });
   }
 
-  window.addEventListener('pagehide', flushAll);
-  window.addEventListener('beforeunload', flushAll);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushAll();
+  function getFieldValue(el) {
+    if (!el) return undefined;
+    if (el.type === 'checkbox') return el.checked;
+    if (el.type === 'radio') return el.checked ? el.value : undefined;
+    return el.value;
+  }
+
+  function setFieldValue(el, value, silent = true) {
+    if (!el || value == null) return;
+    if (el.type === 'checkbox') {
+      el.checked = !!value;
+    } else if (el.type === 'radio') {
+      el.checked = el.value === value;
+    } else if (!el.readOnly) {
+      el.value = value;
+    }
+    if (!silent) {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function readProfileGroupValue(groupKey) {
+    if (!profileGroups || !profileGroups[groupKey]) return undefined;
+    for (const id of profileGroups[groupKey]) {
+      const el = document.getElementById(id);
+      if (!el || !isStorable(el)) continue;
+      const value = getFieldValue(el);
+      if (value !== undefined && String(value).trim() !== '') return value;
+    }
+    for (const id of profileGroups[groupKey]) {
+      const el = document.getElementById(id);
+      if (!el || !isStorable(el)) continue;
+      const value = getFieldValue(el);
+      if (value !== undefined) return value;
+    }
+    return undefined;
+  }
+
+  function saveProfileGroupNow(groupKey) {
+    if (!profileGroups || !profileGroups[groupKey]) return;
+    const profile = read(USER_PROFILE_KEY) || {};
+    profile[groupKey] = readProfileGroupValue(groupKey);
+    write(USER_PROFILE_KEY, profile);
+  }
+
+  function syncProfileGroupSiblings(sourceId, groupKey, value) {
+    if (profileSyncing || !profileGroups || !profileGroups[groupKey]) return;
+    profileSyncing = true;
+    profileGroups[groupKey].forEach(id => {
+      if (id === sourceId) return;
+      const el = document.getElementById(id);
+      if (!el || !isStorable(el)) return;
+      if (getFieldValue(el) === value) return;
+      setFieldValue(el, value, true);
+    });
+    profileSyncing = false;
+  }
+
+  function bindUserProfile(groups, rootSelector = '#configPanelScroll') {
+    profileGroups = groups;
+    idToProfileGroup = new Map();
+    Object.entries(groups).forEach(([groupKey, ids]) => {
+      ids.forEach(id => idToProfileGroup.set(id, groupKey));
+    });
+
+    const root = document.querySelector(rootSelector);
+    if (!root) return;
+
+    const debouncedProfileSavers = new Map();
+    Object.keys(groups).forEach(groupKey => {
+      const debounced = debounce(() => saveProfileGroupNow(groupKey), DEBOUNCE_MS);
+      debouncedProfileSavers.set(groupKey, debounced);
+      flushers.push(debounced.flush);
+      flushers.push(() => saveProfileGroupNow(groupKey));
+    });
+
+    const handleProfileFieldChange = target => {
+      if (profileSyncing || !target?.id) return;
+      const groupKey = idToProfileGroup.get(target.id);
+      if (!groupKey) return;
+      const value = getFieldValue(target);
+      syncProfileGroupSiblings(target.id, groupKey, value);
+      debouncedProfileSavers.get(groupKey)?.();
+    };
+
+    root.addEventListener('input', event => handleProfileFieldChange(event.target), true);
+    root.addEventListener('change', event => handleProfileFieldChange(event.target), true);
+    root.addEventListener('focusout', event => {
+      const groupKey = idToProfileGroup.get(event.target?.id);
+      if (groupKey) saveProfileGroupNow(groupKey);
+    }, true);
+  }
+
+  function migrateUserProfile(groups) {
+    const profile = {};
+    let hasAny = false;
+    Object.entries(groups).forEach(([groupKey, ids]) => {
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el || !isStorable(el)) continue;
+        const value = getFieldValue(el);
+        if (value !== undefined && String(value).trim() !== '') {
+          profile[groupKey] = value;
+          hasAny = true;
+          break;
+        }
+      }
+    });
+    if (hasAny) write(USER_PROFILE_KEY, profile);
+    return hasAny;
+  }
+
+  function restoreUserProfile(groups, options = {}) {
+    const fillEmptyOnly = options.fillEmptyOnly !== false;
+    profileGroups = groups;
+    let saved = read(USER_PROFILE_KEY);
+    if (!saved) {
+      migrateUserProfile(groups);
+      saved = read(USER_PROFILE_KEY);
+    }
+    if (!saved) return false;
+
+    let applied = false;
+    Object.entries(groups).forEach(([groupKey, ids]) => {
+      const value = saved[groupKey];
+      if (value == null || value === '') return;
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el || !isStorable(el)) return;
+        if (fillEmptyOnly && String(getFieldValue(el) ?? '').trim() !== '') return;
+        setFieldValue(el, value, true);
+        applied = true;
+      });
+    });
+    return applied;
+  }
+
+  function flushUserProfile() {
+    if (!profileGroups) return;
+    Object.keys(profileGroups).forEach(saveProfileGroupNow);
+  }
+
+  window.addEventListener('pagehide', () => {
+    flushUserProfile();
+    flushAll();
   });
+  window.addEventListener('beforeunload', () => {
+    flushUserProfile();
+    flushAll();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushUserProfile();
+      flushAll();
+    }
+  });
+
+  function hasSavedFieldValue(fieldId, schemas, profileGroups) {
+    if (!fieldId) return false;
+    if (profileGroups) {
+      const profile = read(USER_PROFILE_KEY);
+      if (profile) {
+        for (const [groupKey, ids] of Object.entries(profileGroups)) {
+          if (!ids.includes(fieldId)) continue;
+          const value = profile[groupKey];
+          if (value != null && String(value).trim() !== '') return true;
+        }
+      }
+    }
+    if (schemas) {
+      for (const [schemaKey, ids] of Object.entries(schemas)) {
+        if (!ids.includes(fieldId)) continue;
+        const saved = read(schemaKey);
+        if (!saved || !(fieldId in saved)) continue;
+        const value = saved[fieldId];
+        if (value != null && String(value).trim() !== '') return true;
+      }
+    }
+    return false;
+  }
 
   global.NOOBIUS_FORM_STORAGE = {
     PREFIX,
+    USER_PROFILE_KEY,
     read,
     write,
     hasSaved,
@@ -214,8 +395,13 @@
     applyByIds,
     bindSchemas,
     bindAutoSave,
+    bindUserProfile,
     restore,
+    restoreUserProfile,
+    migrateUserProfile,
+    hasSavedFieldValue,
     flushAll,
+    flushUserProfile,
     persistAll,
     saveSchemaNow,
   };

@@ -74,14 +74,18 @@
     return section.textContent.replace(/\s+/g, ' ').trim();
   }
 
-  const HINT_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.18"/><path d="M12 10.5v4.5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const HINT_ICON_BODY = '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>';
+
+  function hintIconMarkup(size = 14) {
+    return `<svg class="ux-hint-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${HINT_ICON_BODY}</svg>`;
+  }
 
   function createHintTrigger(text, variant = 'field') {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = variant === 'section' ? 'ux-hint-trigger ux-hint-trigger--section' : 'ux-hint-trigger';
     btn.setAttribute('aria-label', 'More information');
-    btn.innerHTML = HINT_ICON;
+    btn.innerHTML = hintIconMarkup(variant === 'section' ? 16 : 14);
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
