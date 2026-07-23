@@ -860,6 +860,15 @@ body.bulk-view .site-page-context {
 /* Generator page — light workspace like reference design */
 body.site-generator {
   background: var(--body-bg);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body.site-generator .site-page-context {
+  flex-shrink: 0;
 }
 
 body.site-generator .config-panel {
@@ -868,6 +877,9 @@ body.site-generator .config-panel {
   box-shadow: none;
   width: var(--config-panel-width);
   max-width: var(--config-panel-width);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
 }
 
 body.site-generator.generator-bulk-mode .preview-area,
@@ -883,7 +895,8 @@ body.site-generator.generator-bulk-mode .config-panel {
   border-right: 1px solid var(--panel-border);
   border-radius: 12px;
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
-  max-height: calc(100vh - var(--site-header-height) - 56px);
+  max-height: 100%;
+  height: auto;
 }
 
 body.site-generator.generator-bulk-mode .app {
@@ -909,8 +922,9 @@ body.site-generator .preview-area {
 body.site-generator .site-main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--site-header-height));
+  flex: 1;
   min-height: 0;
+  height: auto;
   overflow: hidden;
 }
 
@@ -1106,6 +1120,22 @@ body.site-is-loading {
   .detail-grid {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  body.site-generator {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  body.site-generator .site-main {
+    overflow: visible;
+    height: auto;
+  }
+
+  body.site-generator .config-panel {
+    height: auto;
+    max-height: none;
   }
 }
 

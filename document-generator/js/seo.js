@@ -241,9 +241,11 @@
     SITE,
     GENERATORS,
     STATIC_PAGES,
+    PATH_TO_GENERATOR,
     applyGenerator,
     applyStatic,
     initFromPath,
+    getGeneratorIdFromPath,
     absoluteUrl,
   };
 })(window);

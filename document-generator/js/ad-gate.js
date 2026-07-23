@@ -20,11 +20,13 @@
       <div class="ad-gate-backdrop" data-ad-gate-close></div>
       <div class="ad-gate-dialog" role="dialog" aria-modal="true" aria-labelledby="adGateTitle">
         <button type="button" class="ad-gate-close" data-ad-gate-close aria-label="Close">&times;</button>
-        <p class="ad-gate-kicker">Sponsored</p>
-        <h2 class="ad-gate-title" id="adGateTitle">Support us to download</h2>
-        <p class="ad-gate-subtitle" id="adGateSubtitle">Please view the ads below. Your download will unlock shortly.</p>
-        <div class="ad-gate-slots" id="adGateSlots"></div>
-        <p class="ad-gate-timer-note" id="adGateTimerNote"></p>
+        <div class="ad-gate-dialog-body">
+          <p class="ad-gate-kicker">Sponsored</p>
+          <h2 class="ad-gate-title" id="adGateTitle">Support us to download</h2>
+          <p class="ad-gate-subtitle" id="adGateSubtitle">Please view the ads below. Your download will unlock shortly.</p>
+          <div class="ad-gate-slots" id="adGateSlots"></div>
+          <p class="ad-gate-timer-note" id="adGateTimerNote"></p>
+        </div>
         <div class="ad-gate-actions">
           <button type="button" class="btn btn-secondary" data-ad-gate-close>Cancel</button>
           <button type="button" class="btn btn-primary" id="adGateDownloadBtn" disabled>
