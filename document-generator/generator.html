@@ -1360,6 +1360,152 @@
       color: var(--muted);
     }
 
+    body.ad-gate-open {
+      overflow: hidden;
+    }
+
+    .ad-gate-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .ad-gate-modal.hidden {
+      display: none !important;
+    }
+
+    .ad-gate-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.62);
+    }
+
+    .ad-gate-dialog {
+      position: relative;
+      z-index: 1;
+      width: min(720px, 100%);
+      max-height: min(92vh, 900px);
+      overflow: auto;
+      border-radius: 16px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel-bg);
+      box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+      padding: 18px 18px 16px;
+    }
+
+    .ad-gate-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .ad-gate-close:hover,
+    .ad-gate-close:focus-visible {
+      color: var(--text);
+      background: var(--accent-soft);
+      outline: none;
+    }
+
+    .ad-gate-kicker {
+      margin: 0 0 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .ad-gate-title {
+      margin: 0 28px 6px 0;
+      font-size: 1.15rem;
+      line-height: 1.3;
+      color: var(--text);
+    }
+
+    .ad-gate-subtitle {
+      margin: 0 0 14px;
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .ad-gate-slots {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .ad-gate-slot {
+      min-height: 120px;
+      border: 1px dashed var(--panel-border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--panel-border) 18%, transparent);
+      overflow: hidden;
+    }
+
+    .ad-gate-slot:first-child {
+      grid-column: 1 / -1;
+      min-height: 150px;
+    }
+
+    .ad-gate-slot-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .ad-gate-slot .adsbygoogle {
+      display: block;
+      min-height: 120px;
+    }
+
+    .ad-gate-timer-note {
+      margin: 0 0 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .ad-gate-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ad-gate-actions .btn-primary:disabled {
+      opacity: 0.72;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 640px) {
+      .ad-gate-slots {
+        grid-template-columns: 1fr;
+      }
+
+      .ad-gate-slot:first-child {
+        grid-column: auto;
+      }
+    }
+
     .upload-field-meta {
       display: flex;
       align-items: center;
@@ -4560,7 +4706,7 @@ New Delhi, 110016</textarea>
         <div class="actions actions-inline" id="stickyFuelSingle">
           <div class="download-action-wrap flex-1">
             <button class="btn btn-primary" id="downloadBtn" data-btn-icon="download" data-btn-label="Download PNG">Download PNG</button>
-            <p class="ad-download-note">1 ad required to watch for download</p>
+            <p class="ad-download-note">Ad popup · download unlocks in 5 seconds</p>
           </div>
         </div>
         <div class="actions hidden" id="stickyFuelBulk">
@@ -4569,13 +4715,13 @@ New Delhi, 110016</textarea>
         <div class="actions hidden" id="stickyEcommerce">
           <div class="download-action-wrap flex-1">
             <button class="btn btn-primary" id="ecDownloadPdfBtn" type="button" data-btn-icon="download" data-btn-label="Download PDF">Download PDF</button>
-            <p class="ad-download-note">1 ad required to watch for download</p>
+            <p class="ad-download-note">Ad popup · download unlocks in 5 seconds</p>
           </div>
         </div>
         <div class="actions hidden" id="stickyPostpaidSingle">
           <div class="download-action-wrap flex-1">
             <button class="btn btn-primary" id="bbDownloadPdfBtn" type="button" data-btn-icon="download" data-btn-label="Download PDF">Download PDF</button>
-            <p class="ad-download-note">1 ad required to watch for download</p>
+            <p class="ad-download-note">Ad popup · download unlocks in 5 seconds</p>
           </div>
         </div>
         <div class="actions hidden" id="stickyPostpaidBulk">
@@ -4584,7 +4730,7 @@ New Delhi, 110016</textarea>
         <div class="actions hidden" id="stickyRentSingle">
           <div class="download-action-wrap flex-1">
             <button class="btn btn-primary" id="rrDownloadPdfBtn" type="button" data-btn-icon="download" data-btn-label="Download PDF">Download PDF</button>
-            <p class="ad-download-note">1 ad required to watch for download</p>
+            <p class="ad-download-note">Ad popup · download unlocks in 5 seconds</p>
           </div>
         </div>
         <div class="actions hidden" id="stickyRentBulk">
@@ -4593,7 +4739,7 @@ New Delhi, 110016</textarea>
         <div class="actions hidden" id="stickyDriverSingle">
           <div class="download-action-wrap flex-1">
             <button class="btn btn-primary" id="dsDownloadPdfBtn" type="button" data-btn-icon="download" data-btn-label="Download PDF">Download PDF</button>
-            <p class="ad-download-note">1 ad required to watch for download</p>
+            <p class="ad-download-note">Ad popup · download unlocks in 5 seconds</p>
           </div>
         </div>
         <div class="actions hidden" id="stickyDriverBulk">
@@ -4637,7 +4783,7 @@ New Delhi, 110016</textarea>
       <div class="bulk-toolbar-actions">
         <div class="download-action-wrap download-action-wrap-inline">
           <button class="btn btn-primary" id="bulkDownloadAllBtn" type="button" data-btn-icon="archive" data-btn-label="Download All as ZIP">Download All as ZIP</button>
-          <p class="ad-download-note">1 ad required to watch for download</p>
+          <p class="ad-download-note">Ad popup · ZIP download unlocks in 15 seconds</p>
         </div>
         <button class="btn btn-secondary" id="bulkBackBtn" type="button" data-btn-icon="arrow-left" data-btn-label="Back to Editor">Back to Editor</button>
       </div>
@@ -4713,6 +4859,7 @@ New Delhi, 110016</textarea>
   <script src="jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="js/field-hints.js?v=20260723d"></script>
+  <script src="js/ad-gate.js?v=20260723e"></script>
   <script>
     const ICON_PATHS = {
       fuel: '<path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998"/><path d="M4 13V5a2 2 0 0 1 2-2h2"/><path d="M4 13h12"/><path d="M6 5v8"/>',
@@ -4756,6 +4903,24 @@ New Delhi, 110016</textarea>
         return SiteLoader.withAsync(task, message || 'Loading…');
       }
       return typeof task === 'function' ? task() : task;
+    }
+
+    function runGatedDownload(tier, buttonLabel, task) {
+      if (!window.NOOBIUS_AD_GATE?.open) {
+        return Promise.resolve().then(() => task());
+      }
+      const singleSec = window.NOOBIUS_AD_GATE.SINGLE_DELAY_SEC || 5;
+      const bulkSec = window.NOOBIUS_AD_GATE.BULK_DELAY_SEC || 15;
+      const isBulk = tier === 'bulk';
+      return window.NOOBIUS_AD_GATE.open({
+        tier,
+        title: isBulk ? 'Download your ZIP file' : 'Download your file',
+        subtitle: isBulk
+          ? `Please view the ads below. ZIP download unlocks in ${bulkSec} seconds.`
+          : `Please view the ads below. Download unlocks in ${singleSec} seconds.`,
+        buttonLabel,
+        onConfirm: task,
+      });
     }
 
     function runWithLoader(message, fn) {
@@ -4881,7 +5046,7 @@ New Delhi, 110016</textarea>
       wrap.appendChild(button);
       const note = document.createElement('p');
       note.className = 'ad-download-note';
-      note.textContent = '1 ad required to watch for download';
+      note.textContent = 'Ad popup · download unlocks in 5 seconds';
       wrap.appendChild(note);
       return wrap;
     }
@@ -6833,7 +6998,9 @@ New Delhi, 110016</textarea>
         }
       });
 
-      $('ecDownloadPdfBtn').addEventListener('click', downloadEcommercePdf);
+      $('ecDownloadPdfBtn').addEventListener('click', () => {
+        runGatedDownload('single', 'Download PDF', downloadEcommercePdf);
+      });
     }
 
     function initEcommerceMode() {
@@ -7514,7 +7681,9 @@ New Delhi, 110016</textarea>
         updatePostpaidPreview();
       });
 
-      $('bbDownloadPdfBtn')?.addEventListener('click', downloadPostpaidPdf);
+      $('bbDownloadPdfBtn')?.addEventListener('click', () => {
+        runGatedDownload('single', 'Download PDF', downloadPostpaidPdf);
+      });
       $('bbOpenBulkPreviewBtn')?.addEventListener('click', openPostpaidBulkPreviewPage);
     }
 
@@ -8036,19 +8205,21 @@ New Delhi, 110016</textarea>
         wrapper.style.filter = 'none';
         wrapper.innerHTML = buildRentReceiptHtml(data);
         applyPreviewWatermark(wrapper);
-        downloadBtn.addEventListener('click', async () => {
-          await withLoader('Generating PDF…', async () => {
-            downloadBtn.disabled = true;
-            setButtonBusy(downloadBtn, 'Saving…');
-            try {
-              const bytes = await buildRentPdfFromHtml(data);
-              downloadBlob(new Blob([bytes], { type: 'application/pdf' }), rentReceiptFileName(data));
-            } catch (err) {
-              alert(err.message || 'Could not generate PDF.');
-            } finally {
-              downloadBtn.disabled = false;
-              setButtonLabel(downloadBtn, 'Download PDF', 'download');
-            }
+        downloadBtn.addEventListener('click', () => {
+          runGatedDownload('single', 'Download PDF', async () => {
+            await withLoader('Generating PDF…', async () => {
+              downloadBtn.disabled = true;
+              setButtonBusy(downloadBtn, 'Saving…');
+              try {
+                const bytes = await buildRentPdfFromHtml(data);
+                downloadBlob(new Blob([bytes], { type: 'application/pdf' }), rentReceiptFileName(data));
+              } catch (err) {
+                alert(err.message || 'Could not generate PDF.');
+              } finally {
+                downloadBtn.disabled = false;
+                setButtonLabel(downloadBtn, 'Download PDF', 'download');
+              }
+            });
           });
         });
         item.appendChild(meta);
@@ -8152,7 +8323,9 @@ New Delhi, 110016</textarea>
         rentBulkRevenueStampDataUrl = url;
         window.__persistFormKey?.('rent_bulk');
       });
-      $('rrDownloadPdfBtn')?.addEventListener('click', downloadRentPdf);
+      $('rrDownloadPdfBtn')?.addEventListener('click', () => {
+        runGatedDownload('single', 'Download PDF', downloadRentPdf);
+      });
       $('rrOpenBulkPreviewBtn')?.addEventListener('click', openRentBulkPreviewPage);
     }
 
@@ -8400,19 +8573,21 @@ New Delhi, 110016</textarea>
         wrapper.style.filter = 'none';
         wrapper.innerHTML = buildDriverSlipHtml(data);
         applyPreviewWatermark(wrapper);
-        downloadBtn.addEventListener('click', async () => {
-          await withLoader('Generating PDF…', async () => {
-            downloadBtn.disabled = true;
-            setButtonBusy(downloadBtn, 'Saving…');
-            try {
-              const bytes = await buildDriverPdfFromHtml(data);
-              downloadBlob(new Blob([bytes], { type: 'application/pdf' }), driverSlipFileName(data));
-            } catch (err) {
-              alert(err.message || 'Could not generate PDF.');
-            } finally {
-              downloadBtn.disabled = false;
-              setButtonLabel(downloadBtn, 'Download PDF', 'download');
-            }
+        downloadBtn.addEventListener('click', () => {
+          runGatedDownload('single', 'Download PDF', async () => {
+            await withLoader('Generating PDF…', async () => {
+              downloadBtn.disabled = true;
+              setButtonBusy(downloadBtn, 'Saving…');
+              try {
+                const bytes = await buildDriverPdfFromHtml(data);
+                downloadBlob(new Blob([bytes], { type: 'application/pdf' }), driverSlipFileName(data));
+              } catch (err) {
+                alert(err.message || 'Could not generate PDF.');
+              } finally {
+                downloadBtn.disabled = false;
+                setButtonLabel(downloadBtn, 'Download PDF', 'download');
+              }
+            });
           });
         });
         item.appendChild(meta);
@@ -8505,7 +8680,9 @@ New Delhi, 110016</textarea>
         driverBulkRevenueStampDataUrl = url;
         window.__persistFormKey?.('driver_bulk');
       });
-      $('dsDownloadPdfBtn')?.addEventListener('click', downloadDriverPdf);
+      $('dsDownloadPdfBtn')?.addEventListener('click', () => {
+        runGatedDownload('single', 'Download PDF', downloadDriverPdf);
+      });
       $('dsOpenBulkPreviewBtn')?.addEventListener('click', openDriverBulkPreviewPage);
     }
 
@@ -9691,24 +9868,26 @@ New Delhi, 110016</textarea>
 
         const wrapper = buildReceiptElement(data);
         applyPreviewWatermark(wrapper);
-        downloadBtn.addEventListener('click', async () => {
-          await withLoader('Generating PNG…', async () => {
-            downloadBtn.disabled = true;
-            setButtonBusy(downloadBtn, 'Saving…');
-            try {
-              await downloadReceiptPng(wrapper, fuelReceiptFileName(data), {
-                templateKey: data.bgTemplate,
-                layoutStyle: data.layoutStyle,
-                bgPosition: data.bgPosition,
-                exportBlur: data.exportBlur,
-                logoFile: data.logoFile,
-              });
-            } catch (err) {
-              alert(err.message || 'Could not generate PNG.');
-            } finally {
-              downloadBtn.disabled = false;
-              setButtonLabel(downloadBtn, 'Download PNG', 'download');
-            }
+        downloadBtn.addEventListener('click', () => {
+          runGatedDownload('single', 'Download PNG', async () => {
+            await withLoader('Generating PNG…', async () => {
+              downloadBtn.disabled = true;
+              setButtonBusy(downloadBtn, 'Saving…');
+              try {
+                await downloadReceiptPng(wrapper, fuelReceiptFileName(data), {
+                  templateKey: data.bgTemplate,
+                  layoutStyle: data.layoutStyle,
+                  bgPosition: data.bgPosition,
+                  exportBlur: data.exportBlur,
+                  logoFile: data.logoFile,
+                });
+              } catch (err) {
+                alert(err.message || 'Could not generate PNG.');
+              } finally {
+                downloadBtn.disabled = false;
+                setButtonLabel(downloadBtn, 'Download PNG', 'download');
+              }
+            });
           });
         });
 
@@ -9751,20 +9930,22 @@ New Delhi, 110016</textarea>
         wrapper.innerHTML = buildPostpaidBillHtml(data);
         applyPreviewWatermark(wrapper);
 
-        downloadBtn.addEventListener('click', async () => {
-          await withLoader('Generating PDF…', async () => {
-            downloadBtn.disabled = true;
-            setButtonBusy(downloadBtn, 'Saving…');
-            try {
-              const bytes = await buildPostpaidPdfFromHtml(data);
-              const blob = new Blob([bytes], { type: 'application/pdf' });
-              downloadBlob(blob, postpaidBillFileName(data));
-            } catch (err) {
-              alert(err.message || 'Could not generate PDF.');
-            } finally {
-              downloadBtn.disabled = false;
-              setButtonLabel(downloadBtn, 'Download PDF', 'download');
-            }
+        downloadBtn.addEventListener('click', () => {
+          runGatedDownload('single', 'Download PDF', async () => {
+            await withLoader('Generating PDF…', async () => {
+              downloadBtn.disabled = true;
+              setButtonBusy(downloadBtn, 'Saving…');
+              try {
+                const bytes = await buildPostpaidPdfFromHtml(data);
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                downloadBlob(blob, postpaidBillFileName(data));
+              } catch (err) {
+                alert(err.message || 'Could not generate PDF.');
+              } finally {
+                downloadBtn.disabled = false;
+                setButtonLabel(downloadBtn, 'Download PDF', 'download');
+              }
+            });
           });
         });
 
@@ -9944,28 +10125,30 @@ New Delhi, 110016</textarea>
 
     $('fuelReceiptTemplate')?.addEventListener('change', () => renderSinglePreview(true));
 
-    $('downloadBtn').addEventListener('click', async () => {
-      await withLoader('Generating PNG…', async () => {
-        const wrapper = $('receiptWrapper');
-        const btn = $('downloadBtn');
-        const originalText = getButtonLabel(btn);
-        btn.disabled = true;
-        setButtonBusy(btn, 'Generating…');
-        try {
-          const fuelTpl = getFuelReceiptTemplateFromForm(true);
-          await downloadReceiptPng(wrapper, fuelReceiptFileName(getSingleReceiptData()), {
-            templateKey: fuelTpl.bgTemplate,
-            layoutStyle: fuelTpl.layoutStyle,
-            bgPosition: getReceiptBackgroundPosition(wrapper),
-            exportBlur: getPhotoBlurForExport(wrapper),
-            logoFile: getFuelCompanyFromForm(true).logo,
-          });
-        } catch (err) {
-          alert(err.message || 'Could not generate PNG.');
-        } finally {
-          btn.disabled = false;
-          setButtonLabel(btn, originalText, 'download');
-        }
+    $('downloadBtn').addEventListener('click', () => {
+      runGatedDownload('single', 'Download PNG', async () => {
+        await withLoader('Generating PNG…', async () => {
+          const wrapper = $('receiptWrapper');
+          const btn = $('downloadBtn');
+          const originalText = getButtonLabel(btn);
+          btn.disabled = true;
+          setButtonBusy(btn, 'Generating…');
+          try {
+            const fuelTpl = getFuelReceiptTemplateFromForm(true);
+            await downloadReceiptPng(wrapper, fuelReceiptFileName(getSingleReceiptData()), {
+              templateKey: fuelTpl.bgTemplate,
+              layoutStyle: fuelTpl.layoutStyle,
+              bgPosition: getReceiptBackgroundPosition(wrapper),
+              exportBlur: getPhotoBlurForExport(wrapper),
+              logoFile: getFuelCompanyFromForm(true).logo,
+            });
+          } catch (err) {
+            alert(err.message || 'Could not generate PNG.');
+          } finally {
+            btn.disabled = false;
+            setButtonLabel(btn, originalText, 'download');
+          }
+        });
       });
     });
 
@@ -9987,16 +10170,18 @@ New Delhi, 110016</textarea>
       const backType = BULK_VIEW_BACK[view] || 'fuel';
       window.location.href = `${getFeaturePagePath(backType)}?mode=bulk`;
     });
-    $('bulkDownloadAllBtn').addEventListener('click', async () => {
-      try {
-        const view = new URLSearchParams(location.search).get('view');
-        if (view === 'bulk-bill') await downloadAllBillBulk();
-        else if (view === 'bulk-rent') await downloadAllRentBulk();
-        else if (view === 'bulk-driver') await downloadAllDriverBulk();
-        else await downloadAllBulkReceipts();
-      } catch (err) {
-        alert(err.message || 'Could not download ZIP.');
-      }
+    $('bulkDownloadAllBtn').addEventListener('click', () => {
+      runGatedDownload('bulk', 'Download All as ZIP', async () => {
+        try {
+          const view = new URLSearchParams(location.search).get('view');
+          if (view === 'bulk-bill') await downloadAllBillBulk();
+          else if (view === 'bulk-rent') await downloadAllRentBulk();
+          else if (view === 'bulk-driver') await downloadAllDriverBulk();
+          else await downloadAllBulkReceipts();
+        } catch (err) {
+          alert(err.message || 'Could not download ZIP.');
+        }
+      });
     });
 
     const urlParams = new URLSearchParams(location.search);
