@@ -1,16 +1,7 @@
 (function (global) {
-  /**
-   * AdSense setup for noobius.in
-   *
-   * 1. In AdSense → Sites → Add site → choose "Meta tag" verification.
-   * 2. Paste your publisher ID below (format: ca-pub-XXXXXXXXXXXXXXXX).
-   * 3. Also update document-generator/ads.txt with the line from AdSense.
-   * 4. After approval, set loadAdScript to true to enable ad units.
-   */
   const CONFIG = {
     publisherId: 'ca-pub-2293170892331368',
-    // Required for Offerwall + display ads. Offerwall is configured in AdSense dashboard (no extra code).
-    loadAdScript: true,
+    loadAdScript: false,
   };
 
   function upsertMeta(name, content) {
@@ -31,7 +22,7 @@
     upsertMeta('google-adsense-account', publisherId);
 
     if (!CONFIG.loadAdScript) return;
-    if (document.querySelector('script[data-adsense-client]')) return;
+    if (document.querySelector('script[src*="adsbygoogle.js"]')) return;
 
     const script = document.createElement('script');
     script.async = true;
