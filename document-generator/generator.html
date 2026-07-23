@@ -5368,6 +5368,42 @@
       saturate: 0.9,
     };
     const exportImageCache = new Map();
+    const EXPORT_MOUNT_STYLE = 'position:fixed;left:0;top:0;opacity:0;z-index:-1;pointer-events:none;overflow:visible;';
+
+    function mountExportContainer(className, html) {
+      const container = document.createElement('div');
+      container.className = className;
+      container.style.cssText = EXPORT_MOUNT_STYLE;
+      if (html != null) container.innerHTML = html;
+      document.body.appendChild(container);
+      return container;
+    }
+
+    async function withExportCapture(task) {
+      const htmlOverflow = document.documentElement.style.overflow;
+      const bodyOverflow = document.body.style.overflow;
+      document.documentElement.style.overflow = 'visible';
+      document.body.style.overflow = 'visible';
+      try {
+        return await task();
+      } finally {
+        document.documentElement.style.overflow = htmlOverflow;
+        document.body.style.overflow = bodyOverflow;
+      }
+    }
+
+    function canvasHasVisiblePixels(canvas) {
+      if (!canvas?.width || !canvas?.height) return false;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return false;
+      const sampleWidth = Math.min(canvas.width, 160);
+      const sampleHeight = Math.min(canvas.height, 160);
+      const { data } = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+      for (let i = 3; i < data.length; i += 16) {
+        if (data[i] > 12) return true;
+      }
+      return false;
+    }
 
     const $ = id => document.getElementById(id);
 
@@ -6518,13 +6554,10 @@
       }
       const { PDFDocument } = PDFLib;
       const pdfDoc = await PDFDocument.create();
-      const container = document.createElement('div');
-      container.className = 'ec-invoice-export-root doc-export-root';
-      container.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;pointer-events:none;';
-      container.innerHTML = buildEcInvoiceHtml(data);
-      document.body.appendChild(container);
+      const container = mountExportContainer('ec-invoice-export-root doc-export-root', buildEcInvoiceHtml(data));
 
       try {
+        return await withExportCapture(async () => {
         const pages = [...container.querySelectorAll('.ec-invoice-page')];
         for (const pageEl of pages) {
           const canvas = await captureEcInvoicePageCanvas(pageEl);
@@ -6547,6 +6580,7 @@
           });
         }
         return pdfDoc.save();
+        });
       } finally {
         container.remove();
       }
@@ -7588,13 +7622,10 @@
       }
       const { PDFDocument } = PDFLib;
       const pdfDoc = await PDFDocument.create();
-      const container = document.createElement('div');
-      container.className = 'bb-export-root doc-export-root';
-      container.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;pointer-events:none;';
-      container.innerHTML = buildPostpaidBillHtml(data);
-      document.body.appendChild(container);
+      const container = mountExportContainer('bb-export-root doc-export-root', buildPostpaidBillHtml(data));
 
       try {
+        return await withExportCapture(async () => {
         await Promise.all([...container.querySelectorAll('img')].map(img => {
           if (img.complete) return Promise.resolve();
           return new Promise((resolve, reject) => {
@@ -7619,6 +7650,7 @@
           page.drawImage(image, { x: 0, y: 0, width: BB_PAGE.width, height: BB_PAGE.height });
         }
         return pdfDoc.save();
+        });
       } finally {
         container.remove();
       }
@@ -8136,12 +8168,10 @@
       }
       const { PDFDocument } = PDFLib;
       const pdfDoc = await PDFDocument.create();
-      const container = document.createElement('div');
-      container.className = 'doc-export-root';
-      container.style.cssText = 'position:fixed;left:-99999px;top:0;z-index:-1;pointer-events:none;';
-      container.innerHTML = buildHtmlFn(data);
-      document.body.appendChild(container);
+      const container = mountExportContainer('doc-export-root', buildHtmlFn(data));
+
       try {
+        return await withExportCapture(async () => {
         if (document.fonts?.ready) await document.fonts.ready;
         await Promise.all([...container.querySelectorAll('img')].map(img => {
           if (img.complete) return Promise.resolve();
@@ -8166,6 +8196,7 @@
           page.drawImage(image, { x: 0, y: 0, width: pageWidth, height: pageHeight });
         }
         return pdfDoc.save();
+        });
       } finally {
         container.remove();
       }
@@ -9840,13 +9871,8 @@
       exportRoot.id = 'bp-export-clone';
       const wrapperPadding = hasTears ? WRAPPER_PADDING : 0;
       exportRoot.style.cssText = [
-        'position:fixed',
-        'left:-10000px',
-        'top:0',
-        'z-index:0',
-        'pointer-events:none',
+        EXPORT_MOUNT_STYLE,
         'filter:none',
-        'overflow:visible',
         `padding:${wrapperPadding}px 0`,
         'box-sizing:border-box',
         'display:inline-block',
@@ -10000,10 +10026,11 @@
       });
 
       try {
+        return await withExportCapture(async () => {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
         const canvas = await html2canvas(exportRoot, {
-          backgroundColor: null,
+          backgroundColor: exportMeta.paper || '#ececec',
           scale: 3,
           useCORS: true,
           allowTaint: false,
@@ -10022,6 +10049,10 @@
           },
         });
 
+        if (!canvasHasVisiblePixels(canvas)) {
+          throw new Error('Receipt export produced an empty image. Please refresh the page and try again.');
+        }
+
         const photoBlur = getPhotoBlurForExport(wrapper, options);
         const isInvoice = wrapper?.dataset?.document === 'invoice';
         const photoCanvas = isInvoice || photoBlur === 0
@@ -10036,6 +10067,7 @@
         });
 
         return blob;
+        });
       } finally {
         cleanupExportClone(exportRoot);
       }
