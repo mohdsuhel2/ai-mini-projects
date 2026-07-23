@@ -31,7 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/css/tempus-dominus.min.css" crossorigin="anonymous" />
   <link rel="preload" as="image" href="White_BG.png" />
   <link rel="preload" as="font" href="fonts/pixFueler-A.ttf" type="font/ttf" crossorigin />
   <style>
@@ -101,10 +101,6 @@
       --readonly-bg: #141c2e;
       --generator-tab-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
       --bulk-toolbar-bg: rgba(26, 34, 54, 0.98);
-      --flatpickr-bg: #243049;
-      --flatpickr-day-hover: rgba(37, 99, 235, 0.16);
-      --flatpickr-time-bg: #141c2e;
-      --flatpickr-time-hover: #1e2840;
       --shadow-modal: 0 20px 50px rgba(0, 0, 0, 0.5);
       --shadow-calendar: 0 14px 40px rgba(0, 0, 0, 0.5);
       --line-item-hover-border: rgba(37, 99, 235, 0.35);
@@ -163,10 +159,6 @@
       --readonly-bg: #f8fafc;
       --generator-tab-shadow: 0 1px 0 rgba(0, 0, 0, 0.04) inset;
       --bulk-toolbar-bg: rgba(255, 255, 255, 0.98);
-      --flatpickr-bg: #ffffff;
-      --flatpickr-day-hover: rgba(37, 99, 235, 0.1);
-      --flatpickr-time-bg: #f8fafc;
-      --flatpickr-time-hover: #eef2f7;
       --shadow-modal: 0 20px 50px rgba(15, 23, 42, 0.14);
       --shadow-calendar: 0 14px 40px rgba(15, 23, 42, 0.12);
       --line-item-hover-border: rgba(37, 99, 235, 0.28);
@@ -962,129 +954,58 @@
       opacity: 1;
     }
 
-    .date-input-wrap {
+    .date-input-wrap.input-group {
       position: relative;
-      display: flex;
-      align-items: center;
+      flex-wrap: nowrap;
     }
 
-    .date-input-wrap input {
-      padding-right: 42px;
+    .date-input-wrap .form-control {
       cursor: pointer;
     }
 
-    .date-picker-btn {
-      position: absolute;
-      right: 4px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 34px;
-      height: 34px;
+    .date-input-wrap .input-group-text.date-picker-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: transparent;
-      border: none;
-      border-radius: 6px;
+      min-width: 42px;
+      padding: 0 12px;
+      background: var(--surface-raised);
+      border-color: var(--form-field-border, var(--panel-border));
       color: var(--muted);
       cursor: pointer;
-      transition: color 0.15s, background 0.15s;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
     }
 
-    .date-picker-btn:hover {
+    .date-input-wrap .input-group-text.date-picker-btn:hover {
       color: var(--accent);
       background: var(--date-picker-hover-bg);
+      border-color: var(--accent-border);
     }
 
-    .date-picker-btn svg {
+    .date-input-wrap .date-picker-btn svg {
       width: 18px;
       height: 18px;
       fill: currentColor;
     }
 
-    /* Flatpickr — dark theme */
-    .flatpickr-calendar {
-      background: var(--flatpickr-bg);
-      border: 1px solid var(--panel-border);
+    body.site-generator .form-control,
+    body.site-generator .form-select {
       border-radius: 10px;
-      box-shadow: var(--shadow-calendar);
-      font-family: var(--site-font);
-    }
-
-    .flatpickr-months .flatpickr-month,
-    .flatpickr-weekdays,
-    .flatpickr-days {
-      background: var(--flatpickr-bg);
-    }
-
-    .flatpickr-current-month .flatpickr-monthDropdown-months,
-    .flatpickr-current-month input.cur-year {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .flatpickr-weekday {
-      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.9rem;
       font-weight: 500;
     }
 
-    .flatpickr-day {
-      color: var(--text);
-      border-radius: 6px;
+    body.site-generator .form-control:focus,
+    body.site-generator .form-select:focus {
+      box-shadow: var(--focus-ring);
     }
 
-    .flatpickr-day:hover,
-    .flatpickr-day:focus {
-      background: var(--flatpickr-day-hover);
-      border-color: transparent;
-    }
-
-    .flatpickr-day.today {
-      border-color: var(--accent);
-    }
-
-    .flatpickr-day.selected,
-    .flatpickr-day.startRange,
-    .flatpickr-day.endRange {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #1a1a2e;
-      font-weight: 600;
-    }
-
-    .flatpickr-months .flatpickr-prev-month,
-    .flatpickr-months .flatpickr-next-month {
-      fill: var(--muted);
-    }
-
-    .flatpickr-months .flatpickr-prev-month:hover svg,
-    .flatpickr-months .flatpickr-next-month:hover svg {
-      fill: var(--accent);
-    }
-
-    .flatpickr-time {
-      border-top: 1px solid var(--panel-border);
-    }
-
-    .flatpickr-time input,
-    .flatpickr-time .flatpickr-am-pm {
-      color: var(--text);
-      background: var(--flatpickr-time-bg);
-    }
-
-    .flatpickr-time input:hover,
-    .flatpickr-time .flatpickr-am-pm:hover,
-    .flatpickr-time input:focus,
-    .flatpickr-time .flatpickr-am-pm:focus {
-      background: var(--flatpickr-time-hover);
-    }
-
-    .numInputWrapper span.arrowUp:after {
-      border-bottom-color: var(--muted);
-    }
-
-    .numInputWrapper span.arrowDown:after {
-      border-top-color: var(--muted);
+    .tempus-dominus-widget {
+      font-family: var(--site-font);
+      border-radius: 12px;
+      box-shadow: var(--shadow-calendar);
+      border: 1px solid var(--panel-border);
     }
 
     .actions {
@@ -3520,7 +3441,7 @@
     [data-theme="light"] { color-scheme: light; }
   </style>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
-  <link rel="stylesheet" href="css/site.css?v=20260723m" />
+  <link rel="stylesheet" href="css/site.css?v=20260723n" />
   <style>
     /* Dark form panel — loaded after site.css so tokens are not overridden */
     [data-theme="dark"] body.site-generator {
@@ -3574,7 +3495,10 @@
 
     [data-theme="dark"] body.site-generator .field-group input,
     [data-theme="dark"] body.site-generator .field-group select,
-    [data-theme="dark"] body.site-generator .field-group textarea {
+    [data-theme="dark"] body.site-generator .field-group textarea,
+    [data-theme="dark"] body.site-generator .form-control,
+    [data-theme="dark"] body.site-generator .form-select,
+    [data-theme="dark"] body.site-generator .input-group-text {
       background: var(--form-field-bg);
       border-color: var(--form-field-border);
       color: var(--form-input);
@@ -3582,7 +3506,9 @@
 
     [data-theme="dark"] body.site-generator .field-group input:focus,
     [data-theme="dark"] body.site-generator .field-group select:focus,
-    [data-theme="dark"] body.site-generator .field-group textarea:focus {
+    [data-theme="dark"] body.site-generator .field-group textarea:focus,
+    [data-theme="dark"] body.site-generator .form-control:focus,
+    [data-theme="dark"] body.site-generator .form-select:focus {
       background: #121a2a;
       border-color: var(--accent);
     }
@@ -4922,7 +4848,8 @@
   <script src="pdf-lib.min.js"></script>
   <script src="html2canvas.min.js"></script>
   <script src="jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/js/tempus-dominus.min.js" crossorigin="anonymous"></script>
+  <script src="js/bootstrap-pickers.js?v=20260723p"></script>
   <script src="js/field-hints.js?v=20260723i"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
   <script src="js/ad-gate.js?v=20260723m"></script>
@@ -8976,96 +8903,61 @@
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
-    function withPickerClose(onChange) {
-      return (selectedDates, dateStr, instance) => {
-        instance.close();
-        onChange?.(selectedDates, dateStr, instance);
-      };
-    }
-
-    function createDatePicker(wrapId, { onChange, persistKey } = {}) {
-      return flatpickr(wrapId, {
-        wrap: true,
-        enableTime: true,
-        time_24hr: true,
-        dateFormat: 'Y-m-d H:i',
-        allowInput: true,
-        disableMobile: true,
-        monthSelectorType: 'dropdown',
-        closeOnSelect: true,
-        onChange: withPickerClose((selectedDates, dateStr, instance) => {
-          onChange?.(selectedDates, dateStr, instance);
-          if (persistKey) window.__persistFormKey?.(persistKey);
-        }),
-      });
-    }
-
     function initDatePickers() {
-      datePickers.dateTime = createDatePicker('#dateTimeWrap', { onChange: updatePreview, persistKey: 'fuel_single' });
-      datePickers.bulkFrom = createDatePicker('#bulkDateFromWrap', { persistKey: 'fuel_bulk' });
-      datePickers.bulkTo = createDatePicker('#bulkDateToWrap', { persistKey: 'fuel_bulk' });
-      datePickers.ecOrderDate = createDatePicker('#ecOrderDateWrap', {
+      const BP = window.NOOBIUS_BOOTSTRAP_PICKERS;
+      if (!BP) return;
+      BP.upgradeDateWraps();
+      BP.applyBootstrapFormClasses();
+
+      const createPicker = (wrapSelector, options) => BP.createPicker(wrapSelector, options);
+
+      datePickers.dateTime = createPicker('#dateTimeWrap', { withTime: true, onChange: updatePreview, persistKey: 'fuel_single' });
+      datePickers.bulkFrom = createPicker('#bulkDateFromWrap', { withTime: true, persistKey: 'fuel_bulk' });
+      datePickers.bulkTo = createPicker('#bulkDateToWrap', { withTime: true, persistKey: 'fuel_bulk' });
+      datePickers.ecOrderDate = createPicker('#ecOrderDateWrap', {
+        withTime: true,
         persistKey: 'ecommerce',
         onChange: () => {
           syncAllFromOrderDate(false);
           updateEcommercePreview();
         },
       });
-      datePickers.bbStatementDate = flatpickr('#bbStatementDateWrap', {
-        wrap: true,
-        enableTime: false,
-        dateFormat: 'Y-m-d',
-        allowInput: true,
-        disableMobile: true,
-        monthSelectorType: 'dropdown',
-        closeOnSelect: true,
-        onChange: withPickerClose(() => {
+      datePickers.bbStatementDate = createPicker('#bbStatementDateWrap', {
+        withTime: false,
+        persistKey: 'postpaid_single',
+        onChange: () => {
           syncBillRefFromDate(false);
           updatePostpaidPreview();
-          window.__persistFormKey?.('postpaid_single');
-        }),
+        },
       });
-      datePickers.bbBulkDateFrom = flatpickr('#bbBulkDateFromWrap', {
-        wrap: true,
-        enableTime: false,
-        dateFormat: 'Y-m-d',
-        allowInput: true,
-        disableMobile: true,
-        monthSelectorType: 'dropdown',
-        closeOnSelect: true,
-        onChange: withPickerClose(() => {
-          window.__persistFormKey?.('postpaid_bulk');
-        }),
+      datePickers.bbBulkDateFrom = createPicker('#bbBulkDateFromWrap', {
+        withTime: false,
+        persistKey: 'postpaid_bulk',
       });
-      const dateOnlyPicker = (wrapId, onChange, persistKey) => flatpickr(wrapId, {
-        wrap: true,
-        enableTime: false,
-        dateFormat: 'Y-m-d',
-        allowInput: true,
-        disableMobile: true,
-        monthSelectorType: 'dropdown',
-        closeOnSelect: true,
-        onChange: withPickerClose((selectedDates, dateStr, instance) => {
-          onChange?.(selectedDates, dateStr, instance);
-          if (persistKey) window.__persistFormKey?.(persistKey);
-        }),
+      datePickers.rrReceiptDate = createPicker('#rrReceiptDateWrap', {
+        withTime: false,
+        persistKey: 'rent_single',
+        onChange: () => {
+          syncRentDerivedFields();
+          updateRentPreview();
+        },
       });
-      datePickers.rrReceiptDate = dateOnlyPicker('#rrReceiptDateWrap', () => {
-        syncRentDerivedFields();
-        updateRentPreview();
-      }, 'rent_single');
-      datePickers.rrBulkDateFrom = dateOnlyPicker('#rrBulkDateFromWrap', null, 'rent_bulk');
-      datePickers.dsSlipDate = dateOnlyPicker('#dsSlipDateWrap', () => {
-        syncDriverDerivedFields();
-        updateDriverPreview();
-      }, 'driver_single');
-      datePickers.dsBulkDateFrom = dateOnlyPicker('#dsBulkDateFromWrap', null, 'driver_bulk');
+      datePickers.rrBulkDateFrom = createPicker('#rrBulkDateFromWrap', { withTime: false, persistKey: 'rent_bulk' });
+      datePickers.dsSlipDate = createPicker('#dsSlipDateWrap', {
+        withTime: false,
+        persistKey: 'driver_single',
+        onChange: () => {
+          syncDriverDerivedFields();
+          updateDriverPreview();
+        },
+      });
+      datePickers.dsBulkDateFrom = createPicker('#dsBulkDateFromWrap', { withTime: false, persistKey: 'driver_bulk' });
     }
 
     function syncDatePickersFromInputs() {
-      Object.values(datePickers).forEach(fp => {
-        if (fp?.input?.value) {
-          try { fp.setDate(fp.input.value, false); } catch (_) {}
+      Object.values(datePickers).forEach(picker => {
+        if (picker?.input?.value) {
+          picker.setDate(picker.input.value, false);
         }
       });
     }
