@@ -5,185 +5,38 @@
   const BULK_GENERATORS = new Set(['fuel', 'postpaid', 'rent', 'driver']);
 
   const FIELD_HINTS = {
-    fuelCompany: 'Brand shown on the receipt header and styling (BP, IndianOil, or HP).',
-    fuelReceiptTemplate: 'Visual layout and paper style for the single receipt preview.',
-    stationLine1: 'First line of the petrol pump address printed on the receipt.',
-    stationLine2: 'City or locality line shown below the station name.',
-    vehNo: 'Vehicle registration number printed on the fuel slip.',
-    customerName: 'Customer or driver name shown on the receipt.',
-    vehType: 'Fuel type label (Petrol, Diesel, or CNG) on the receipt.',
-    amount: 'Total rupee amount for this fill. Litres are calculated from rate.',
-    fuelCapacity: 'Litres dispensed. Total amount is calculated from rate.',
-    rate: 'Price per litre used to convert between amount and volume.',
-    dateTime: 'Date and time printed on the receipt.',
-    receiptNo: 'Unique receipt number. Leave blank for an auto-generated value.',
-    bulkDateFrom: 'Earliest date/time for receipts in this batch.',
-    bulkDateTo: 'Latest date/time for receipts in this batch.',
-    bulkMinTotalAmount: 'Target combined total across all receipts. The app estimates how many receipts are needed (max 100).',
-    bulkIdPrefix: 'Prefix for receipt numbers, e.g. year + series code.',
-    bulkIdStart: 'Starting numeric suffix before gaps are applied.',
-    bulkIdMinGap: 'Smallest random jump between consecutive receipt suffixes.',
-    bulkIdMaxGap: 'Largest random jump between consecutive receipt suffixes.',
-    bulkFuelCompany: 'Fuel brand applied to every receipt in the batch.',
-    bulkFuelReceiptTemplate: 'Template style used for all bulk fuel receipts.',
-    bulkStationLine1: 'Station address line 1 shared across the batch.',
-    bulkStationLine2: 'Station address line 2 shared across the batch.',
-    bulkVehNo: 'Vehicle number printed on each receipt.',
-    bulkCustomerName: 'Customer name printed on each receipt.',
-    bulkVehType: 'Fuel type label on every receipt in the batch.',
-    bulkAmount: 'Same fill amount (₹) on every receipt when using fixed mode.',
-    bulkCapacity: 'Same litres on every receipt when using fixed mode.',
-    bulkAmountMin: 'Lowest random amount per receipt.',
-    bulkAmountMax: 'Highest random amount per receipt.',
-    bulkCapacityMin: 'Lowest random litres per receipt.',
-    bulkCapacityMax: 'Highest random litres per receipt.',
-    bulkRate: 'Rate per litre used to calculate amount or volume in bulk mode.',
-    ecOrderDate: 'Order placed date. Invoice date and number are derived from this.',
-    ecOrderId: 'Marketplace order ID. Click New to regenerate.',
-    ecInvoiceDate: 'Auto-calculated invoice date from the order date.',
-    ecInvoiceNo: 'Auto-generated invoice number. Click New to regenerate.',
-    ecSellerName: 'Legal or trading name of the seller on the invoice.',
-    ecSellerAddress: 'Dispatch / warehouse address printed on the invoice.',
-    ecSellerRegisteredAddress: 'Registered office address of the seller.',
-    ecCustomerName: 'Buyer name on the invoice.',
-    ecBillingAddress: 'Billing address block on the invoice.',
-    ecShippingAddress: 'Delivery address block on the invoice.',
-    ecOrderedThrough: 'Marketplace or channel name (e.g. Flipkart, Amazon).',
-    ecShippingCharges: 'Shipping and handling fee added to the invoice total.',
-    bbCustomerName: 'Subscriber name on the postpaid bill.',
-    bbAddress: 'Billing address on the statement.',
-    bbEmail: 'Email address printed on the bill.',
-    bbPhone: 'Registered mobile number on the bill.',
-    bbPlanName: 'Active plan or pack name shown on the statement.',
-    bbPlanCharges: 'Monthly plan charges before tax.',
-    bbGstRate: 'GST percentage applied to plan charges.',
-    bbLateFee: 'Late payment fee if applicable on this bill.',
-    bbStatementDate: 'Statement issue date. Period, due date, and history follow this.',
-    bbStatementPeriod: 'Billing cycle period (auto-calculated).',
-    bbDueDate: 'Payment due date (auto-calculated).',
-    bbBillRefId: 'Unique bill reference ID. Click New to regenerate.',
-    bbLastBillAmount: 'Previous bill total for the payment summary section.',
-    bbPaymentMade: 'Amount paid against the previous bill.',
-    bbCredits: 'Account credits or adjustments applied.',
+    amount: 'Total fill amount in rupees. Litres are calculated using the rate per litre.',
+    fuelCapacity: 'Fuel quantity in litres. Total amount is calculated using the rate per litre.',
+    rate: 'Rate per litre for this receipt. Amount and litres are calculated from each other using this rate.',
+    bulkMinTotalAmount: 'Creates as many receipts as needed so the combined total is at least this amount (up to 100 receipts).',
+    bulkIdPrefix: 'Text before the numeric part of each receipt ID, e.g. 2026AA.',
+    bulkIdStart: 'First 4-digit suffix. Full ID = prefix + suffix, e.g. prefix 2026AA and start 3210 gives 2026AA3210; the next receipt adds a random gap (e.g. 2026AA3248).',
+    bulkIdMinGap: 'Smallest random increase between consecutive receipt suffixes.',
+    bulkIdMaxGap: 'Largest random increase between consecutive receipt suffixes.',
+    bbStatementDate: 'Main billing date. Statement period, due date, and payment history are calculated from this.',
     bbBulkDateFrom: 'Date of the first monthly bill in the batch.',
-    bbBulkCount: 'How many consecutive monthly bills to generate (max 24).',
-    bbBulkCustomerName: 'Subscriber name on every bill in the batch.',
-    bbBulkAddress: 'Address on every bill in the batch.',
-    bbBulkEmail: 'Email on every bill in the batch.',
-    bbBulkPhone: 'Phone number on every bill in the batch.',
-    bbBulkPlanName: 'Plan name shared across all bills.',
-    bbBulkPlanCharges: 'Plan charges on each monthly bill.',
-    bbBulkGstRate: 'GST rate applied on each bill.',
-    bbBulkLateFee: 'Late fee amount on each bill.',
-    rrReceiptDate: 'Date printed on the rent receipt.',
-    rrRentAmount: 'Rent amount in words and figures for this receipt.',
-    rrMonthlyRent: 'Monthly rent rate shown on the receipt.',
-    rrPeriodFromYear: 'Start year of the rent period (April).',
-    rrPeriodToYear: 'End year of the rent period (March).',
-    rrTenantSalutation: 'Title before the tenant name (Mr., Ms., etc.).',
-    rrTenantName: 'Tenant name receiving the receipt.',
-    rrHouseNo: 'Flat or house number of the rented property.',
-    rrPropertyAddress: 'Full address of the rented property.',
-    rrLandlordName: 'Owner / landlord name printed on the receipt.',
-    rrLandlordPan: 'Landlord PAN printed on the receipt where required.',
-    rrLandlordSignatureMode: 'Type a script signature or upload an image.',
-    rrLandlordSignatureText: 'Handwriting-style signature text on the receipt.',
-    rrLandlordSignature: 'Upload a PNG/JPG signature image.',
-    rrRevenueStamp: 'Optional revenue stamp image on the receipt.',
-    rrBulkDateFrom: 'Date of the first monthly rent receipt.',
-    rrBulkCount: 'Number of monthly receipts to generate (max 24).',
-    rrBulkRentAmount: 'Rent amount on each receipt in the batch.',
-    rrBulkMonthlyRent: 'Monthly rent rate on each receipt.',
-    rrBulkTenantSalutation: 'Tenant title on every receipt.',
-    rrBulkTenantName: 'Tenant name on every receipt.',
-    rrBulkHouseNo: 'House number on every receipt.',
-    rrBulkPropertyAddress: 'Property address on every receipt.',
-    rrBulkLandlordName: 'Landlord name on every receipt.',
-    rrBulkLandlordPan: 'Landlord PAN on every receipt.',
-    rrBulkLandlordSignatureMode: 'Signature style for all receipts in the batch.',
-    rrBulkLandlordSignatureText: 'Typed signature text for all receipts.',
-    rrBulkLandlordSignature: 'Signature image used on all receipts.',
-    rrBulkRevenueStamp: 'Revenue stamp image used on all receipts.',
-    dsReceivedFrom: 'Employer or vehicle owner who paid the salary.',
-    dsSalaryAmount: 'Monthly salary amount in INR.',
-    dsVehicleNo: 'Vehicle registration linked to this driver slip.',
-    dsSalaryMonth: 'Month and year for this salary (auto from receipt date).',
-    dsDriverName: 'Driver name on the salary receipt.',
-    dsLicenseNo: 'Driving licence number on the slip.',
-    dsSlipDate: 'Date printed on the driver salary receipt.',
-    dsSignatureMode: 'Type a script signature or upload an image.',
-    dsSignatureText: 'Handwriting-style driver signature on the slip.',
-    dsSignature: 'Upload a driver signature image.',
-    dsRevenueStamp: 'Revenue stamp image on the slip.',
-    dsBulkDateFrom: 'Date of the first monthly driver slip.',
-    dsBulkCount: 'Number of monthly slips to generate (max 24).',
-    dsBulkSalaryAmount: 'Salary amount on each slip in the batch.',
-    dsBulkReceivedFrom: 'Employer name on every slip.',
-    dsBulkDriverName: 'Driver name on every slip.',
-    dsBulkLicenseNo: 'Licence number on every slip.',
-    dsBulkVehicleNo: 'Vehicle number on every slip.',
-    dsBulkSignatureMode: 'Signature style for all slips in the batch.',
-    dsBulkSignatureText: 'Typed signature on every slip.',
-    dsBulkSignature: 'Signature image used on all slips.',
-    dsBulkRevenueStamp: 'Revenue stamp used on all slips.',
-  };
-
-  const SECTION_HINTS = {
-    Appearance: 'Choose brand, template, and visual style for the receipt.',
-    'Station & customer': 'Petrol pump location and vehicle / customer details.',
-    Transaction: 'Enter fill by amount or litres, then set the rate per litre.',
-    'Batch & dates': 'Date range and target total for the fuel receipt batch.',
-    'Receipt details': 'Date, rent amounts, and financial year for this receipt.',
-    'Tenant & property': 'Who paid rent and which property it is for.',
-    'House owner': 'Landlord details printed on the rent receipt.',
-    'Sign & stamp': 'Signature and optional revenue stamp on the document.',
-    'Order & invoice': 'Order date drives invoice date and invoice number.',
-    'Seller details': 'Seller name and addresses on the ecommerce invoice.',
-    'Customer & delivery': 'Buyer and shipping details on the invoice.',
-    'Line items': 'Products or services with GST on the invoice.',
-    Customer: 'Subscriber identity and contact on the postpaid bill.',
-    'Plan & charges': 'Plan name, charges, GST, and late fee.',
-    'Billing dates': 'Statement date, period, due date, and reference ID.',
-    'Payment summary': 'Previous balance, payments, and credits.',
-    'Batch settings': 'How many documents to generate and from which start date.',
-    'Customer & plan': 'Shared customer and plan details for every bill.',
-    'Salary receipt': 'Salary amount, vehicle, and month on the driver slip.',
-    'Driver details': 'Driver name, licence, and receipt date.',
-    'Shared details': 'Details reused on every slip in the batch.',
+    bbBulkCount: 'Number of consecutive monthly bills to generate (maximum 24).',
+    rrBulkDateFrom: 'Date of the first monthly rent receipt in the batch.',
+    rrBulkCount: 'Number of consecutive monthly rent receipts to generate (maximum 24).',
+    dsBulkDateFrom: 'Date of the first monthly driver slip in the batch.',
+    dsBulkCount: 'Number of consecutive monthly salary slips to generate (maximum 24).',
   };
 
   const TAB_HINTS = {
-    txnModeAmountTab: 'Enter total rupee amount; litres are calculated from rate.',
-    txnModeCapacityTab: 'Enter litres dispensed; amount is calculated from rate.',
-    bulkValueModeFixedTab: 'Same amount or litres on every receipt in the batch.',
-    bulkValueModeRandomTab: 'Random amount or litres within your min–max range per receipt.',
-    bulkTxnModeAmountTab: 'Bulk receipts use a rupee amount (fixed or random range).',
-    bulkTxnModeCapacityTab: 'Bulk receipts use litres (fixed or random range).',
-    genMobileEditTab: 'Edit form fields on small screens.',
-    genMobilePreviewTab: 'Switch to live receipt preview on mobile.',
+    txnModeAmountTab: 'Enter the total rupee amount; litres are derived from the rate.',
+    txnModeCapacityTab: 'Enter litres filled; the rupee amount is derived from the rate.',
+    bulkValueModeFixedTab: 'Use the same amount or litres on every receipt in the batch.',
+    bulkValueModeRandomTab: 'Pick a different random amount or litres for each receipt within your min–max range.',
+    bulkTxnModeAmountTab: 'Set fill values in rupees (fixed or random per receipt). Each receipt also uses a slightly random rate within ±₹2 of the base rate.',
+    bulkTxnModeCapacityTab: 'Set fill values in litres (fixed or random per receipt). Each receipt also uses a slightly random rate within ±₹2 of the base rate.',
   };
 
-  const EC_SECTION_HINTS = {
-    ecSecOrder: 'Order ID, dates, and invoice numbers.',
-    ecSecSeller: 'Seller name and dispatch / registered addresses.',
-    ecSecCustomer: 'Customer name, billing, and shipping addresses.',
-    ecSecItems: 'Add products, quantities, prices, and GST.',
+  const SECTION_HINTS = {
+    Transaction: 'Choose amount or litres, then set the rate. The other value is calculated automatically.',
   };
 
   const BUTTON_HINTS = {
-    downloadBtn: 'Download the current fuel receipt as a PNG image.',
-    openBulkPreviewBtnSticky: 'Open a grid preview of all bulk fuel receipts before downloading.',
-    ecDownloadPdfBtn: 'Download the ecommerce invoice as a PDF.',
-    ecAddItemBtn: 'Add a new product line to the invoice.',
-    ecRegenOrderIdBtn: 'Generate a new random order ID.',
-    ecRegenInvoiceNoBtn: 'Generate a new invoice number from the order date.',
-    bbDownloadPdfBtn: 'Download the postpaid bill as a PDF.',
-    bbOpenBulkPreviewBtn: 'Preview all monthly bills before downloading as ZIP.',
-    bbRegenBillRefBtn: 'Generate a new bill reference ID.',
-    rrDownloadPdfBtn: 'Download the rent receipt as a PDF.',
-    rrOpenBulkPreviewBtn: 'Preview all monthly rent receipts before downloading.',
-    dsDownloadPdfBtn: 'Download the driver salary slip as a PDF.',
-    dsOpenBulkPreviewBtn: 'Preview all monthly driver slips before downloading.',
+    ecAddItemBtn: 'Add a product line with quantity, price, discount, and GST to the invoice.',
   };
 
   const BULK_COACHMARK_COPY = {
@@ -225,7 +78,7 @@
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ux-hint-trigger';
-    btn.setAttribute('aria-label', 'What is this?');
+    btn.setAttribute('aria-label', 'More information');
     btn.innerHTML = '<span aria-hidden="true">i</span>';
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -333,45 +186,26 @@
   function initFieldHints(root = document) {
     Object.entries(FIELD_HINTS).forEach(([id, text]) => attachHintToLabel(root, id, text));
 
-    root.querySelectorAll('.fuel-section-label').forEach((section) => {
+    root.querySelectorAll('#singleModePanel .fuel-section-label').forEach((section) => {
       const key = getSectionLabelText(section);
       const hint = SECTION_HINTS[key];
-      if (!hint) return;
-      attachHintToElement(section, hint);
+      if (hint) attachHintToElement(section, hint);
     });
 
     Object.entries(TAB_HINTS).forEach(([id, text]) => {
       const tab = root.getElementById(id);
-      if (!tab) return;
-      attachHintToElement(tab, text);
-    });
-
-    root.querySelectorAll('[data-ec-section]').forEach((btn) => {
-      const hint = EC_SECTION_HINTS[btn.dataset.ecSection];
-      if (!hint) return;
-      attachHintToElement(btn, hint);
+      if (tab) attachHintToElement(tab, text);
     });
 
     Object.entries(BUTTON_HINTS).forEach(([id, text]) => {
       const btn = root.getElementById(id);
       if (!btn) return;
-      btn.setAttribute('title', text);
-      const wrap = btn.closest('.download-action-wrap, .actions, .ec-order-id-row');
+      const wrap = btn.closest('.actions');
       if (wrap && !wrap.querySelector('.ux-hint-trigger')) {
-        const hintBtn = createHintTrigger(text);
-        hintBtn.classList.add('ux-hint-trigger--btn');
         wrap.classList.add('has-ux-hint-inline');
-        wrap.appendChild(hintBtn);
+        wrap.appendChild(createHintTrigger(text));
       }
     });
-
-    const pageTitle = root.getElementById('sitePageTitle');
-    if (pageTitle && !pageTitle.querySelector('.ux-hint-trigger')) {
-      attachHintToElement(
-        pageTitle,
-        'Shows whether you are on single or bulk mode. Use the matching item in the top navigation menu to switch.'
-      );
-    }
   }
 
   function coachmarkStorageKey(gen) {

@@ -3482,32 +3482,31 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       padding: 0;
-      border: none;
+      border: 1px solid color-mix(in srgb, var(--muted) 55%, var(--form-field-border));
       border-radius: 50%;
-      background: var(--accent);
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 800;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 700;
       font-style: italic;
       font-family: Georgia, 'Times New Roman', serif;
       line-height: 1;
       cursor: help;
       flex-shrink: 0;
       vertical-align: middle;
-      box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
-      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+      opacity: 0.9;
+      transition: color 0.15s ease, border-color 0.15s ease;
     }
 
     .ux-hint-trigger:hover,
     .ux-hint-trigger:focus-visible {
-      background: var(--accent-hover);
-      outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
-      outline-offset: 1px;
-      transform: scale(1.08);
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+      color: var(--accent);
+      border-color: color-mix(in srgb, var(--accent) 50%, var(--form-field-border));
+      outline: none;
+      opacity: 1;
     }
 
     .mode-tab .ux-hint-trigger,
@@ -3522,7 +3521,7 @@
     .mode-tab .ux-hint-trigger:focus-visible,
     .ec-section-nav button .ux-hint-trigger:hover,
     .ec-section-nav button .ux-hint-trigger:focus-visible {
-      transform: translateY(-50%) scale(1.05);
+      transform: translateY(-50%);
     }
 
     .has-ux-hint-inline {
@@ -4713,7 +4712,7 @@ New Delhi, 110016</textarea>
   <script src="html2canvas.min.js"></script>
   <script src="jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="js/field-hints.js?v=20260723c"></script>
+  <script src="js/field-hints.js?v=20260723d"></script>
   <script>
     const ICON_PATHS = {
       fuel: '<path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998"/><path d="M4 13V5a2 2 0 0 1 2-2h2"/><path d="M4 13h12"/><path d="M6 5v8"/>',
