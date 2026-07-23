@@ -31,6 +31,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/css/tempus-dominus.min.css" crossorigin="anonymous" />
   <link rel="preload" as="image" href="White_BG.png" />
   <link rel="preload" as="font" href="fonts/pixFueler-A.ttf" type="font/ttf" crossorigin />
@@ -1001,11 +1002,42 @@
       box-shadow: var(--focus-ring);
     }
 
+    .date-input-wrap > .tempus-dominus-widget {
+      display: none !important;
+    }
+
     .tempus-dominus-widget {
+      position: absolute;
+      z-index: 1080;
       font-family: var(--site-font);
       border-radius: 12px;
       box-shadow: var(--shadow-calendar);
       border: 1px solid var(--panel-border);
+      min-width: 18rem;
+    }
+
+    .tempus-dominus-widget .picker-switch {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .tempus-dominus-widget [data-action] {
+      color: var(--accent);
+      opacity: 1;
+    }
+
+    .tempus-dominus-widget [data-action]:hover {
+      color: var(--accent-hover, #1d4ed8);
+      background: var(--date-picker-hover-bg);
+    }
+
+    .tempus-dominus-widget .bi {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .tempus-dominus-widget .toolbar {
+      gap: 0.25rem;
     }
 
     .actions {
@@ -4848,8 +4880,10 @@
   <script src="pdf-lib.min.js"></script>
   <script src="html2canvas.min.js"></script>
   <script src="jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/js/tempus-dominus.min.js" crossorigin="anonymous"></script>
-  <script src="js/bootstrap-pickers.js?v=20260723p"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/plugins/bi-one.js" crossorigin="anonymous"></script>
+  <script src="js/bootstrap-pickers.js?v=20260723q"></script>
   <script src="js/field-hints.js?v=20260723i"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
   <script src="js/ad-gate.js?v=20260723m"></script>

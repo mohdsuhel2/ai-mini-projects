@@ -1,8 +1,33 @@
 (function (global) {
   'use strict';
 
+  const BI_ICONS = {
+    type: 'icons',
+    time: 'bi bi-clock',
+    date: 'bi bi-calendar-week',
+    up: 'bi bi-chevron-up',
+    down: 'bi bi-chevron-down',
+    previous: 'bi bi-chevron-left',
+    next: 'bi bi-chevron-right',
+    today: 'bi bi-calendar-check',
+    clear: 'bi bi-trash',
+    close: 'bi bi-x-lg',
+  };
+
+  let pluginsReady = false;
+
   function getTd() {
     return global.tempusDominus;
+  }
+
+  function ensureTdPlugins() {
+    const TD = getTd();
+    if (!TD || pluginsReady) return TD;
+    if (TD.plugins?.bi_one?.load && typeof TD.extend === 'function') {
+      TD.extend(TD.plugins.bi_one.load);
+    }
+    pluginsReady = true;
+    return TD;
   }
 
   function getPickerTheme() {
@@ -61,14 +86,22 @@
   }
 
   function createPicker(wrapSelector, { withTime = false, onChange, persistKey } = {}) {
-    const TD = getTd();
+    const TD = ensureTdPlugins();
     const wrap = document.querySelector(wrapSelector);
     const input = wrap?.querySelector('input');
     if (!wrap || !input || !TD?.TempusDominus) return null;
 
+    const icons = TD.plugins?.bi_one?.biOneIcons || BI_ICONS;
     const instance = new TD.TempusDominus(wrap, {
+      container: document.body,
       display: {
         theme: getPickerTheme(),
+        viewMode: 'calendar',
+        inline: false,
+        keepOpen: false,
+        sideBySide: false,
+        calendarWeeks: false,
+        icons,
         buttons: {
           today: true,
           clear: true,
