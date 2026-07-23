@@ -85,6 +85,54 @@
     });
   }
 
+  function bindPickerInteractions(instance, wrap, { withTime = false, onChange, persistKey } = {}) {
+    const input = wrap.querySelector('input');
+    if (!input) return;
+
+    const commitChange = () => {
+      const picked = instance.dates.lastPicked;
+      if (picked?.toJSDate) {
+        input.value = formatPickerValue(picked.toJSDate(), withTime);
+      }
+      onChange?.();
+      if (persistKey) global.__persistFormKey?.(persistKey);
+    };
+
+    wrap.addEventListener('change.td', () => {
+      commitChange();
+      if (!withTime) instance.hide();
+    });
+
+    let dayClickHandler = null;
+
+    const bindDayClickClose = () => {
+      const widget = document.body.querySelector('.tempus-dominus-widget.show');
+      if (!widget) return;
+      if (dayClickHandler) widget.removeEventListener('click', dayClickHandler);
+      dayClickHandler = (ev) => {
+        if (!ev.target.closest('[data-action="selectDay"]')) return;
+        window.setTimeout(() => {
+          commitChange();
+          instance.hide();
+        }, 0);
+      };
+      widget.addEventListener('click', dayClickHandler);
+    };
+
+    const unbindDayClickClose = () => {
+      const widget = document.body.querySelector('.tempus-dominus-widget');
+      if (widget && dayClickHandler) {
+        widget.removeEventListener('click', dayClickHandler);
+        dayClickHandler = null;
+      }
+    };
+
+    if (typeof instance.subscribe === 'function') {
+      instance.subscribe('show.td', bindDayClickClose);
+      instance.subscribe('hide.td', unbindDayClickClose);
+    }
+  }
+
   function createPicker(wrapSelector, { withTime = false, onChange, persistKey } = {}) {
     const TD = ensureTdPlugins();
     const wrap = document.querySelector(wrapSelector);
@@ -103,9 +151,9 @@
         calendarWeeks: false,
         icons,
         buttons: {
-          today: true,
-          clear: true,
-          close: true,
+          today: false,
+          clear: false,
+          close: false,
         },
         components: withTime
           ? {
@@ -153,14 +201,7 @@
       },
     };
 
-    wrap.addEventListener('change.td', () => {
-      const picked = instance.dates.lastPicked;
-      if (picked?.toJSDate) {
-        input.value = formatPickerValue(picked.toJSDate(), withTime);
-      }
-      onChange?.();
-      if (persistKey) global.__persistFormKey?.(persistKey);
-    });
+    bindPickerInteractions(instance, wrap, { withTime, onChange, persistKey });
 
     return adapter;
   }

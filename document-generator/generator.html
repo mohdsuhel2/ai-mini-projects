@@ -931,7 +931,8 @@
       font-size: 0.9rem;
       font-weight: 500;
       outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      box-shadow: none;
+      transition: border-color 0.2s, background 0.2s;
       font-family: inherit;
     }
 
@@ -946,7 +947,8 @@
     .field-group textarea:focus {
       border-color: var(--accent);
       background: var(--input-bg);
-      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22);
+      box-shadow: none;
+      outline: none;
     }
 
     .field-group input::placeholder,
@@ -978,9 +980,80 @@
     }
 
     .date-input-wrap .input-group-text.date-picker-btn:hover {
-      color: var(--accent);
-      background: var(--date-picker-hover-bg);
-      border-color: var(--accent-border);
+      color: var(--text-secondary);
+      background: var(--surface);
+      border-color: var(--form-field-border, var(--panel-border));
+    }
+
+    .date-input-wrap > .tempus-dominus-widget {
+      display: none !important;
+    }
+
+    .tempus-dominus-widget {
+      position: absolute;
+      z-index: 1080;
+      font-family: var(--site-font);
+      border-radius: 12px;
+      box-shadow: var(--shadow-calendar);
+      border: 1px solid var(--panel-border);
+      min-width: 17rem;
+      background: var(--surface-raised);
+      color: var(--text);
+      --bs-primary: #475569;
+      --bs-primary-rgb: 71, 85, 105;
+    }
+
+    [data-theme="dark"] .tempus-dominus-widget {
+      --bs-primary: #cbd5e1;
+      --bs-primary-rgb: 203, 213, 225;
+    }
+
+    .tempus-dominus-widget .picker-switch {
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--heading);
+    }
+
+    .tempus-dominus-widget [data-action] {
+      color: var(--muted);
+      opacity: 1;
+      border-radius: 8px;
+    }
+
+    .tempus-dominus-widget [data-action]:hover {
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    .tempus-dominus-widget .day {
+      border-radius: 8px;
+      color: var(--text);
+    }
+
+    .tempus-dominus-widget .day:hover {
+      background: var(--surface) !important;
+      color: var(--text) !important;
+    }
+
+    .tempus-dominus-widget .day.active,
+    .tempus-dominus-widget .day.active:hover {
+      background: #475569 !important;
+      color: #fff !important;
+    }
+
+    [data-theme="dark"] .tempus-dominus-widget .day.active,
+    [data-theme="dark"] .tempus-dominus-widget .day.active:hover {
+      background: #cbd5e1 !important;
+      color: #0f172a !important;
+    }
+
+    .tempus-dominus-widget .bi {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .tempus-dominus-widget .toolbar {
+      gap: 0.25rem;
     }
 
     .date-input-wrap .date-picker-btn svg {
@@ -995,49 +1068,46 @@
       font-family: inherit;
       font-size: 0.9rem;
       font-weight: 500;
+      box-shadow: none;
+      outline: none;
     }
 
     body.site-generator .form-control:focus,
-    body.site-generator .form-select:focus {
-      box-shadow: var(--focus-ring);
+    body.site-generator .form-select:focus,
+    body.site-generator .input-group .form-control:focus {
+      box-shadow: none;
+      outline: none;
+      border-color: var(--accent);
     }
 
-    .date-input-wrap > .tempus-dominus-widget {
-      display: none !important;
+    body.site-generator .form-select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      padding: 10px 36px 10px 12px;
+      background-color: var(--surface-raised);
+      border: 1px solid var(--form-field-border, var(--panel-border));
+      color: var(--form-input);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 14px;
+      cursor: pointer;
     }
 
-    .tempus-dominus-widget {
-      position: absolute;
-      z-index: 1080;
-      font-family: var(--site-font);
-      border-radius: 12px;
-      box-shadow: var(--shadow-calendar);
-      border: 1px solid var(--panel-border);
-      min-width: 18rem;
+    [data-theme="dark"] body.site-generator .form-select {
+      color-scheme: dark;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239aa8be' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
     }
 
-    .tempus-dominus-widget .picker-switch {
-      font-weight: 600;
-      font-size: 0.95rem;
+    body.site-generator .date-input-wrap.input-group > .form-control {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
     }
 
-    .tempus-dominus-widget [data-action] {
-      color: var(--accent);
-      opacity: 1;
-    }
-
-    .tempus-dominus-widget [data-action]:hover {
-      color: var(--accent-hover, #1d4ed8);
-      background: var(--date-picker-hover-bg);
-    }
-
-    .tempus-dominus-widget .bi {
-      font-size: 1rem;
-      line-height: 1;
-    }
-
-    .tempus-dominus-widget .toolbar {
-      gap: 0.25rem;
+    body.site-generator .date-input-wrap.input-group > .input-group-text {
+      border-top-right-radius: 10px;
+      border-bottom-right-radius: 10px;
     }
 
     .actions {
@@ -3543,6 +3613,8 @@
     [data-theme="dark"] body.site-generator .form-select:focus {
       background: #121a2a;
       border-color: var(--accent);
+      box-shadow: none;
+      outline: none;
     }
 
     [data-theme="dark"] body.site-generator .form-section {
@@ -4305,11 +4377,11 @@
           <p class="fuel-section-label" data-section-icon="wifi">Plan &amp; charges</p>
           <div class="field-group">
             <label for="bbPlanName">Plan Name</label>
-            <input type="text" id="bbPlanName" value="" placeholder="e.g. Infinity Family 699 Plan" />
+            <input type="text" id="bbPlanName" value="Infinity Family 699 Plan" placeholder="e.g. Infinity Family 699 Plan" />
           </div>
           <div class="field-group">
             <label for="bbPlanCharges">Plan / Pack Charges (₹)</label>
-            <input type="number" id="bbPlanCharges" value="" min="0" step="0.01" placeholder="e.g. 699" />
+            <input type="number" id="bbPlanCharges" value="699" min="0" step="0.01" placeholder="e.g. 699" />
           </div>
           <div class="field-group">
             <label for="bbGstRate">GST %</label>
@@ -4398,11 +4470,11 @@
           </div>
           <div class="field-group">
             <label for="bbBulkPlanName">Plan Name</label>
-            <input type="text" id="bbBulkPlanName" value="" placeholder="e.g. Infinity Family 699 Plan" />
+            <input type="text" id="bbBulkPlanName" value="Infinity Family 699 Plan" placeholder="e.g. Infinity Family 699 Plan" />
           </div>
           <div class="field-group">
             <label for="bbBulkPlanCharges">Plan Charges (₹)</label>
-            <input type="number" id="bbBulkPlanCharges" value="" min="0" step="0.01" placeholder="e.g. 699" />
+            <input type="number" id="bbBulkPlanCharges" value="699" min="0" step="0.01" placeholder="e.g. 699" />
           </div>
           <div class="field-group">
             <label for="bbBulkGstRate">GST %</label>
@@ -4883,7 +4955,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/js/tempus-dominus.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/plugins/bi-one.js" crossorigin="anonymous"></script>
-  <script src="js/bootstrap-pickers.js?v=20260723q"></script>
+  <script src="js/bootstrap-pickers.js?v=20260723r"></script>
   <script src="js/field-hints.js?v=20260723i"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
   <script src="js/ad-gate.js?v=20260723m"></script>
@@ -9181,6 +9253,7 @@
       'bbAddress', 'bbBulkAddress',
       'bbEmail', 'bbBulkEmail',
       'bbPhone', 'bbBulkPhone',
+      'bbStatementDate',
       'rrReceiptDate', 'rrBulkDateFrom',
       'rrRentAmount', 'rrMonthlyRent', 'rrBulkRentAmount', 'rrBulkMonthlyRent',
       'rrTenantSalutation', 'rrBulkTenantSalutation',
@@ -9201,6 +9274,7 @@
       bulkDateFrom: 'bulkFrom',
       bulkDateTo: 'bulkTo',
       ecOrderDate: 'ecOrderDate',
+      bbStatementDate: 'bbStatementDate',
       rrReceiptDate: 'rrReceiptDate',
       rrBulkDateFrom: 'rrBulkDateFrom',
       dsSlipDate: 'dsSlipDate',
@@ -9250,9 +9324,6 @@
       const dateOnly = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       if (!fieldHasSavedValue('dateTime')) {
         setPickerDate(datePickers.dateTime, toDatetimeLocalValue(now));
-      }
-      if (!fieldHasSavedValue('bbStatementDate')) {
-        setPickerDate(datePickers.bbStatementDate, dateOnly(now));
       }
       if (!fieldHasSavedValue('bbBulkDateFrom')) {
         setPickerDate(datePickers.bbBulkDateFrom, dateOnly(now));
