@@ -5368,7 +5368,7 @@
       saturate: 0.9,
     };
     const exportImageCache = new Map();
-    const EXPORT_MOUNT_STYLE = 'position:fixed;left:0;top:0;opacity:0;z-index:-1;pointer-events:none;overflow:visible;';
+    const EXPORT_MOUNT_STYLE = 'position:fixed;left:-120vw;top:0;opacity:1;visibility:visible;z-index:-1;pointer-events:none;overflow:visible;filter:none;';
 
     function mountExportContainer(className, html) {
       const container = document.createElement('div');
@@ -5382,13 +5382,21 @@
     async function withExportCapture(task) {
       const htmlOverflow = document.documentElement.style.overflow;
       const bodyOverflow = document.body.style.overflow;
+      const clippedNodes = [...document.querySelectorAll('body.site-generator .site-main, body.site-generator .preview-area, body.site-generator .config-panel, body.site-generator .generator-workspace, body.site-generator .app')]
+        .map(node => ({ node, overflow: node.style.overflow }));
       document.documentElement.style.overflow = 'visible';
       document.body.style.overflow = 'visible';
+      clippedNodes.forEach(({ node }) => {
+        node.style.overflow = 'visible';
+      });
       try {
         return await task();
       } finally {
         document.documentElement.style.overflow = htmlOverflow;
         document.body.style.overflow = bodyOverflow;
+        clippedNodes.forEach(({ node, overflow }) => {
+          node.style.overflow = overflow;
+        });
       }
     }
 
@@ -5396,13 +5404,25 @@
       if (!canvas?.width || !canvas?.height) return false;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return false;
-      const sampleWidth = Math.min(canvas.width, 160);
-      const sampleHeight = Math.min(canvas.height, 160);
+      const sampleWidth = Math.min(canvas.width, 200);
+      const sampleHeight = Math.min(canvas.height, 200);
       const { data } = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
-      for (let i = 3; i < data.length; i += 16) {
-        if (data[i] > 12) return true;
+      let darkPixels = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        const alpha = data[i + 3];
+        if (alpha < 20) continue;
+        const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        if (luminance < 95) darkPixels += 1;
       }
-      return false;
+      return darkPixels > 48;
+    }
+
+    function getReceiptCaptureTarget(exportRoot) {
+      const receipt = exportRoot?.querySelector?.('.receipt');
+      if (!receipt) {
+        throw new Error('Receipt element not found for export.');
+      }
+      return receipt;
     }
 
     const $ = id => document.getElementById(id);
@@ -9872,11 +9892,11 @@
       const wrapperPadding = hasTears ? WRAPPER_PADDING : 0;
       exportRoot.style.cssText = [
         EXPORT_MOUNT_STYLE,
-        'filter:none',
         `padding:${wrapperPadding}px 0`,
         'box-sizing:border-box',
         'display:inline-block',
       ].join(';');
+      exportRoot.classList.remove('preview-doc-shell');
 
       const receipt = exportRoot.querySelector('.receipt');
       if (!receipt) {
@@ -10029,7 +10049,8 @@
         return await withExportCapture(async () => {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-        const canvas = await html2canvas(exportRoot, {
+        const captureTarget = getReceiptCaptureTarget(exportRoot);
+        const canvas = await html2canvas(captureTarget, {
           backgroundColor: exportMeta.paper || '#ececec',
           scale: 3,
           useCORS: true,
