@@ -23,6 +23,11 @@
       document.body.appendChild(el);
     }
 
+    function updateMessage(message) {
+      if (!message || !labelEl) return;
+      labelEl.textContent = message;
+    }
+
     function show(message) {
       ensure();
       count += 1;
@@ -30,7 +35,6 @@
       el.classList.add('is-visible');
       el.setAttribute('aria-busy', 'true');
       document.body.classList.add('site-is-loading');
-      document.documentElement.classList.remove('site-boot-loading');
     }
 
     function hide() {
@@ -40,7 +44,6 @@
         el.classList.remove('is-visible');
         el.setAttribute('aria-busy', 'false');
         document.body.classList.remove('site-is-loading');
-        document.documentElement.classList.remove('site-boot-loading');
       }
     }
 
@@ -50,7 +53,6 @@
       el.classList.remove('is-visible');
       el.setAttribute('aria-busy', 'false');
       document.body.classList.remove('site-is-loading');
-      document.documentElement.classList.remove('site-boot-loading');
     }
 
     async function withAsync(task, message) {
@@ -62,41 +64,9 @@
       }
     }
 
-    function isSameOriginNavigation(href) {
-      try {
-        const url = new URL(href, location.href);
-        if (url.origin !== location.origin) return false;
-        if (url.pathname === location.pathname && url.search === location.search && !url.hash) return false;
-        return /\.html?$/i.test(url.pathname) || url.pathname.endsWith('/');
-      } catch (_) {
-        return false;
-      }
-    }
-
-    function initNavigationLoader() {
-      document.addEventListener('click', event => {
-        const anchor = event.target.closest('a[href]');
-        if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
-        if (anchor.dataset.noLoader !== undefined) return;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        const href = anchor.getAttribute('href');
-        if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-        if (!isSameOriginNavigation(href)) return;
-        show('Opening…');
-      });
-    }
-
     function initPageLoader() {
-      if (document.readyState === 'complete') {
-        reset();
-        return;
-      }
-      show('Loading…');
-      window.addEventListener('load', () => {
-        requestAnimationFrame(() => {
-          setTimeout(reset, 100);
-        });
-      }, { once: true });
+      // No boot-time loader — navigation and in-page tabs stay instant.
+      // Blank screen is only shown for explicit async work (PDF/ZIP generation).
     }
 
     function runDeferred(message, fn) {
@@ -112,7 +82,7 @@
       });
     }
 
-    return { show, hide, reset, withAsync, runDeferred, initNavigationLoader, initPageLoader };
+    return { show, hide, reset, updateMessage, withAsync, runDeferred, initPageLoader };
   })();
 
   const ICON = {
@@ -167,25 +137,104 @@
     document.documentElement.setAttribute('data-theme', theme);
   }
 
-  function setActiveNav() {
+  const NAV_PAGE_META = {
+    fuel: {
+      menu: 'Fuel Receipt',
+      single: 'Single Fuel Receipt',
+      bulk: 'Bulk Fuel Receipt Generation',
+      hasMode: true,
+    },
+    postpaid: {
+      menu: 'Postpaid Bill',
+      single: 'Single Postpaid Bill',
+      bulk: 'Bulk Postpaid Bill Generation',
+      hasMode: true,
+    },
+    rent: {
+      menu: 'Rent Receipt',
+      single: 'Single Rent Receipt',
+      bulk: 'Bulk Rent Receipt Generation',
+      hasMode: true,
+    },
+    driver: {
+      menu: 'Driver Slip',
+      single: 'Single Driver Slip',
+      bulk: 'Bulk Driver Slip Generation',
+      hasMode: true,
+    },
+    ecommerce: {
+      menu: 'Ecommerce Invoice',
+      title: 'Ecommerce Invoice',
+      hasMode: false,
+    },
+    about: {
+      menu: 'About',
+      title: 'About NOOBius',
+      hasMode: false,
+    },
+  };
+
+  function updatePageContextBar(page, mode, options) {
+    const bar = document.getElementById('sitePageContext');
+    const categoryEl = document.getElementById('sitePageCategory');
+    const titleEl = document.getElementById('sitePageTitle');
+    if (!bar || !titleEl) return;
+
+    const meta = NAV_PAGE_META[page];
+    if (!meta) {
+      bar.hidden = true;
+      return;
+    }
+
+    bar.hidden = false;
+    if (meta.hasMode) {
+      if (categoryEl) {
+        categoryEl.textContent = meta.menu;
+        categoryEl.hidden = false;
+      }
+      titleEl.textContent = (options && options.pageTitle)
+        || (mode === 'bulk' ? meta.bulk : meta.single);
+    } else {
+      if (categoryEl) categoryEl.hidden = true;
+      titleEl.textContent = (options && options.pageTitle) || meta.title || meta.menu;
+    }
+  }
+
+  function setActiveNav(options) {
     const page = document.body.dataset.page;
     if (!page) return;
-    document.querySelectorAll('.site-nav-link[data-nav]').forEach(link => {
-      link.classList.toggle('active', link.dataset.nav === page);
+    const mode = (options && options.mode)
+      || (new URLSearchParams(location.search).get('mode') === 'bulk' ? 'bulk' : 'single');
+
+    document.querySelectorAll('.site-navbar .nav-link[data-nav]').forEach(link => {
+      const isActive = link.dataset.nav === page;
+      link.classList.toggle('active', isActive);
+      if (isActive) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
     });
+
+    document.querySelectorAll('.site-navbar .nav-item[data-nav]').forEach(item => {
+      item.classList.toggle('active', item.dataset.nav === page);
+    });
+
+    document.querySelectorAll('.site-navbar .dropdown-item[data-nav-gen]').forEach(link => {
+      const isActive = link.dataset.navGen === page && link.dataset.navMode === mode;
+      link.classList.toggle('active', isActive);
+      if (isActive) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+
+    updatePageContextBar(page, mode, options);
   }
 
   function initMobileNav() {
-    const btn = document.getElementById('siteMenuBtn');
-    const nav = document.querySelector('.site-nav');
-    if (!btn || !nav) return;
-    btn.innerHTML = svg(ICON.menu, 'icon', 18);
-    btn.addEventListener('click', () => {
-      const open = nav.classList.toggle('open');
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-    nav.querySelectorAll('.site-nav-link').forEach(link => {
-      link.addEventListener('click', () => nav.classList.remove('open'));
+    const collapseEl = document.getElementById('siteMainNav');
+    if (!collapseEl || !window.bootstrap) return;
+    const collapse = window.bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+    collapseEl.querySelectorAll('.dropdown-item, .nav-link:not(.dropdown-toggle)').forEach(link => {
+      link.addEventListener('click', () => {
+        if (collapseEl.classList.contains('show')) collapse.hide();
+      });
     });
   }
 
@@ -193,7 +242,6 @@
     mountThemeIcons();
     setActiveNav();
     initMobileNav();
-    SiteLoader.initNavigationLoader();
   }
 
   initThemeEarly();

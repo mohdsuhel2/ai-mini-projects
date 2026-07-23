@@ -9,7 +9,8 @@
    */
   const CONFIG = {
     publisherId: 'ca-pub-2293170892331368',
-    loadAdScript: false,
+    // Required for Offerwall + display ads. Offerwall is configured in AdSense dashboard (no extra code).
+    loadAdScript: true,
   };
 
   function upsertMeta(name, content) {

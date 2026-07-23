@@ -10,9 +10,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/site.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+  <link rel="stylesheet" href="css/site.css?v=20260723" />
   <script src="js/seo.js"></script>
   <script>NOOBIUS_SEO.applyStatic('notFound');</script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" defer></script>
   <script src="js/site.js" defer></script>
   <style>
     .error-page {
@@ -45,17 +47,51 @@
         <a href="fuel-receipt.html" class="site-logo">
           <span class="site-logo-word"><span class="site-logo-noob">NOOB</span><span class="site-logo-ius">ius</span></span>
         </a>
-        <nav class="site-nav" aria-label="Main navigation">
-          <a href="fuel-receipt.html" class="site-nav-link" data-nav="fuel">Fuel Receipt</a>
-          <a href="ecommerce-invoice.html" class="site-nav-link" data-nav="ecommerce">Ecommerce Invoice</a>
-          <a href="postpaid-bill.html" class="site-nav-link" data-nav="postpaid">Postpaid Bill</a>
-          <a href="rent-receipt.html" class="site-nav-link" data-nav="rent">Rent Receipt</a>
-          <a href="driver-slip.html" class="site-nav-link" data-nav="driver">Driver Slip</a>
-          <a href="about.html" class="site-nav-link" data-nav="about">About</a>
+        <nav class="navbar navbar-expand-lg site-navbar" aria-label="Main navigation">
+          <div class="collapse navbar-collapse" id="siteMainNav">
+            <ul class="navbar-nav site-navbar-nav">
+              <li class="nav-item dropdown" data-nav="fuel">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="fuel">Fuel Receipt</a>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item" href="fuel-receipt.html" data-nav-gen="fuel" data-nav-mode="single">Single Fuel Receipt</a></li>
+                  <li><a class="dropdown-item" href="fuel-receipt.html?mode=bulk" data-nav-gen="fuel" data-nav-mode="bulk">Bulk Fuel Receipt Generation</a></li>
+                </ul>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="ecommerce-invoice.html" data-nav="ecommerce">Ecommerce Invoice</a>
+              </li>
+              <li class="nav-item dropdown" data-nav="postpaid">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="postpaid">Postpaid Bill</a>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item" href="postpaid-bill.html" data-nav-gen="postpaid" data-nav-mode="single">Single Postpaid Bill</a></li>
+                  <li><a class="dropdown-item" href="postpaid-bill.html?mode=bulk" data-nav-gen="postpaid" data-nav-mode="bulk">Bulk Postpaid Bill Generation</a></li>
+                </ul>
+              </li>
+              <li class="nav-item dropdown" data-nav="rent">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="rent">Rent Receipt</a>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item" href="rent-receipt.html" data-nav-gen="rent" data-nav-mode="single">Single Rent Receipt</a></li>
+                  <li><a class="dropdown-item" href="rent-receipt.html?mode=bulk" data-nav-gen="rent" data-nav-mode="bulk">Bulk Rent Receipt Generation</a></li>
+                </ul>
+              </li>
+              <li class="nav-item dropdown" data-nav="driver">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="driver">Driver Slip</a>
+                <ul class="dropdown-menu">
+                  <li><a class="dropdown-item" href="driver-slip.html" data-nav-gen="driver" data-nav-mode="single">Single Driver Slip</a></li>
+                  <li><a class="dropdown-item" href="driver-slip.html?mode=bulk" data-nav-gen="driver" data-nav-mode="bulk">Bulk Driver Slip Generation</a></li>
+                </ul>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="about.html" data-nav="about">About</a>
+              </li>
+            </ul>
+          </div>
         </nav>
         <div class="site-header-actions">
           <button type="button" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme"></button>
-          <button type="button" class="site-menu-btn" id="siteMenuBtn" aria-label="Open menu" aria-expanded="false"></button>
+          <button class="navbar-toggler site-navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#siteMainNav" aria-controls="siteMainNav" aria-expanded="false" aria-label="Open menu">
+            <span class="navbar-toggler-icon"></span>
+          </button>
         </div>
       </div>
     </header>

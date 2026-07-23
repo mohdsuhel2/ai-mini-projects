@@ -1178,22 +1178,7 @@
     }
 
     .generator-view-bar {
-      flex-shrink: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--space-3);
-      padding: 14px clamp(18px, 4vw, 32px);
-      background: var(--surface-raised);
-      border-bottom: 1px solid var(--panel-border);
-    }
-
-    .generator-doc-label {
-      font-weight: 700;
-      font-size: 0.98rem;
-      letter-spacing: -0.01em;
-      color: var(--heading);
-      white-space: nowrap;
+      display: none !important;
     }
 
     .gen-mobile-viewbar {
@@ -1225,7 +1210,6 @@
         min-width: 0;
       }
 
-      /* Full-width panel on mobile (id selector beats body.site-generator .config-panel) */
       body.site-generator #configPanel {
         width: 100%;
         max-width: none;
@@ -1242,29 +1226,6 @@
     }
 
     body.generator-bulk-mode .gen-mobile-viewbar {
-      display: none !important;
-    }
-
-    @media (max-width: 560px) {
-      .generator-view-bar {
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-
-      .generator-view-bar .generator-mode-switcher,
-      .generator-view-bar .view-tabs-segment {
-        width: 100%;
-      }
-
-      .generator-view-bar .view-tabs-segment .mode-tab {
-        flex: 1;
-        min-width: 0;
-        padding-left: 10px;
-        padding-right: 10px;
-      }
-    }
-
-    .generator-view-bar.hidden {
       display: none !important;
     }
 
@@ -1314,11 +1275,6 @@
       flex: 1;
       min-height: 0;
       overflow: hidden;
-    }
-
-    .generator-mode-switcher {
-      display: flex;
-      justify-content: center;
     }
 
     .txn-mode-tabs {
@@ -1401,15 +1357,6 @@
       font-size: 0.65rem;
       line-height: 1.25;
       color: var(--muted);
-    }
-
-    .preview-watermark-note {
-      display: block;
-      margin-top: 4px;
-      font-size: 0.68rem;
-      line-height: 1.35;
-      color: var(--muted);
-      max-width: 28rem;
     }
 
     .upload-field-meta {
@@ -2272,18 +2219,9 @@
       background: var(--preview-area-bg);
     }
 
-    .preview-area:fullscreen {
-      background: #e8ecf2;
-    }
-
-    .preview-area:fullscreen .preview-toolbar {
-      background: #ffffff;
-    }
-
     .preview-toolbar {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      align-items: flex-start;
       gap: 12px;
       padding: 14px clamp(18px, 4vw, 32px);
       border-bottom: 1px solid var(--preview-toolbar-border);
@@ -2321,16 +2259,13 @@
       flex-shrink: 0;
     }
 
-    .preview-hint {
-      font-size: 0.78rem;
+    .preview-watermark-note {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.72rem;
+      line-height: 1.35;
       color: var(--muted);
-    }
-
-    .preview-toolbar-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
+      max-width: 28rem;
     }
 
     .preview-canvas {
@@ -3388,7 +3323,6 @@
         flex-wrap: wrap;
         gap: 8px;
       }
-      .preview-toolbar-right { margin-left: auto; }
       .form-meta { flex-direction: column; align-items: stretch; }
       .form-meta-item { width: 100%; }
       .form-row { flex-wrap: wrap; }
@@ -3398,8 +3332,6 @@
     @media (max-width: 520px) {
       .config-panel-header { padding: 16px 16px 0; }
       .config-panel-scroll { padding: 0 16px 16px; }
-      .generator-view-bar { padding: 10px 12px; }
-      .view-tabs-segment { width: 100%; }
       .bulk-item-meta { flex-wrap: wrap; }
     }
 
@@ -3416,7 +3348,8 @@
     [data-theme="dark"] { color-scheme: dark; }
     [data-theme="light"] { color-scheme: light; }
   </style>
-  <link rel="stylesheet" href="css/site.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+  <link rel="stylesheet" href="css/site.css?v=20260723b" />
   <style>
     /* Dark form panel — loaded after site.css so tokens are not overridden */
     [data-theme="dark"] body.site-generator {
@@ -3432,11 +3365,6 @@
     [data-theme="dark"] body.site-generator .config-panel {
       background: var(--form-panel-bg);
       border-right-color: var(--panel-border);
-    }
-
-    [data-theme="dark"] body.site-generator .generator-view-bar {
-      background: #1e2838;
-      border-bottom-color: var(--panel-border);
     }
 
     [data-theme="dark"] body.site-generator .view-tabs-segment {
@@ -3508,10 +3436,6 @@
       border-bottom-color: var(--panel-border);
     }
 
-    [data-theme="dark"] body.site-generator .preview-hint {
-      color: #9aa8be;
-    }
-
     [data-theme="dark"] body.site-generator .field-hint {
       color: #8b9bb4;
     }
@@ -3522,9 +3446,10 @@
       border-color: var(--form-field-border);
     }
   </style>
+  <script src="js/form-storage.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" defer></script>
   <script src="js/site.js" defer></script>
   <script>
-    document.documentElement.classList.add('site-boot-loading');
     (function () {
       var key = 'bpDocGeneratorTheme';
       var theme = localStorage.getItem(key);
@@ -3548,33 +3473,65 @@
       <a href="fuel-receipt.html" class="site-logo">
         <span class="site-logo-word"><span class="site-logo-noob">NOOB</span><span class="site-logo-ius">ius</span></span>
       </a>
-      <nav class="site-nav" aria-label="Main navigation">
-        <a href="fuel-receipt.html" class="site-nav-link" data-nav="fuel">Fuel Receipt</a>
-        <a href="ecommerce-invoice.html" class="site-nav-link" data-nav="ecommerce">Ecommerce Invoice</a>
-        <a href="postpaid-bill.html" class="site-nav-link" data-nav="postpaid">Postpaid Bill</a>
-        <a href="rent-receipt.html" class="site-nav-link" data-nav="rent">Rent Receipt</a>
-        <a href="driver-slip.html" class="site-nav-link" data-nav="driver">Driver Slip</a>
-        <a href="about.html" class="site-nav-link" data-nav="about">About</a>
+      <nav class="navbar navbar-expand-lg site-navbar" aria-label="Main navigation">
+        <div class="collapse navbar-collapse" id="siteMainNav">
+          <ul class="navbar-nav site-navbar-nav">
+            <li class="nav-item dropdown" data-nav="fuel">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="fuel">Fuel Receipt</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="fuel-receipt.html" data-nav-gen="fuel" data-nav-mode="single">Single Fuel Receipt</a></li>
+                <li><a class="dropdown-item" href="fuel-receipt.html?mode=bulk" data-nav-gen="fuel" data-nav-mode="bulk">Bulk Fuel Receipt Generation</a></li>
+              </ul>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="ecommerce-invoice.html" data-nav="ecommerce">Ecommerce Invoice</a>
+            </li>
+            <li class="nav-item dropdown" data-nav="postpaid">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="postpaid">Postpaid Bill</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="postpaid-bill.html" data-nav-gen="postpaid" data-nav-mode="single">Single Postpaid Bill</a></li>
+                <li><a class="dropdown-item" href="postpaid-bill.html?mode=bulk" data-nav-gen="postpaid" data-nav-mode="bulk">Bulk Postpaid Bill Generation</a></li>
+              </ul>
+            </li>
+            <li class="nav-item dropdown" data-nav="rent">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="rent">Rent Receipt</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="rent-receipt.html" data-nav-gen="rent" data-nav-mode="single">Single Rent Receipt</a></li>
+                <li><a class="dropdown-item" href="rent-receipt.html?mode=bulk" data-nav-gen="rent" data-nav-mode="bulk">Bulk Rent Receipt Generation</a></li>
+              </ul>
+            </li>
+            <li class="nav-item dropdown" data-nav="driver">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-nav="driver">Driver Slip</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="driver-slip.html" data-nav-gen="driver" data-nav-mode="single">Single Driver Slip</a></li>
+                <li><a class="dropdown-item" href="driver-slip.html?mode=bulk" data-nav-gen="driver" data-nav-mode="bulk">Bulk Driver Slip Generation</a></li>
+              </ul>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="about.html" data-nav="about">About</a>
+            </li>
+          </ul>
+        </div>
       </nav>
       <div class="site-header-actions">
         <button type="button" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme"></button>
-        <button type="button" class="site-menu-btn" id="siteMenuBtn" aria-label="Open menu" aria-expanded="false"></button>
+        <button class="navbar-toggler site-navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#siteMainNav" aria-controls="siteMainNav" aria-expanded="false" aria-label="Open menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
       </div>
     </div>
   </header>
 
+  <div class="site-page-context" id="sitePageContext">
+    <div class="site-page-context-inner">
+      <span class="site-page-context-category" id="sitePageCategory">Fuel Receipt</span>
+      <h2 class="site-page-context-title" id="sitePageTitle">Single Fuel Receipt</h2>
+    </div>
+  </div>
+
   <main class="site-main">
   <h1 class="sr-only" id="seoPageHeading">Free Fuel Receipt Generator</h1>
   <div class="generator-workspace" id="generatorWorkspace">
-    <div class="generator-view-bar" id="generatorViewBar">
-      <span class="generator-doc-label" id="generatorDocLabel">Fuel Receipt</span>
-      <div class="generator-mode-switcher" id="generatorViewTabs">
-        <div class="view-tabs-segment">
-          <button type="button" class="mode-tab active" data-view-mode="single" id="generatorViewSingleTab" data-tab-icon="file">Single Receipt</button>
-          <button type="button" class="mode-tab" data-view-mode="bulk" id="generatorViewBulkTab" data-tab-icon="layers">Bulk Generate</button>
-        </div>
-      </div>
-    </div>
     <div class="gen-mobile-viewbar" id="genMobileViewBar">
       <div class="view-tabs-segment">
         <button type="button" class="mode-tab active" id="genMobileEditTab" data-mobile-view="edit" data-tab-icon="file-text">Edit</button>
@@ -4428,11 +4385,7 @@ New Delhi, 110016</textarea>
       <div class="preview-toolbar">
         <div class="preview-toolbar-left">
           <span class="preview-badge" id="previewModeBadge">Live Preview</span>
-          <span class="preview-hint" id="previewHint">Edits apply instantly</span>
           <span class="preview-watermark-note" id="previewWatermarkNote">Preview watermark is not included in downloaded files.</span>
-        </div>
-        <div class="preview-toolbar-right">
-          <button type="button" class="btn btn-secondary btn-sm" id="previewFullscreenBtn" data-btn-icon="maximize" data-btn-label="Full Screen">Full Screen</button>
         </div>
       </div>
       <div class="preview-canvas">
@@ -4579,6 +4532,18 @@ New Delhi, 110016</textarea>
       fn();
     }
 
+    function setLoaderMessage(message) {
+      window.SiteLoader?.updateMessage?.(message);
+    }
+
+    function setBulkZipProgress(btn, current, total, phase = 'Preparing') {
+      const message = phase === 'zip'
+        ? 'Creating ZIP…'
+        : `${phase} ${current}/${total}…`;
+      setButtonBusy(btn, message);
+      setLoaderMessage(message);
+    }
+
     function decorateModeTabs() {
       document.querySelectorAll('.mode-tab[data-tab-icon]').forEach(btn => {
         if (btn.querySelector('.mode-tab-inner')) return;
@@ -4704,20 +4669,43 @@ New Delhi, 110016</textarea>
 
     function applyRandomDocumentIds(now = new Date()) {
       const fuel = generateFuelReceiptNo(now);
-      if (fields.receiptNo && fields.receiptNo.dataset.userEdited !== '1') {
+      if (fields.receiptNo && fields.receiptNo.dataset.userEdited !== '1' && !String(fields.receiptNo.value || '').trim()) {
         fields.receiptNo.value = fuel.full;
       }
       const bulkPrefix = $('bulkIdPrefix');
-      if (bulkPrefix && bulkPrefix.dataset.userEdited !== '1') {
+      if (bulkPrefix && bulkPrefix.dataset.userEdited !== '1' && !String(bulkPrefix.value || '').trim()) {
         bulkPrefix.value = fuel.prefix;
       }
       const bulkStart = $('bulkIdStart');
-      if (bulkStart && bulkStart.dataset.userEdited !== '1') {
+      if (bulkStart && bulkStart.dataset.userEdited !== '1' && !String(bulkStart.value ?? '').trim()) {
         bulkStart.value = String(fuel.suffix);
       }
       syncOrderIdFromDate(true);
       syncInvoiceNoFromDate(true);
       syncBillRefFromDate(true);
+    }
+
+    function applyStoredImageUpload({ dataUrl, previewId, nameId, onData, fileLabel = 'Saved upload' }) {
+      if (!dataUrl) {
+        onData?.(null);
+        return;
+      }
+      onData(dataUrl);
+      const previewEl = previewId ? $(previewId) : null;
+      const nameEl = nameId ? $(nameId) : null;
+      if (previewEl) {
+        previewEl.src = dataUrl;
+        previewEl.classList.remove('hidden');
+      }
+      if (nameEl) nameEl.textContent = fileLabel;
+    }
+
+    function syncAllSignatureModes() {
+      ['rrLandlordSignatureMode', 'rrBulkLandlordSignatureMode', 'dsSignatureMode', 'dsBulkSignatureMode'].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
     }
 
     const BULK_STORAGE_KEY = 'bpBulkReceipts';
@@ -4992,11 +4980,31 @@ New Delhi, 110016</textarea>
     let bulkFuelValueMode = 'fixed';
     let currentFuelMode = 'single';
 
-    const GENERATOR_VIEW_TAB_LABELS = {
-      fuel: { single: 'Single Receipt', bulk: 'Bulk Generate', singleIcon: 'file' },
-      rent: { single: 'Single Receipt', bulk: 'Bulk Generate', singleIcon: 'file' },
-      driver: { single: 'Single Slip', bulk: 'Bulk Generate', singleIcon: 'file-text' },
-      postpaid: { single: 'Single Bill', bulk: 'Bulk Generate', singleIcon: 'file-text' },
+    const GENERATOR_VIEW_MODE_LABELS = {
+      fuel: {
+        single: 'Single Fuel Receipt',
+        bulk: 'Bulk Fuel Receipt Generation',
+        singleIcon: 'file',
+        bulkIcon: 'layers',
+      },
+      rent: {
+        single: 'Single Rent Receipt',
+        bulk: 'Bulk Rent Receipt Generation',
+        singleIcon: 'file',
+        bulkIcon: 'layers',
+      },
+      driver: {
+        single: 'Single Driver Slip',
+        bulk: 'Bulk Driver Slip Generation',
+        singleIcon: 'file-text',
+        bulkIcon: 'layers',
+      },
+      postpaid: {
+        single: 'Single Postpaid Bill',
+        bulk: 'Bulk Postpaid Bill Generation',
+        singleIcon: 'file-text',
+        bulkIcon: 'layers',
+      },
     };
 
     const outputs = {};
@@ -5418,8 +5426,21 @@ New Delhi, 110016</textarea>
     }
 
     function getInitialViewMode() {
-      const urlMode = new URLSearchParams(location.search).get('mode');
-      return urlMode === 'bulk' ? 'bulk' : 'single';
+      const params = new URLSearchParams(location.search);
+      const mode = params.get('mode');
+      if (mode === 'bulk') return 'bulk';
+      return 'single';
+    }
+
+    function syncViewModeUrl(mode) {
+      if (!['fuel', 'postpaid', 'rent', 'driver'].includes(currentGenerator)) return;
+      const url = new URL(location.href);
+      if (mode === 'bulk') url.searchParams.set('mode', 'bulk');
+      else url.searchParams.delete('mode');
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      const current = `${location.pathname}${location.search}${location.hash}`;
+      if (next !== current) history.replaceState(null, '', next);
+      updateGeneratorNavMenus();
     }
 
     function getCurrentViewMode() {
@@ -5430,30 +5451,48 @@ New Delhi, 110016</textarea>
       return 'single';
     }
 
-    function setGeneratorViewTabLabel(btn, label, iconName) {
-      if (!btn) return;
-      btn.dataset.tabIcon = iconName;
-      btn.innerHTML = `<span class="mode-tab-inner">${icon(iconName, 15)}<span>${label}</span></span>`;
+    function updateNavLinksWithMode() {
+      document.querySelectorAll('.site-navbar .dropdown-item[data-nav-gen]').forEach(link => {
+        const gen = link.dataset.navGen;
+        const linkMode = link.dataset.navMode;
+        const path = getFeaturePagePath(gen);
+        link.href = linkMode === 'bulk' ? `${path}?mode=bulk` : path;
+      });
     }
 
-    function updateGeneratorViewTabs(type = currentGenerator) {
-      const bar = $('generatorViewBar');
-      const labels = GENERATOR_VIEW_TAB_LABELS[type];
-      if (!bar) return;
-      bar.classList.toggle('hidden', !labels);
-
-      const docLabel = $('generatorDocLabel');
-      if (docLabel) docLabel.textContent = getGeneratorMeta(type).title;
-
-      if (!labels) return;
-
+    function updateGeneratorNavMenus(type = currentGenerator) {
+      Object.entries(GENERATOR_VIEW_MODE_LABELS).forEach(([gen, labels]) => {
+        const singleLink = document.querySelector(`.site-navbar .dropdown-item[data-nav-gen="${gen}"][data-nav-mode="single"]`);
+        const bulkLink = document.querySelector(`.site-navbar .dropdown-item[data-nav-gen="${gen}"][data-nav-mode="bulk"]`);
+        if (singleLink) singleLink.textContent = labels.single;
+        if (bulkLink) bulkLink.textContent = labels.bulk;
+      });
+      updateNavLinksWithMode();
+      const labels = GENERATOR_VIEW_MODE_LABELS[type];
       const mode = getCurrentViewMode();
-      const singleTab = $('generatorViewSingleTab');
-      const bulkTab = $('generatorViewBulkTab');
-      setGeneratorViewTabLabel(singleTab, labels.single, labels.singleIcon);
-      setGeneratorViewTabLabel(bulkTab, labels.bulk, 'layers');
-      singleTab?.classList.toggle('active', mode === 'single');
-      bulkTab?.classList.toggle('active', mode === 'bulk');
+      window.Site?.setActiveNav?.({
+        mode,
+        pageTitle: labels ? (mode === 'bulk' ? labels.bulk : labels.single) : undefined,
+      });
+    }
+
+    function wireNavModeLinks() {
+      document.querySelectorAll('.site-navbar .dropdown-item[data-nav-gen]').forEach(link => {
+        if (link.dataset.navModeWired) return;
+        link.dataset.navModeWired = '1';
+        link.addEventListener('click', e => {
+          const gen = link.dataset.navGen;
+          const mode = link.dataset.navMode;
+          if (gen === currentGenerator) {
+            e.preventDefault();
+            setGeneratorViewMode(mode);
+            const collapseEl = document.getElementById('siteMainNav');
+            if (collapseEl?.classList.contains('show') && window.bootstrap) {
+              window.bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).hide();
+            }
+          }
+        });
+      });
     }
 
     function setGeneratorViewMode(mode) {
@@ -5469,7 +5508,7 @@ New Delhi, 110016</textarea>
       else if (currentGenerator === 'postpaid') setPostpaidMode(initialMode);
       else if (currentGenerator === 'rent') setRentMode(initialMode);
       else if (currentGenerator === 'driver') setDriverMode(initialMode);
-      else updateGeneratorViewTabs(currentGenerator);
+      else updateGeneratorNavMenus(currentGenerator);
     }
 
     function updateFeaturePageChrome(type) {
@@ -5477,8 +5516,17 @@ New Delhi, 110016</textarea>
       document.body.dataset.page = type;
       window.NOOBIUS_SEO?.applyGenerator?.(type);
       document.title = window.NOOBIUS_SEO?.GENERATORS?.[type]?.title || `${gen.title} — NOOBius`;
-      updateGeneratorViewTabs(type);
-      window.Site?.setActiveNav?.();
+      updateGeneratorNavMenus(type);
+      const seoHeading = document.getElementById('seoPageHeading');
+      if (seoHeading) {
+        const labels = GENERATOR_VIEW_MODE_LABELS[type];
+        const mode = getCurrentViewMode();
+        if (labels) {
+          seoHeading.textContent = mode === 'bulk' ? labels.bulk : labels.single;
+        } else {
+          seoHeading.textContent = window.NOOBIUS_SEO?.GENERATORS?.[type]?.h1 || gen.title;
+        }
+      }
     }
 
     function syncGeneratorLayoutMode() {
@@ -6118,6 +6166,7 @@ New Delhi, 110016</textarea>
 
       closeEcItemModal();
       updateEcommercePreview();
+      window.__persistFormKey?.('ecommerce');
     }
 
     function calcLineItem(item) {
@@ -6221,51 +6270,7 @@ New Delhi, 110016</textarea>
     }
 
     function updatePreviewChrome() {
-      const badge = $('previewModeBadge');
-      const hint = $('previewHint');
-      if (!badge) return;
-      if (currentGenerator === 'ecommerce') {
-        badge.textContent = 'Live Preview';
-        if (hint) hint.textContent = 'Invoice preview — PDF matches this layout';
-        return;
-      }
-      if (currentGenerator === 'postpaid') {
-        if (currentPostpaidMode === 'bulk') {
-          badge.textContent = 'Live Preview';
-          if (hint) hint.textContent = 'Set batch options, then open bulk preview';
-          return;
-        }
-        badge.textContent = 'Live Preview';
-        if (hint) hint.textContent = 'Bill preview — PDF matches this layout';
-        return;
-      }
-      if (currentGenerator === 'rent') {
-        if (currentRentMode === 'bulk') {
-          badge.textContent = 'Live Preview';
-          if (hint) hint.textContent = 'Set batch options, then open bulk preview';
-          return;
-        }
-        badge.textContent = 'Live Preview';
-        if (hint) hint.textContent = 'Rent receipt preview — PDF matches this layout';
-        return;
-      }
-      if (currentGenerator === 'driver') {
-        if (currentDriverMode === 'bulk') {
-          badge.textContent = 'Live Preview';
-          if (hint) hint.textContent = 'Set batch options, then open bulk preview';
-          return;
-        }
-        badge.textContent = 'Live Preview';
-        if (hint) hint.textContent = 'Driver slip preview — PDF matches this layout';
-        return;
-      }
-      if (currentGenerator === 'fuel' && currentFuelMode === 'bulk') {
-        badge.textContent = 'Live Preview';
-        if (hint) hint.textContent = 'Set your batch options, then open bulk preview';
-        return;
-      }
-      badge.textContent = 'Live Preview';
-      if (hint) hint.textContent = 'Edits apply instantly';
+      // Preview toolbar stays static: Live Preview + watermark note.
     }
 
     function wireEcSectionNav() {
@@ -6325,6 +6330,7 @@ New Delhi, 110016</textarea>
     function removeEcommerceItem(id) {
       ecommerceLineItems = ecommerceLineItems.filter(item => item.id !== id);
       updateEcommercePreview();
+      window.__persistFormKey?.('ecommerce');
     }
 
     function updateEcommercePreview() {
@@ -6498,7 +6504,7 @@ New Delhi, 110016</textarea>
       } else if (isDriver) {
         setDriverMode(currentDriverMode);
       } else {
-        updateGeneratorViewTabs(type);
+        updateGeneratorNavMenus(type);
       }
       updateStickyActions();
       updatePreviewChrome();
@@ -7198,10 +7204,11 @@ New Delhi, 110016</textarea>
       if (currentGenerator === 'postpaid') {
         document.querySelector('.preview-area')?.classList.toggle('hidden', !isSingle);
         document.querySelector('.panel-resizer')?.classList.toggle('hidden', !isSingle);
-        updateGeneratorViewTabs('postpaid');
+        updateGeneratorNavMenus('postpaid');
         updateStickyActions();
         updatePreviewChrome();
         syncGeneratorLayoutMode();
+        syncViewModeUrl(mode);
         if (isSingle) updatePostpaidPreview();
       }
     }
@@ -7697,10 +7704,11 @@ New Delhi, 110016</textarea>
       if (currentGenerator === 'rent') {
         document.querySelector('.preview-area')?.classList.toggle('hidden', !isSingle);
         document.querySelector('.panel-resizer')?.classList.toggle('hidden', !isSingle);
-        updateGeneratorViewTabs('rent');
+        updateGeneratorNavMenus('rent');
         updateStickyActions();
         updatePreviewChrome();
         syncGeneratorLayoutMode();
+        syncViewModeUrl(mode);
         if (isSingle) updateRentPreview();
       }
     }
@@ -7788,14 +7796,15 @@ New Delhi, 110016</textarea>
         const btn = $('bulkDownloadAllBtn');
         const originalText = getButtonLabel(btn);
         btn.disabled = true;
-        setButtonBusy(btn, 'Zipping…');
         try {
           for (let i = 0; i < currentRentBulk.length; i++) {
             const data = normalizeRentData(currentRentBulk[i]);
+            setBulkZipProgress(btn, i + 1, currentRentBulk.length, 'Zipping');
             const bytes = await buildRentPdfFromHtml(data);
             zip.file(rentReceiptFileName(data), bytes);
             $('bulkSummary').textContent = `Zipping ${i + 1} / ${currentRentBulk.length}…`;
           }
+          setBulkZipProgress(btn, 0, 0, 'zip');
           const blob = await zip.generateAsync({ type: 'blob' });
           downloadBlob(blob, 'Rent_Receipts_Bulk.zip');
         } finally {
@@ -7806,16 +7815,14 @@ New Delhi, 110016</textarea>
     }
 
     function initRentBulkView() {
-      runWithLoader('Loading bulk preview…', () => {
-        document.body.classList.add('bulk-view');
-        $('bulkPageTitle').textContent = 'Bulk Rent Receipt Preview';
-        setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
-        $('bulkEmpty').textContent = 'No bulk rent receipts found. Go back and generate a batch.';
-        let receipts = [];
-        try { receipts = JSON.parse(sessionStorage.getItem(RENT_BULK_STORAGE_KEY) || '[]'); } catch { receipts = []; }
-        renderRentBulkGrid(receipts);
-        decorateStaticIcons();
-      });
+      document.body.classList.add('bulk-view');
+      $('bulkPageTitle').textContent = 'Bulk Rent Receipt Preview';
+      setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
+      $('bulkEmpty').textContent = 'No bulk rent receipts found. Go back and generate a batch.';
+      let receipts = [];
+      try { receipts = JSON.parse(sessionStorage.getItem(RENT_BULK_STORAGE_KEY) || '[]'); } catch { receipts = []; }
+      renderRentBulkGrid(receipts);
+      decorateStaticIcons();
     }
 
     function wireRentForm() {
@@ -7860,17 +7867,21 @@ New Delhi, 110016</textarea>
       });
       wireImageUpload('rrLandlordSignature', 'rrLandlordSignatureName', 'rrLandlordSignaturePreview', url => {
         rentLandlordSignatureDataUrl = url;
+        window.__persistFormKey?.('rent_single');
         updateRentPreview();
       });
       wireImageUpload('rrRevenueStamp', 'rrRevenueStampName', 'rrRevenueStampPreview', url => {
         rentRevenueStampDataUrl = url;
+        window.__persistFormKey?.('rent_single');
         updateRentPreview();
       });
       wireImageUpload('rrBulkLandlordSignature', 'rrBulkLandlordSignatureName', null, url => {
         rentBulkLandlordSignatureDataUrl = url;
+        window.__persistFormKey?.('rent_bulk');
       });
       wireImageUpload('rrBulkRevenueStamp', 'rrBulkRevenueStampName', null, url => {
         rentBulkRevenueStampDataUrl = url;
+        window.__persistFormKey?.('rent_bulk');
       });
       $('rrDownloadPdfBtn')?.addEventListener('click', downloadRentPdf);
       $('rrOpenBulkPreviewBtn')?.addEventListener('click', openRentBulkPreviewPage);
@@ -8070,10 +8081,11 @@ New Delhi, 110016</textarea>
       if (currentGenerator === 'driver') {
         document.querySelector('.preview-area')?.classList.toggle('hidden', !isSingle);
         document.querySelector('.panel-resizer')?.classList.toggle('hidden', !isSingle);
-        updateGeneratorViewTabs('driver');
+        updateGeneratorNavMenus('driver');
         updateStickyActions();
         updatePreviewChrome();
         syncGeneratorLayoutMode();
+        syncViewModeUrl(mode);
         if (isSingle) updateDriverPreview();
       }
     }
@@ -8144,14 +8156,15 @@ New Delhi, 110016</textarea>
         const btn = $('bulkDownloadAllBtn');
         const originalText = getButtonLabel(btn);
         btn.disabled = true;
-        setButtonBusy(btn, 'Zipping…');
         try {
           for (let i = 0; i < currentDriverBulk.length; i++) {
             const data = normalizeDriverData(currentDriverBulk[i]);
+            setBulkZipProgress(btn, i + 1, currentDriverBulk.length, 'Zipping');
             const bytes = await buildDriverPdfFromHtml(data);
             zip.file(driverSlipFileName(data), bytes);
             $('bulkSummary').textContent = `Zipping ${i + 1} / ${currentDriverBulk.length}…`;
           }
+          setBulkZipProgress(btn, 0, 0, 'zip');
           const blob = await zip.generateAsync({ type: 'blob' });
           downloadBlob(blob, 'Driver_Slips_Bulk.zip');
         } finally {
@@ -8162,16 +8175,14 @@ New Delhi, 110016</textarea>
     }
 
     function initDriverBulkView() {
-      runWithLoader('Loading bulk preview…', () => {
-        document.body.classList.add('bulk-view');
-        $('bulkPageTitle').textContent = 'Bulk Driver Slip Preview';
-        setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
-        $('bulkEmpty').textContent = 'No bulk driver slips found. Go back and generate a batch.';
-        let slips = [];
-        try { slips = JSON.parse(sessionStorage.getItem(DRIVER_BULK_STORAGE_KEY) || '[]'); } catch { slips = []; }
-        renderDriverBulkGrid(slips);
-        decorateStaticIcons();
-      });
+      document.body.classList.add('bulk-view');
+      $('bulkPageTitle').textContent = 'Bulk Driver Slip Preview';
+      setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
+      $('bulkEmpty').textContent = 'No bulk driver slips found. Go back and generate a batch.';
+      let slips = [];
+      try { slips = JSON.parse(sessionStorage.getItem(DRIVER_BULK_STORAGE_KEY) || '[]'); } catch { slips = []; }
+      renderDriverBulkGrid(slips);
+      decorateStaticIcons();
     }
 
     function wireDriverForm() {
@@ -8205,14 +8216,22 @@ New Delhi, 110016</textarea>
       });
       wireImageUpload('dsSignature', 'dsSignatureName', 'dsSignaturePreview', url => {
         driverSignatureDataUrl = url;
+        window.__persistFormKey?.('driver_single');
         updateDriverPreview();
       });
       wireImageUpload('dsRevenueStamp', 'dsRevenueStampName', 'dsRevenueStampPreview', url => {
         driverRevenueStampDataUrl = url;
+        window.__persistFormKey?.('driver_single');
         updateDriverPreview();
       });
-      wireImageUpload('dsBulkSignature', 'dsBulkSignatureName', null, url => { driverBulkSignatureDataUrl = url; });
-      wireImageUpload('dsBulkRevenueStamp', 'dsBulkRevenueStampName', null, url => { driverBulkRevenueStampDataUrl = url; });
+      wireImageUpload('dsBulkSignature', 'dsBulkSignatureName', null, url => {
+        driverBulkSignatureDataUrl = url;
+        window.__persistFormKey?.('driver_bulk');
+      });
+      wireImageUpload('dsBulkRevenueStamp', 'dsBulkRevenueStampName', null, url => {
+        driverBulkRevenueStampDataUrl = url;
+        window.__persistFormKey?.('driver_bulk');
+      });
       $('dsDownloadPdfBtn')?.addEventListener('click', downloadDriverPdf);
       $('dsOpenBulkPreviewBtn')?.addEventListener('click', openDriverBulkPreviewPage);
     }
@@ -8501,6 +8520,159 @@ New Delhi, 110016</textarea>
       syncBulkFuelValueFields();
       updateFuelTxnHints();
       updateBulkReceiptEstimate();
+      window.__persistFormKey?.('fuel_bulk');
+    }
+
+    const FORM_STORAGE_SCHEMAS = {
+      fuel_single: ['fuelCompany', 'fuelReceiptTemplate', 'stationLine1', 'stationLine2', 'vehNo', 'customerName', 'vehType', 'amount', 'fuelCapacity', 'rate', 'dateTime', 'receiptNo'],
+      fuel_bulk: ['bulkFuelCompany', 'bulkFuelReceiptTemplate', 'bulkStationLine1', 'bulkStationLine2', 'bulkVehNo', 'bulkCustomerName', 'bulkVehType', 'bulkDateFrom', 'bulkDateTo', 'bulkMinTotalAmount', 'bulkIdPrefix', 'bulkIdStart', 'bulkIdMinGap', 'bulkIdMaxGap', 'bulkAmount', 'bulkCapacity', 'bulkAmountMin', 'bulkAmountMax', 'bulkCapacityMin', 'bulkCapacityMax', 'bulkRate'],
+      ecommerce: ['ecOrderDate', 'ecOrderId', 'ecInvoiceNo', 'ecInvoiceDate', 'ecSellerName', 'ecSellerAddress', 'ecSellerRegisteredAddress', 'ecCustomerName', 'ecBillingAddress', 'ecShippingAddress', 'ecOrderedThrough', 'ecShippingCharges'],
+      postpaid_single: ['bbCustomerName', 'bbAddress', 'bbEmail', 'bbPhone', 'bbPlanName', 'bbPlanCharges', 'bbGstRate', 'bbLateFee', 'bbStatementDate', 'bbBillRefId', 'bbLastBillAmount', 'bbPaymentMade', 'bbCredits'],
+      postpaid_bulk: ['bbBulkDateFrom', 'bbBulkCount', 'bbBulkCustomerName', 'bbBulkAddress', 'bbBulkEmail', 'bbBulkPhone', 'bbBulkPlanName', 'bbBulkPlanCharges', 'bbBulkGstRate', 'bbBulkLateFee'],
+      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFromYear', 'rrPeriodToYear', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText'],
+      rent_bulk: ['rrBulkDateFrom', 'rrBulkCount', 'rrBulkRentAmount', 'rrBulkMonthlyRent', 'rrBulkTenantSalutation', 'rrBulkTenantName', 'rrBulkHouseNo', 'rrBulkPropertyAddress', 'rrBulkLandlordName', 'rrBulkLandlordPan', 'rrBulkLandlordSignatureMode', 'rrBulkLandlordSignatureText'],
+      driver_single: ['dsSlipDate', 'dsReceivedFrom', 'dsSalaryAmount', 'dsVehicleNo', 'dsDriverName', 'dsLicenseNo', 'dsSignatureMode', 'dsSignatureText'],
+      driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText'],
+    };
+
+    function formStorageExtra(key) {
+      const extra = {};
+      if (key === 'fuel_single' || key === 'fuel_bulk') extra.fuelTxnMode = currentFuelTxnMode;
+      if (key === 'fuel_bulk') extra.bulkFuelValueMode = bulkFuelValueMode;
+      if (key === 'ecommerce' && ecommerceLineItems.length) extra.lineItems = ecommerceLineItems;
+      if (key === 'rent_single') {
+        if (rentLandlordSignatureDataUrl) extra.landlordSignatureDataUrl = rentLandlordSignatureDataUrl;
+        if (rentRevenueStampDataUrl) extra.revenueStampDataUrl = rentRevenueStampDataUrl;
+      }
+      if (key === 'rent_bulk') {
+        if (rentBulkLandlordSignatureDataUrl) extra.landlordSignatureDataUrl = rentBulkLandlordSignatureDataUrl;
+        if (rentBulkRevenueStampDataUrl) extra.revenueStampDataUrl = rentBulkRevenueStampDataUrl;
+      }
+      if (key === 'driver_single') {
+        if (driverSignatureDataUrl) extra.signatureDataUrl = driverSignatureDataUrl;
+        if (driverRevenueStampDataUrl) extra.revenueStampDataUrl = driverRevenueStampDataUrl;
+      }
+      if (key === 'driver_bulk') {
+        if (driverBulkSignatureDataUrl) extra.signatureDataUrl = driverBulkSignatureDataUrl;
+        if (driverBulkRevenueStampDataUrl) extra.revenueStampDataUrl = driverBulkRevenueStampDataUrl;
+      }
+      return Object.keys(extra).length ? extra : null;
+    }
+
+    function applyFormStorageExtra(key, saved) {
+      if (!saved) return saved;
+      if (key === 'fuel_single' || key === 'fuel_bulk') {
+        let txnMode = saved.fuelTxnMode;
+        if (!txnMode && key === 'fuel_single') {
+          try {
+            const legacy = localStorage.getItem(FUEL_TXN_MODE_STORAGE_KEY);
+            if (legacy === 'amount' || legacy === 'capacity') txnMode = legacy;
+          } catch (_) {}
+        }
+        if (txnMode === 'amount' || txnMode === 'capacity') setFuelTxnMode(txnMode);
+      }
+      if (key === 'fuel_bulk' && saved.bulkFuelValueMode) {
+        setBulkFuelValueMode(saved.bulkFuelValueMode);
+      }
+      if (key === 'ecommerce' && Array.isArray(saved.lineItems) && saved.lineItems.length) {
+        ecommerceLineItems = saved.lineItems;
+        ecommerceItemSeq = ecommerceLineItems.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+        renderEcommerceItemsList();
+      }
+      if (key === 'rent_single') {
+        applyStoredImageUpload({
+          dataUrl: saved.landlordSignatureDataUrl,
+          previewId: 'rrLandlordSignaturePreview',
+          nameId: 'rrLandlordSignatureName',
+          onData: url => { rentLandlordSignatureDataUrl = url; },
+        });
+        applyStoredImageUpload({
+          dataUrl: saved.revenueStampDataUrl,
+          previewId: 'rrRevenueStampPreview',
+          nameId: 'rrRevenueStampName',
+          onData: url => { rentRevenueStampDataUrl = url; },
+        });
+      }
+      if (key === 'rent_bulk') {
+        applyStoredImageUpload({
+          dataUrl: saved.landlordSignatureDataUrl,
+          nameId: 'rrBulkLandlordSignatureName',
+          onData: url => { rentBulkLandlordSignatureDataUrl = url; },
+        });
+        applyStoredImageUpload({
+          dataUrl: saved.revenueStampDataUrl,
+          nameId: 'rrBulkRevenueStampName',
+          onData: url => { rentBulkRevenueStampDataUrl = url; },
+        });
+      }
+      if (key === 'driver_single') {
+        applyStoredImageUpload({
+          dataUrl: saved.signatureDataUrl,
+          previewId: 'dsSignaturePreview',
+          nameId: 'dsSignatureName',
+          onData: url => { driverSignatureDataUrl = url; },
+        });
+        applyStoredImageUpload({
+          dataUrl: saved.revenueStampDataUrl,
+          previewId: 'dsRevenueStampPreview',
+          nameId: 'dsRevenueStampName',
+          onData: url => { driverRevenueStampDataUrl = url; },
+        });
+      }
+      if (key === 'driver_bulk') {
+        applyStoredImageUpload({
+          dataUrl: saved.signatureDataUrl,
+          nameId: 'dsBulkSignatureName',
+          onData: url => { driverBulkSignatureDataUrl = url; },
+        });
+        applyStoredImageUpload({
+          dataUrl: saved.revenueStampDataUrl,
+          nameId: 'dsBulkRevenueStampName',
+          onData: url => { driverBulkRevenueStampDataUrl = url; },
+        });
+      }
+      const next = { ...saved };
+      delete next.lineItems;
+      delete next.bulkFuelValueMode;
+      delete next.fuelTxnMode;
+      delete next.landlordSignatureDataUrl;
+      delete next.revenueStampDataUrl;
+      delete next.signatureDataUrl;
+      return next;
+    }
+
+    function initFormPersistence() {
+      const FS = window.NOOBIUS_FORM_STORAGE;
+      if (!FS) return false;
+
+      window.__persistFormKey = key => {
+        const ids = FORM_STORAGE_SCHEMAS[key];
+        if (!ids) return;
+        const payload = FS.collectByIds(ids);
+        const extra = formStorageExtra(key);
+        if (extra) Object.assign(payload, extra);
+        FS.write(key, payload);
+      };
+
+      Object.entries(FORM_STORAGE_SCHEMAS).forEach(([key, ids]) => {
+        FS.bindAutoSave(key, ids, () => formStorageExtra(key) || {});
+      });
+
+      let restored = false;
+      Object.entries(FORM_STORAGE_SCHEMAS).forEach(([key, ids]) => {
+        if (FS.restore(key, ids, saved => applyFormStorageExtra(key, saved))) restored = true;
+      });
+
+      if (restored) {
+        Object.values(datePickers).forEach(fp => {
+          if (fp?.input?.value) {
+            try { fp.setDate(fp.input.value, false); } catch (_) {}
+          }
+        });
+        syncAllSignatureModes();
+      }
+
+      return restored;
     }
 
     function updateFuelTxnHints() {
@@ -8542,6 +8714,8 @@ New Delhi, 110016</textarea>
       try {
         localStorage.setItem(FUEL_TXN_MODE_STORAGE_KEY, currentFuelTxnMode);
       } catch (_) {}
+      window.__persistFormKey?.('fuel_single');
+      window.__persistFormKey?.('fuel_bulk');
       updateFuelTxnHints();
       updatePreview();
     }
@@ -9162,7 +9336,7 @@ New Delhi, 110016</textarea>
             const wrapper = items[i].querySelector('.receipt-wrapper');
             if (!wrapper) continue;
 
-            setButtonBusy(btn, `Preparing ${i + 1}/${items.length}…`);
+            setBulkZipProgress(btn, i + 1, items.length, 'Preparing');
             summary.textContent = `Generating PNG ${i + 1} of ${items.length} for ZIP…`;
 
             const blob = await captureReceiptPngBlob(wrapper, {
@@ -9175,7 +9349,7 @@ New Delhi, 110016</textarea>
             zip.file(fuelReceiptFileName(data), blob);
           }
 
-          setButtonBusy(btn, 'Creating ZIP…');
+          setBulkZipProgress(btn, 0, 0, 'zip');
           summary.textContent = 'Creating ZIP archive…';
           const zipBlob = await zip.generateAsync({ type: 'blob' });
           const zipName = `BP_Receipts_${formatReceiptFileDate(currentBulkReceipts[0].dateTime)}.zip`;
@@ -9317,12 +9491,12 @@ New Delhi, 110016</textarea>
         try {
           for (let i = 0; i < currentBillBulk.length; i++) {
             const data = normalizeBillData(currentBillBulk[i]);
-            setButtonBusy(btn, `Preparing ${i + 1}/${currentBillBulk.length}…`);
+            setBulkZipProgress(btn, i + 1, currentBillBulk.length, 'Preparing');
             summary.textContent = `Generating PDF ${i + 1} of ${currentBillBulk.length} for ZIP…`;
             const bytes = await buildPostpaidPdfFromHtml(data);
             zip.file(postpaidBillFileName(data), bytes);
           }
-          setButtonBusy(btn, 'Creating ZIP…');
+          setBulkZipProgress(btn, 0, 0, 'zip');
           summary.textContent = 'Creating ZIP archive…';
           const zipBlob = await zip.generateAsync({ type: 'blob' });
           const firstDate = currentBillBulk[0]?.statementDate;
@@ -9337,34 +9511,30 @@ New Delhi, 110016</textarea>
     }
 
     function initBillBulkView() {
-      runWithLoader('Loading bulk preview…', () => {
-        document.body.classList.add('bulk-view');
-        $('bulkPageTitle').textContent = 'Bulk Postpaid Bill Preview';
-        setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
-        $('bulkEmpty').textContent = 'No bulk bills found. Go back and generate a batch.';
-        let bills = [];
-        try {
-          bills = JSON.parse(sessionStorage.getItem(BILL_BULK_STORAGE_KEY) || '[]');
-        } catch {
-          bills = [];
-        }
-        renderBillBulkGrid(bills);
-        decorateStaticIcons();
-      });
+      document.body.classList.add('bulk-view');
+      $('bulkPageTitle').textContent = 'Bulk Postpaid Bill Preview';
+      setButtonLabel($('bulkDownloadAllBtn'), 'Download All as ZIP', 'archive');
+      $('bulkEmpty').textContent = 'No bulk bills found. Go back and generate a batch.';
+      let bills = [];
+      try {
+        bills = JSON.parse(sessionStorage.getItem(BILL_BULK_STORAGE_KEY) || '[]');
+      } catch {
+        bills = [];
+      }
+      renderBillBulkGrid(bills);
+      decorateStaticIcons();
     }
 
     function initBulkView() {
-      runWithLoader('Loading bulk preview…', () => {
-        document.body.classList.add('bulk-view');
-        decorateStaticIcons();
-        let receipts = [];
-        try {
-          receipts = JSON.parse(sessionStorage.getItem(BULK_STORAGE_KEY) || '[]');
-        } catch {
-          receipts = [];
-        }
-        renderBulkGrid(receipts);
-      });
+      document.body.classList.add('bulk-view');
+      decorateStaticIcons();
+      let receipts = [];
+      try {
+        receipts = JSON.parse(sessionStorage.getItem(BULK_STORAGE_KEY) || '[]');
+      } catch {
+        receipts = [];
+      }
+      renderBulkGrid(receipts);
     }
 
     function setMode(mode) {
@@ -9375,7 +9545,19 @@ New Delhi, 110016</textarea>
       if (currentGenerator === 'fuel') {
         document.querySelector('.preview-area')?.classList.toggle('hidden', !isSingle);
         document.querySelector('.panel-resizer')?.classList.toggle('hidden', !isSingle);
-        updateGeneratorViewTabs('fuel');
+        updateGeneratorNavMenus('fuel');
+        syncViewModeUrl(mode);
+        if (mode === 'bulk') {
+          const fuel = generateFuelReceiptNo();
+          const bulkPrefix = $('bulkIdPrefix');
+          const bulkStart = $('bulkIdStart');
+          if (bulkPrefix && bulkPrefix.dataset.userEdited !== '1' && !String(bulkPrefix.value || '').trim()) {
+            bulkPrefix.value = fuel.prefix;
+          }
+          if (bulkStart && bulkStart.dataset.userEdited !== '1' && !String(bulkStart.value ?? '').trim()) {
+            bulkStart.value = String(fuel.suffix);
+          }
+        }
       }
       updateStickyActions();
       updatePreviewChrome();
@@ -9457,16 +9639,6 @@ New Delhi, 110016</textarea>
 
     $('fuelReceiptTemplate')?.addEventListener('change', () => renderSinglePreview(true));
 
-    $('previewFullscreenBtn')?.addEventListener('click', () => {
-      const area = document.querySelector('.preview-area');
-      if (!area) return;
-      if (document.fullscreenElement) {
-        document.exitFullscreen?.();
-      } else {
-        area.requestFullscreen?.();
-      }
-    });
-
     $('downloadBtn').addEventListener('click', async () => {
       await withLoader('Generating PNG…', async () => {
         const wrapper = $('receiptWrapper');
@@ -9492,12 +9664,16 @@ New Delhi, 110016</textarea>
       });
     });
 
-    $('generatorViewSingleTab')?.addEventListener('click', () => setGeneratorViewMode('single'));
-    $('generatorViewBulkTab')?.addEventListener('click', () => setGeneratorViewMode('bulk'));
+    wireNavModeLinks();
     $('openBulkPreviewBtnSticky').addEventListener('click', openBulkPreviewPage);
 
     wireEcSectionNav();
     initPanelResizer();
+    const urlViewMode = getInitialViewMode();
+    currentFuelMode = urlViewMode;
+    currentPostpaidMode = urlViewMode;
+    currentRentMode = urlViewMode;
+    currentDriverMode = urlViewMode;
     setGeneratorType(getInitialDocType());
     syncGeneratorLayoutMode();
     updateStickyActions();
@@ -9505,7 +9681,6 @@ New Delhi, 110016</textarea>
     $('bulkBackBtn').addEventListener('click', () => {
       const view = new URLSearchParams(location.search).get('view');
       const backType = BULK_VIEW_BACK[view] || 'fuel';
-      window.SiteLoader?.show('Going back…');
       window.location.href = `${getFeaturePagePath(backType)}?mode=bulk`;
     });
     $('bulkDownloadAllBtn').addEventListener('click', async () => {
@@ -9562,6 +9737,7 @@ New Delhi, 110016</textarea>
       setPickerDate(datePickers.rrBulkDateFrom, dateOnly(now));
       setPickerDate(datePickers.dsSlipDate, dateOnly(now));
       setPickerDate(datePickers.dsBulkDateFrom, dateOnly(now));
+      initFormPersistence();
       applyRandomDocumentIds(now);
       initEcommerceMode();
       initPostpaidMode();
@@ -9569,20 +9745,9 @@ New Delhi, 110016</textarea>
       initDriverMode();
       initGeneratorViewMode();
       decorateStaticIcons();
-      try {
-        const savedTxnMode = localStorage.getItem(FUEL_TXN_MODE_STORAGE_KEY);
-        if (savedTxnMode === 'amount' || savedTxnMode === 'capacity') {
-          setFuelTxnMode(savedTxnMode);
-        } else {
-          syncBulkFuelValueFields();
-          updateFuelTxnHints();
-          updateBulkReceiptEstimate();
-        }
-      } catch (_) {
-        syncBulkFuelValueFields();
-        updateFuelTxnHints();
-        updateBulkReceiptEstimate();
-      }
+      syncBulkFuelValueFields();
+      updateFuelTxnHints();
+      updateBulkReceiptEstimate();
       updatePreview(currentGenerator === 'fuel');
       preloadExportAssets();
     }
