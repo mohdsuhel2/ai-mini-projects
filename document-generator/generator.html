@@ -5372,7 +5372,7 @@
 
     function mountExportContainer(className, html) {
       const container = document.createElement('div');
-      container.className = className;
+      container.className = `${className} doc-export-surface`.trim();
       container.style.cssText = EXPORT_MOUNT_STYLE;
       if (html != null) container.innerHTML = html;
       document.body.appendChild(container);
@@ -5382,10 +5382,14 @@
     async function withExportCapture(task) {
       const htmlOverflow = document.documentElement.style.overflow;
       const bodyOverflow = document.body.style.overflow;
+      const hadLoadingClass = document.body.classList.contains('site-is-loading');
       const clippedNodes = [...document.querySelectorAll('body.site-generator .site-main, body.site-generator .preview-area, body.site-generator .config-panel, body.site-generator .generator-workspace, body.site-generator .app')]
         .map(node => ({ node, overflow: node.style.overflow }));
       document.documentElement.style.overflow = 'visible';
       document.body.style.overflow = 'visible';
+      if (hadLoadingClass) {
+        document.body.classList.remove('site-is-loading');
+      }
       clippedNodes.forEach(({ node }) => {
         node.style.overflow = 'visible';
       });
@@ -5394,6 +5398,9 @@
       } finally {
         document.documentElement.style.overflow = htmlOverflow;
         document.body.style.overflow = bodyOverflow;
+        if (hadLoadingClass) {
+          document.body.classList.add('site-is-loading');
+        }
         clippedNodes.forEach(({ node, overflow }) => {
           node.style.overflow = overflow;
         });
@@ -5404,11 +5411,9 @@
       if (!canvas?.width || !canvas?.height) return false;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return false;
-      const sampleWidth = Math.min(canvas.width, 200);
-      const sampleHeight = Math.min(canvas.height, 200);
-      const { data } = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
       let darkPixels = 0;
-      for (let i = 0; i < data.length; i += 16) {
+      for (let i = 0; i < data.length; i += 64) {
         const alpha = data[i + 3];
         if (alpha < 20) continue;
         const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
@@ -9889,6 +9894,7 @@
       stripPreviewWatermark(exportRoot);
       exportRoot.removeAttribute('id');
       exportRoot.id = 'bp-export-clone';
+      exportRoot.classList.add('doc-export-surface');
       const wrapperPadding = hasTears ? WRAPPER_PADDING : 0;
       exportRoot.style.cssText = [
         EXPORT_MOUNT_STYLE,

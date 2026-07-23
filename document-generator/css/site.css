@@ -965,7 +965,7 @@ html:has(body.site-is-loading) {
   background: var(--body-bg);
 }
 
-body.site-is-loading > *:not(#siteLoader) {
+body.site-is-loading > *:not(#siteLoader):not(#bp-export-clone):not(.doc-export-root):not(.doc-export-surface) {
   visibility: hidden;
 }
 
