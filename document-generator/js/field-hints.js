@@ -74,12 +74,14 @@
     return section.textContent.replace(/\s+/g, ' ').trim();
   }
 
-  function createHintTrigger(text) {
+  const HINT_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.18"/><path d="M12 10.5v4.5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+  function createHintTrigger(text, variant = 'field') {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'ux-hint-trigger';
+    btn.className = variant === 'section' ? 'ux-hint-trigger ux-hint-trigger--section' : 'ux-hint-trigger';
     btn.setAttribute('aria-label', 'More information');
-    btn.innerHTML = '<span aria-hidden="true">i</span>';
+    btn.innerHTML = HINT_ICON;
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -173,14 +175,15 @@
   function attachHintToLabel(root, id, text) {
     const label = root.querySelector(`label[for="${id}"]`);
     if (!label || label.querySelector('.ux-hint-trigger')) return;
-    label.classList.add('has-ux-hint');
-    label.appendChild(createHintTrigger(text));
+    label.classList.add('has-ux-hint', 'has-ux-hint-label');
+    label.appendChild(createHintTrigger(text, 'field'));
   }
 
-  function attachHintToElement(el, text) {
+  function attachHintToElement(el, text, variant = 'field') {
     if (!el || el.querySelector('.ux-hint-trigger')) return;
     el.classList.add('has-ux-hint');
-    el.appendChild(createHintTrigger(text));
+    if (variant === 'section') el.classList.add('has-ux-hint-section');
+    el.appendChild(createHintTrigger(text, variant));
   }
 
   function initFieldHints(root = document) {
@@ -189,12 +192,12 @@
     root.querySelectorAll('#singleModePanel .fuel-section-label').forEach((section) => {
       const key = getSectionLabelText(section);
       const hint = SECTION_HINTS[key];
-      if (hint) attachHintToElement(section, hint);
+      if (hint) attachHintToElement(section, hint, 'section');
     });
 
     Object.entries(TAB_HINTS).forEach(([id, text]) => {
       const tab = root.getElementById(id);
-      if (tab) attachHintToElement(tab, text);
+      if (tab) attachHintToElement(tab, text, 'field');
     });
 
     Object.entries(BUTTON_HINTS).forEach(([id, text]) => {

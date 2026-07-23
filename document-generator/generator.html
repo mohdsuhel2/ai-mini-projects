@@ -3603,13 +3603,73 @@
     .fuel-section-label.has-ux-hint {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-start;
       gap: 8px;
+      width: 100%;
     }
 
-    .fuel-section-label.has-ux-hint .section-label-inner {
-      flex: 1;
-      min-width: 0;
+    .fuel-section-label.has-ux-hint-section .ux-hint-trigger--section {
+      margin-left: auto;
+    }
+
+    .has-ux-hint-label {
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .ux-hint-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--accent);
+      cursor: help;
+      flex-shrink: 0;
+      vertical-align: middle;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .ux-hint-trigger svg {
+      display: block;
+    }
+
+    .ux-hint-trigger:hover,
+    .ux-hint-trigger:focus-visible {
+      transform: scale(1.06);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+      outline: none;
+    }
+
+    .ux-hint-trigger--section {
+      width: 22px;
+      height: 22px;
+    }
+
+    .field-group.field-invalid input,
+    .field-group.field-invalid select,
+    .field-group.field-invalid textarea,
+    .line-items-editor.field-invalid {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.2);
+    }
+
+    .field-error-msg {
+      margin: 6px 0 0;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: #dc2626;
+      font-weight: 500;
+    }
+
+    .label-optional {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--muted);
     }
 
     .mode-tab.has-ux-hint,
@@ -3618,41 +3678,9 @@
       padding-right: 28px;
     }
 
-    .site-page-context-title.has-ux-hint {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .ux-hint-trigger {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
-      height: 16px;
-      padding: 0;
-      border: 1px solid color-mix(in srgb, var(--muted) 55%, var(--form-field-border));
-      border-radius: 50%;
-      background: transparent;
-      color: var(--muted);
-      font-size: 0.62rem;
-      font-weight: 700;
-      font-style: italic;
-      font-family: Georgia, 'Times New Roman', serif;
-      line-height: 1;
-      cursor: help;
-      flex-shrink: 0;
-      vertical-align: middle;
-      opacity: 0.9;
-      transition: color 0.15s ease, border-color 0.15s ease;
-    }
-
-    .ux-hint-trigger:hover,
-    .ux-hint-trigger:focus-visible {
-      color: var(--accent);
-      border-color: color-mix(in srgb, var(--accent) 50%, var(--form-field-border));
-      outline: none;
-      opacity: 1;
+    .fuel-section-label.has-ux-hint .section-label-inner {
+      flex: 1;
+      min-width: 0;
     }
 
     .mode-tab .ux-hint-trigger,
@@ -3946,22 +3974,22 @@
 
       <div class="field-group">
         <label for="stationLine1">Station Address (Line 1)</label>
-        <input type="text" id="stationLine1" value="Green Park" />
+        <input type="text" id="stationLine1" value="Green Park, New Delhi" />
       </div>
 
       <div class="field-group">
         <label for="stationLine2">Station Address (Line 2)</label>
-        <input type="text" id="stationLine2" value="New Delhi" />
+        <input type="text" id="stationLine2" value="" />
       </div>
 
       <div class="field-group">
         <label for="vehNo">Vehicle Number</label>
-        <input type="text" id="vehNo" value="DL01AB1234" placeholder="e.g. DL01AB1234" />
+        <input type="text" id="vehNo" value="" placeholder="e.g. DL01AB1234" />
       </div>
 
       <div class="field-group">
-        <label for="customerName">Customer Name</label>
-        <input type="text" id="customerName" value="Amit Sharma" placeholder="e.g. Amit Sharma" />
+        <label for="customerName">Customer Name <span class="label-optional">(optional)</span></label>
+        <input type="text" id="customerName" value="" placeholder="e.g. Amit Sharma" />
       </div>
 
       <div class="field-group">
@@ -3984,15 +4012,15 @@
         <div class="txn-fields-grid">
           <div class="field-group" id="amountFieldGroup">
             <label for="amount">Total amount (₹)</label>
-            <input type="number" id="amount" value="5000" min="0" step="1" />
+            <input type="number" id="amount" value="" min="0" step="1" placeholder="e.g. 5000" />
           </div>
           <div class="field-group hidden" id="capacityFieldGroup">
             <label for="fuelCapacity">Fuel quantity (L)</label>
-            <input type="number" id="fuelCapacity" value="50" min="0" step="0.01" />
+            <input type="number" id="fuelCapacity" value="" min="0" step="0.01" placeholder="e.g. 50" />
           </div>
           <div class="field-group">
             <label for="rate">Rate / litre (₹)</label>
-            <input type="number" id="rate" value="100" min="1" step="0.01" />
+            <input type="number" id="rate" value="100.5" min="1" step="0.01" />
           </div>
         </div>
         <p class="field-hint txn-calc-hint" id="txnCalcHint">Volume: 50.00 L (from amount ÷ rate)</p>
@@ -4043,8 +4071,8 @@
 
         <div class="field-group">
           <label for="bulkMinTotalAmount">Minimum total amount (₹)</label>
-          <input type="number" id="bulkMinTotalAmount" value="50000" min="1" step="1" />
-          <p class="field-hint" id="bulkReceiptEstimate">Approximately 10 receipts to reach ₹50,000 (max 100).</p>
+          <input type="number" id="bulkMinTotalAmount" value="" min="1" step="1" placeholder="e.g. 50000" />
+          <p class="field-hint" id="bulkReceiptEstimate">Set a minimum total amount and per-receipt values.</p>
         </div>
 
         <div class="form-fields-row">
@@ -4062,7 +4090,7 @@
         <div class="form-fields-row">
           <div class="field-group">
             <label for="bulkIdMinGap">Min ID Gap</label>
-            <input type="number" id="bulkIdMinGap" value="5" min="1" max="999" step="1" />
+            <input type="number" id="bulkIdMinGap" value="50" min="1" max="999" step="1" />
           </div>
           <div class="field-group">
             <label for="bulkIdMaxGap">Max ID Gap</label>
@@ -4095,22 +4123,22 @@
 
         <div class="field-group">
           <label for="bulkStationLine1">Station Address (Line 1)</label>
-          <input type="text" id="bulkStationLine1" value="Green Park" />
+          <input type="text" id="bulkStationLine1" value="Green Park, New Delhi" />
         </div>
 
         <div class="field-group">
           <label for="bulkStationLine2">Station Address (Line 2)</label>
-          <input type="text" id="bulkStationLine2" value="New Delhi" />
+          <input type="text" id="bulkStationLine2" value="" />
         </div>
 
         <div class="field-group">
           <label for="bulkVehNo">Vehicle Number</label>
-          <input type="text" id="bulkVehNo" value="DL01AB1234" />
+          <input type="text" id="bulkVehNo" value="" placeholder="e.g. DL01AB1234" />
         </div>
 
         <div class="field-group">
-          <label for="bulkCustomerName">Customer Name</label>
-          <input type="text" id="bulkCustomerName" value="Amit Sharma" />
+          <label for="bulkCustomerName">Customer Name <span class="label-optional">(optional)</span></label>
+          <input type="text" id="bulkCustomerName" value="" placeholder="e.g. Amit Sharma" />
         </div>
 
         <div class="field-group">
@@ -4131,37 +4159,37 @@
             <button type="button" class="mode-tab" id="bulkValueModeRandomTab" data-tab-icon="shuffle">Random per receipt</button>
           </div>
           <div class="txn-mode-tabs mode-tabs">
-            <button type="button" class="mode-tab active" data-bulk-txn-mode="amount" id="bulkTxnModeAmountTab" data-tab-icon="indian-rupee">By amount</button>
-            <button type="button" class="mode-tab" data-bulk-txn-mode="capacity" id="bulkTxnModeCapacityTab" data-tab-icon="droplets">By litres</button>
+            <button type="button" class="mode-tab" data-bulk-txn-mode="amount" id="bulkTxnModeAmountTab" data-tab-icon="indian-rupee">By amount</button>
+            <button type="button" class="mode-tab active" data-bulk-txn-mode="capacity" id="bulkTxnModeCapacityTab" data-tab-icon="droplets">By litres</button>
           </div>
           <div class="txn-fields-grid">
-            <div class="field-group" id="bulkAmountFieldGroup">
+            <div class="field-group hidden" id="bulkAmountFieldGroup">
               <label for="bulkAmount">Amount per receipt (₹)</label>
-              <input type="number" id="bulkAmount" value="5000" min="0" step="1" />
+              <input type="number" id="bulkAmount" value="" min="0" step="1" placeholder="e.g. 5000" />
             </div>
-            <div class="field-group hidden" id="bulkCapacityFieldGroup">
+            <div class="field-group" id="bulkCapacityFieldGroup">
               <label for="bulkCapacity">Litres per receipt</label>
-              <input type="number" id="bulkCapacity" value="50" min="0" step="0.01" />
+              <input type="number" id="bulkCapacity" value="" min="0" step="0.01" placeholder="e.g. 50" />
             </div>
             <div class="field-group hidden" id="bulkAmountRandomGroup">
               <label for="bulkAmountMin">Min amount per receipt (₹)</label>
-              <input type="number" id="bulkAmountMin" value="3000" min="0" step="1" />
+              <input type="number" id="bulkAmountMin" value="" min="0" step="1" placeholder="e.g. 3000" />
             </div>
             <div class="field-group hidden" id="bulkAmountMaxGroup">
               <label for="bulkAmountMax">Max amount per receipt (₹)</label>
-              <input type="number" id="bulkAmountMax" value="5000" min="0" step="1" />
+              <input type="number" id="bulkAmountMax" value="" min="0" step="1" placeholder="e.g. 5000" />
             </div>
             <div class="field-group hidden" id="bulkCapacityRandomGroup">
               <label for="bulkCapacityMin">Min litres per receipt</label>
-              <input type="number" id="bulkCapacityMin" value="40" min="0" step="0.01" />
+              <input type="number" id="bulkCapacityMin" value="" min="0" step="0.01" placeholder="e.g. 40" />
             </div>
             <div class="field-group hidden" id="bulkCapacityMaxGroup">
               <label for="bulkCapacityMax">Max litres per receipt</label>
-              <input type="number" id="bulkCapacityMax" value="60" min="0" step="0.01" />
+              <input type="number" id="bulkCapacityMax" value="" min="0" step="0.01" placeholder="e.g. 60" />
             </div>
             <div class="field-group">
               <label for="bulkRate">Rate / litre (₹)</label>
-              <input type="number" id="bulkRate" value="100" min="1" step="0.01" />
+              <input type="number" id="bulkRate" value="100.5" min="1" step="0.01" />
             </div>
           </div>
           <p class="field-hint txn-calc-hint" id="bulkTxnCalcHint">Volume: 50.00 L (from amount ÷ rate)</p>
@@ -4210,33 +4238,33 @@
         <p class="fuel-section-label" id="ecSecSeller" data-section-icon="user">Seller details</p>
         <div class="field-group">
           <label for="ecSellerName">Sold By (Seller Name)</label>
-          <input type="text" id="ecSellerName" value="ACME RETAIL INDIA PVT LTD" />
+          <input type="text" id="ecSellerName" value="" placeholder="e.g. ACME RETAIL INDIA PVT LTD" />
         </div>
         <div class="field-group">
           <label for="ecSellerAddress">Seller Dispatch Address</label>
-          <textarea id="ecSellerAddress" rows="3">ACME Retail India Pvt Ltd, Plot 18, Industrial Area Phase 2, Okhla, New Delhi - 110020</textarea>
+          <textarea id="ecSellerAddress" rows="3" placeholder="Dispatch / warehouse address"></textarea>
         </div>
         <div class="field-group">
-          <label for="ecSellerRegisteredAddress">Seller Registered Address</label>
-          <textarea id="ecSellerRegisteredAddress" rows="2">ACME House, 12 Business Park, Sector 62, Noida, Uttar Pradesh - 201309</textarea>
+          <label for="ecSellerRegisteredAddress">Seller Registered Address <span class="label-optional">(optional)</span></label>
+          <textarea id="ecSellerRegisteredAddress" rows="2" placeholder="Registered office address"></textarea>
         </div>
 
         <p class="fuel-section-label" id="ecSecCustomer" data-section-icon="map-pin">Customer &amp; delivery</p>
         <div class="field-group">
           <label for="ecCustomerName">Customer Name</label>
-          <input type="text" id="ecCustomerName" value="Priya Verma" />
+          <input type="text" id="ecCustomerName" value="" placeholder="e.g. Priya Verma" />
         </div>
         <div class="field-group">
           <label for="ecBillingAddress">Billing Address</label>
-          <textarea id="ecBillingAddress" rows="3">42, Park Street, Block B, Connaught Place, New Delhi - 110001, IN-DL</textarea>
+          <textarea id="ecBillingAddress" rows="3" placeholder="Billing address"></textarea>
         </div>
         <div class="field-group">
           <label for="ecShippingAddress">Shipping Address</label>
-          <textarea id="ecShippingAddress" rows="3">42, Park Street, Block B, Connaught Place, New Delhi - 110001, IN-DL</textarea>
+          <textarea id="ecShippingAddress" rows="3" placeholder="Shipping / delivery address"></textarea>
         </div>
         <div class="field-group">
-          <label for="ecOrderedThrough">Ordered Through</label>
-          <input type="text" id="ecOrderedThrough" value="Flipkart" />
+          <label for="ecOrderedThrough">Ordered Through <span class="label-optional">(optional)</span></label>
+          <input type="text" id="ecOrderedThrough" value="" placeholder="e.g. Flipkart" />
         </div>
         <div class="field-group">
           <label for="ecShippingCharges">Shipping &amp; Handling (₹)</label>
@@ -4261,31 +4289,29 @@
           <p class="fuel-section-label" data-section-icon="user">Customer</p>
           <div class="field-group">
             <label for="bbCustomerName">Customer Name</label>
-            <input type="text" id="bbCustomerName" value="Mr. Rajesh Kumar" />
+            <input type="text" id="bbCustomerName" value="" placeholder="e.g. Mr. Rajesh Kumar" />
           </div>
           <div class="field-group">
             <label for="bbAddress">Address</label>
-            <textarea id="bbAddress" rows="4">Tower A, 4th Floor, Sector 18
-Noida
-Uttar Pradesh, 201301</textarea>
+            <textarea id="bbAddress" rows="4" placeholder="Full billing address"></textarea>
           </div>
           <div class="field-group">
-            <label for="bbEmail">Email Address</label>
-            <input type="email" id="bbEmail" value="rajesh.kumar@example.com" />
+            <label for="bbEmail">Email Address <span class="label-optional">(optional)</span></label>
+            <input type="email" id="bbEmail" value="" placeholder="e.g. rajesh.kumar@example.com" />
           </div>
           <div class="field-group">
             <label for="bbPhone">Phone Number</label>
-            <input type="text" id="bbPhone" value="9876543210" />
+            <input type="text" id="bbPhone" value="" placeholder="e.g. 9876543210" />
           </div>
 
           <p class="fuel-section-label" data-section-icon="wifi">Plan &amp; charges</p>
           <div class="field-group">
             <label for="bbPlanName">Plan Name</label>
-            <input type="text" id="bbPlanName" value="Infinity Family 699 Plan" />
+            <input type="text" id="bbPlanName" value="" placeholder="e.g. Infinity Family 699 Plan" />
           </div>
           <div class="field-group">
             <label for="bbPlanCharges">Plan / Pack Charges (₹)</label>
-            <input type="number" id="bbPlanCharges" value="699" min="0" step="0.01" />
+            <input type="number" id="bbPlanCharges" value="" min="0" step="0.01" placeholder="e.g. 699" />
           </div>
           <div class="field-group">
             <label for="bbGstRate">GST %</label>
@@ -4326,11 +4352,11 @@ Uttar Pradesh, 201301</textarea>
           <p class="fuel-section-label" data-section-icon="wallet">Payment summary</p>
           <div class="field-group">
             <label for="bbLastBillAmount">Last Bill Amount (₹)</label>
-            <input type="number" id="bbLastBillAmount" value="824.82" min="0" step="0.01" />
+            <input type="number" id="bbLastBillAmount" value="" min="0" step="0.01" placeholder="e.g. 824.82" />
           </div>
           <div class="field-group">
             <label for="bbPaymentMade">Payment Made (₹)</label>
-            <input type="number" id="bbPaymentMade" value="824.82" min="0" step="0.01" />
+            <input type="number" id="bbPaymentMade" value="" min="0" step="0.01" placeholder="e.g. 824.82" />
           </div>
           <div class="field-group">
             <label for="bbCredits">Credits (₹)</label>
@@ -4358,28 +4384,27 @@ Uttar Pradesh, 201301</textarea>
           <p class="fuel-section-label" data-section-icon="user">Customer &amp; plan</p>
           <div class="field-group">
             <label for="bbBulkCustomerName">Customer Name</label>
-            <input type="text" id="bbBulkCustomerName" value="Mr. Rajesh Kumar" />
+            <input type="text" id="bbBulkCustomerName" value="" placeholder="e.g. Mr. Rajesh Kumar" />
           </div>
           <div class="field-group">
             <label for="bbBulkAddress">Address</label>
-            <textarea id="bbBulkAddress" rows="3">Tower A, 4th Floor, Sector 18
-Noida, Uttar Pradesh, 201301</textarea>
+            <textarea id="bbBulkAddress" rows="3" placeholder="Full billing address"></textarea>
           </div>
           <div class="field-group">
-            <label for="bbBulkEmail">Email</label>
-            <input type="email" id="bbBulkEmail" value="rajesh.kumar@example.com" />
+            <label for="bbBulkEmail">Email <span class="label-optional">(optional)</span></label>
+            <input type="email" id="bbBulkEmail" value="" placeholder="e.g. rajesh.kumar@example.com" />
           </div>
           <div class="field-group">
             <label for="bbBulkPhone">Phone Number</label>
-            <input type="text" id="bbBulkPhone" value="9876543210" />
+            <input type="text" id="bbBulkPhone" value="" placeholder="e.g. 9876543210" />
           </div>
           <div class="field-group">
             <label for="bbBulkPlanName">Plan Name</label>
-            <input type="text" id="bbBulkPlanName" value="Infinity Family 699 Plan" />
+            <input type="text" id="bbBulkPlanName" value="" placeholder="e.g. Infinity Family 699 Plan" />
           </div>
           <div class="field-group">
             <label for="bbBulkPlanCharges">Plan Charges (₹)</label>
-            <input type="number" id="bbBulkPlanCharges" value="699" min="0" step="0.01" />
+            <input type="number" id="bbBulkPlanCharges" value="" min="0" step="0.01" placeholder="e.g. 699" />
           </div>
           <div class="field-group">
             <label for="bbBulkGstRate">GST %</label>
@@ -4407,11 +4432,11 @@ Noida, Uttar Pradesh, 201301</textarea>
           <div class="form-fields-row">
             <div class="field-group">
               <label for="rrRentAmount">Rent Amount (Rs.)</label>
-              <input type="number" id="rrRentAmount" value="25000" min="0" step="1" />
+              <input type="number" id="rrRentAmount" value="" min="0" step="1" placeholder="e.g. 25000" />
             </div>
             <div class="field-group">
               <label for="rrMonthlyRent">Rent @ per month (Rs.)</label>
-              <input type="number" id="rrMonthlyRent" value="25000" min="0" step="1" />
+              <input type="number" id="rrMonthlyRent" value="" min="0" step="1" placeholder="e.g. 25000" />
             </div>
           </div>
           <div class="form-fields-row">
@@ -4438,27 +4463,26 @@ Noida, Uttar Pradesh, 201301</textarea>
             </div>
             <div class="field-group">
               <label for="rrTenantName">Tenant name</label>
-              <input type="text" id="rrTenantName" value="Amit Sharma" />
+              <input type="text" id="rrTenantName" value="" placeholder="e.g. Amit Sharma" />
             </div>
           </div>
           <div class="field-group">
             <label for="rrHouseNo">House No.</label>
-            <input type="text" id="rrHouseNo" value="Flat 402, Tower B" />
+            <input type="text" id="rrHouseNo" value="" placeholder="e.g. Flat 402, Tower B" />
           </div>
           <div class="field-group">
             <label for="rrPropertyAddress">Property address (situated at)</label>
-            <textarea id="rrPropertyAddress" rows="3">Green Park Extension
-New Delhi, 110016</textarea>
+            <textarea id="rrPropertyAddress" rows="3" placeholder="Full property address"></textarea>
           </div>
 
           <p class="fuel-section-label" data-section-icon="user">House owner</p>
           <div class="field-group">
             <label for="rrLandlordName">Owner name (printed on receipt)</label>
-            <input type="text" id="rrLandlordName" value="Priya Verma" />
+            <input type="text" id="rrLandlordName" value="" placeholder="e.g. Priya Verma" />
           </div>
           <div class="field-group">
-            <label for="rrLandlordPan">Pancard</label>
-            <input type="text" id="rrLandlordPan" value="ABCDE1234F" placeholder="e.g. ABCDE1234F" />
+            <label for="rrLandlordPan">Pancard <span class="label-optional">(optional)</span></label>
+            <input type="text" id="rrLandlordPan" value="" placeholder="e.g. ABCDE1234F" />
           </div>
 
           <p class="fuel-section-label" data-section-icon="wallet">Sign &amp; stamp</p>
@@ -4471,7 +4495,7 @@ New Delhi, 110016</textarea>
           </div>
           <div class="field-group" id="rrLandlordSignatureTextGroup">
             <label for="rrLandlordSignatureText">Signature text</label>
-            <input type="text" id="rrLandlordSignatureText" value="Priya Verma" placeholder="e.g. Priya Verma" />
+            <input type="text" id="rrLandlordSignatureText" value="" placeholder="e.g. Priya Verma" />
             <p class="signature-mode-hint">Rendered in a handwriting font on the receipt.</p>
           </div>
           <div class="field-group hidden" id="rrLandlordSignatureUploadGroup">
@@ -4507,11 +4531,11 @@ New Delhi, 110016</textarea>
           <div class="form-fields-row">
             <div class="field-group">
               <label for="rrBulkRentAmount">Monthly Rent (Rs.)</label>
-              <input type="number" id="rrBulkRentAmount" value="25000" min="0" step="1" />
+              <input type="number" id="rrBulkRentAmount" value="" min="0" step="1" placeholder="e.g. 25000" />
             </div>
             <div class="field-group">
               <label for="rrBulkMonthlyRent">Rent @ per month (Rs.)</label>
-              <input type="number" id="rrBulkMonthlyRent" value="25000" min="0" step="1" />
+              <input type="number" id="rrBulkMonthlyRent" value="" min="0" step="1" placeholder="e.g. 25000" />
             </div>
           </div>
 
@@ -4527,25 +4551,24 @@ New Delhi, 110016</textarea>
             </div>
             <div class="field-group">
               <label for="rrBulkTenantName">Tenant name</label>
-              <input type="text" id="rrBulkTenantName" value="Amit Sharma" />
+              <input type="text" id="rrBulkTenantName" value="" placeholder="e.g. Amit Sharma" />
             </div>
           </div>
           <div class="field-group">
             <label for="rrBulkHouseNo">House No.</label>
-            <input type="text" id="rrBulkHouseNo" value="Flat 402, Tower B" />
+            <input type="text" id="rrBulkHouseNo" value="" placeholder="e.g. Flat 402, Tower B" />
           </div>
           <div class="field-group">
             <label for="rrBulkPropertyAddress">Property address</label>
-            <textarea id="rrBulkPropertyAddress" rows="3">Green Park Extension
-New Delhi, 110016</textarea>
+            <textarea id="rrBulkPropertyAddress" rows="3" placeholder="Full property address"></textarea>
           </div>
           <div class="field-group">
             <label for="rrBulkLandlordName">Owner name</label>
-            <input type="text" id="rrBulkLandlordName" value="Priya Verma" />
+            <input type="text" id="rrBulkLandlordName" value="" placeholder="e.g. Priya Verma" />
           </div>
           <div class="field-group">
-            <label for="rrBulkLandlordPan">Pancard</label>
-            <input type="text" id="rrBulkLandlordPan" value="ABCDE1234F" />
+            <label for="rrBulkLandlordPan">Pancard <span class="label-optional">(optional)</span></label>
+            <input type="text" id="rrBulkLandlordPan" value="" placeholder="e.g. ABCDE1234F" />
           </div>
 
           <p class="fuel-section-label" data-section-icon="wallet">Sign &amp; stamp</p>
@@ -4558,7 +4581,7 @@ New Delhi, 110016</textarea>
           </div>
           <div class="field-group" id="rrBulkLandlordSignatureTextGroup">
             <label for="rrBulkLandlordSignatureText">Signature text</label>
-            <input type="text" id="rrBulkLandlordSignatureText" value="Priya Verma" />
+            <input type="text" id="rrBulkLandlordSignatureText" value="" placeholder="e.g. Priya Verma" />
           </div>
           <div class="field-group hidden" id="rrBulkLandlordSignatureUploadGroup">
             <label for="rrBulkLandlordSignature">Owner signature (upload)</label>
@@ -4578,15 +4601,15 @@ New Delhi, 110016</textarea>
           <p class="fuel-section-label" data-section-icon="file-text">Salary receipt</p>
           <div class="field-group">
             <label for="dsReceivedFrom">Received From (Employer / Owner)</label>
-            <input type="text" id="dsReceivedFrom" value="Mr. Amit Sharma" />
+            <input type="text" id="dsReceivedFrom" value="" placeholder="e.g. Mr. Amit Sharma" />
           </div>
           <div class="field-group">
             <label for="dsSalaryAmount">Salary Amount (INR)</label>
-            <input type="number" id="dsSalaryAmount" value="15000" min="0" step="1" />
+            <input type="number" id="dsSalaryAmount" value="" min="0" step="1" placeholder="e.g. 15000" />
           </div>
           <div class="field-group">
             <label for="dsVehicleNo">Car / Vehicle Number</label>
-            <input type="text" id="dsVehicleNo" value="DL01CD5678" />
+            <input type="text" id="dsVehicleNo" value="" placeholder="e.g. DL01CD5678" />
           </div>
           <div class="field-group">
             <label for="dsSalaryMonth">Salary Month</label>
@@ -4596,11 +4619,11 @@ New Delhi, 110016</textarea>
           <p class="fuel-section-label" data-section-icon="user">Driver details</p>
           <div class="field-group">
             <label for="dsDriverName">Driver Name</label>
-            <input type="text" id="dsDriverName" value="Rahul Mehta" />
+            <input type="text" id="dsDriverName" value="" placeholder="e.g. Rahul Mehta" />
           </div>
           <div class="field-group">
             <label for="dsLicenseNo">DL Number</label>
-            <input type="text" id="dsLicenseNo" value="DL-01-2020-1234567" />
+            <input type="text" id="dsLicenseNo" value="" placeholder="e.g. DL-01-2020-1234567" />
           </div>
           <div class="field-group">
             <label for="dsSlipDate">Receipt Date</label>
@@ -4622,7 +4645,7 @@ New Delhi, 110016</textarea>
           </div>
           <div class="field-group" id="dsSignatureTextGroup">
             <label for="dsSignatureText">Signature text</label>
-            <input type="text" id="dsSignatureText" value="Rahul Mehta" placeholder="e.g. Rahul Mehta" />
+            <input type="text" id="dsSignatureText" value="" placeholder="e.g. Rahul Mehta" />
             <p class="signature-mode-hint">Rendered in a handwriting font in the stamp area.</p>
           </div>
           <div class="field-group hidden" id="dsSignatureUploadGroup">
@@ -4657,25 +4680,25 @@ New Delhi, 110016</textarea>
           </div>
           <div class="field-group">
             <label for="dsBulkSalaryAmount">Monthly Salary (INR)</label>
-            <input type="number" id="dsBulkSalaryAmount" value="15000" min="0" step="1" />
+            <input type="number" id="dsBulkSalaryAmount" value="" min="0" step="1" placeholder="e.g. 15000" />
           </div>
 
           <p class="fuel-section-label" data-section-icon="user">Shared details</p>
           <div class="field-group">
             <label for="dsBulkReceivedFrom">Received From (Employer / Owner)</label>
-            <input type="text" id="dsBulkReceivedFrom" value="Mr. Amit Sharma" />
+            <input type="text" id="dsBulkReceivedFrom" value="" placeholder="e.g. Mr. Amit Sharma" />
           </div>
           <div class="field-group">
             <label for="dsBulkDriverName">Driver Name</label>
-            <input type="text" id="dsBulkDriverName" value="Rahul Mehta" />
+            <input type="text" id="dsBulkDriverName" value="" placeholder="e.g. Rahul Mehta" />
           </div>
           <div class="field-group">
             <label for="dsBulkLicenseNo">DL Number</label>
-            <input type="text" id="dsBulkLicenseNo" value="DL-01-2020-1234567" />
+            <input type="text" id="dsBulkLicenseNo" value="" placeholder="e.g. DL-01-2020-1234567" />
           </div>
           <div class="field-group">
             <label for="dsBulkVehicleNo">Car / Vehicle Number</label>
-            <input type="text" id="dsBulkVehicleNo" value="DL01CD5678" />
+            <input type="text" id="dsBulkVehicleNo" value="" placeholder="e.g. DL01CD5678" />
           </div>
           <div class="field-group">
             <label for="dsBulkSignatureMode">Driver signature</label>
@@ -4858,7 +4881,8 @@ New Delhi, 110016</textarea>
   <script src="html2canvas.min.js"></script>
   <script src="jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="js/field-hints.js?v=20260723d"></script>
+  <script src="js/field-hints.js?v=20260723g"></script>
+  <script src="js/form-validation.js?v=20260723f"></script>
   <script src="js/ad-gate.js?v=20260723e"></script>
   <script>
     const ICON_PATHS = {
@@ -4906,6 +4930,9 @@ New Delhi, 110016</textarea>
     }
 
     function runGatedDownload(tier, buttonLabel, task) {
+      const validation = validateActiveForm('download');
+      if (!validation.ok) return Promise.resolve();
+
       if (!window.NOOBIUS_AD_GATE?.open) {
         return Promise.resolve().then(() => task());
       }
@@ -4921,6 +4948,39 @@ New Delhi, 110016</textarea>
         buttonLabel,
         onConfirm: task,
       });
+    }
+
+    function validateActiveForm(action = 'download') {
+      const v = window.NOOBIUS_FORM_VALIDATE;
+      if (!v) return { ok: true };
+
+      if (currentGenerator === 'fuel') {
+        const isBulk = currentFuelMode === 'bulk' || action === 'bulk-preview';
+        return isBulk
+          ? v.validateFuelBulk({ txnMode: currentFuelTxnMode, valueMode: bulkFuelValueMode })
+          : v.validateFuelSingle({ txnMode: currentFuelTxnMode });
+      }
+      if (currentGenerator === 'postpaid') {
+        return currentPostpaidMode === 'bulk' ? v.validatePostpaidBulk() : v.validatePostpaidSingle();
+      }
+      if (currentGenerator === 'rent') {
+        return currentRentMode === 'bulk' ? v.validateRentBulk() : v.validateRentSingle();
+      }
+      if (currentGenerator === 'driver') {
+        return currentDriverMode === 'bulk' ? v.validateDriverBulk() : v.validateDriverSingle();
+      }
+      if (currentGenerator === 'ecommerce') {
+        return v.validateEcommerce(ecommerceLineItems.length);
+      }
+      return { ok: true };
+    }
+
+    function applyFuelModeDefaults() {
+      if (currentGenerator !== 'fuel') return;
+      if (currentFuelMode === 'bulk') {
+        setFuelTxnMode('capacity');
+        applyRandomBulkReceiptIds();
+      }
     }
 
     function runWithLoader(message, fn) {
@@ -5093,19 +5153,33 @@ New Delhi, 110016</textarea>
       return { full: `${prefix}${suffix}`, prefix, suffix };
     }
 
+    function generateBulkReceiptIdSeed(date = new Date()) {
+      const year = date.getFullYear();
+      const letter = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      const prefix = `${year}${letter()}${letter()}${letter()}${Math.floor(Math.random() * 10)}`;
+      const suffix = 1000 + Math.floor(Math.random() * 8999);
+      return { prefix, suffix };
+    }
+
+    function applyRandomBulkReceiptIds(force = false) {
+      const bulkPrefix = $('bulkIdPrefix');
+      const bulkStart = $('bulkIdStart');
+      if (!bulkPrefix || !bulkStart) return;
+      const seed = generateBulkReceiptIdSeed();
+      if (force || bulkPrefix.dataset.userEdited !== '1' || !String(bulkPrefix.value || '').trim()) {
+        bulkPrefix.value = seed.prefix;
+      }
+      if (force || bulkStart.dataset.userEdited !== '1' || !String(bulkStart.value ?? '').trim()) {
+        bulkStart.value = String(seed.suffix);
+      }
+    }
+
     function applyRandomDocumentIds(now = new Date()) {
       const fuel = generateFuelReceiptNo(now);
       if (fields.receiptNo && fields.receiptNo.dataset.userEdited !== '1' && !String(fields.receiptNo.value || '').trim()) {
         fields.receiptNo.value = fuel.full;
       }
-      const bulkPrefix = $('bulkIdPrefix');
-      if (bulkPrefix && bulkPrefix.dataset.userEdited !== '1' && !String(bulkPrefix.value || '').trim()) {
-        bulkPrefix.value = fuel.prefix;
-      }
-      const bulkStart = $('bulkIdStart');
-      if (bulkStart && bulkStart.dataset.userEdited !== '1' && !String(bulkStart.value ?? '').trim()) {
-        bulkStart.value = String(fuel.suffix);
-      }
+      applyRandomBulkReceiptIds();
       syncOrderIdFromDate(true);
       syncInvoiceNoFromDate(true);
       syncBillRefFromDate(true);
@@ -7613,6 +7687,8 @@ New Delhi, 110016</textarea>
     }
 
     function openPostpaidBulkPreviewPage() {
+      const validation = validateActiveForm('bulk-preview');
+      if (!validation.ok) return;
       withLoader('Preparing bulk preview…', async () => {
         try {
           const bills = buildPostpaidBulkBills();
@@ -8119,6 +8195,8 @@ New Delhi, 110016</textarea>
     }
 
     function openRentBulkPreviewPage() {
+      const validation = validateActiveForm('bulk-preview');
+      if (!validation.ok) return;
       withLoader('Preparing bulk preview…', async () => {
         try {
           const receipts = buildRentBulkReceipts();
@@ -8504,6 +8582,8 @@ New Delhi, 110016</textarea>
     }
 
     function openDriverBulkPreviewPage() {
+      const validation = validateActiveForm('bulk-preview');
+      if (!validation.ok) return;
       withLoader('Preparing bulk preview…', async () => {
         try {
           const slips = buildDriverBulkSlips();
@@ -9369,7 +9449,7 @@ New Delhi, 110016</textarea>
       const stationLine2 = $('bulkStationLine2').value || company.address2;
       const prefix = ($('bulkIdPrefix').value || '2026AA').trim();
       const idStart = parseInt($('bulkIdStart').value, 10) || 0;
-      const idMinGap = parseInt($('bulkIdMinGap').value, 10) || 5;
+      const idMinGap = parseInt($('bulkIdMinGap').value, 10) || 50;
       const idMaxGap = parseInt($('bulkIdMaxGap').value, 10) || 250;
 
       if (!from || !to) {
@@ -10028,15 +10108,8 @@ New Delhi, 110016</textarea>
         updateGeneratorNavMenus('fuel');
         syncViewModeUrl(mode);
         if (mode === 'bulk') {
-          const fuel = generateFuelReceiptNo();
-          const bulkPrefix = $('bulkIdPrefix');
-          const bulkStart = $('bulkIdStart');
-          if (bulkPrefix && bulkPrefix.dataset.userEdited !== '1' && !String(bulkPrefix.value || '').trim()) {
-            bulkPrefix.value = fuel.prefix;
-          }
-          if (bulkStart && bulkStart.dataset.userEdited !== '1' && !String(bulkStart.value ?? '').trim()) {
-            bulkStart.value = String(fuel.suffix);
-          }
+          applyRandomBulkReceiptIds();
+          setFuelTxnMode('capacity');
         }
         window.__persistFormKey?.('fuel_single');
         window.__persistFormKey?.('fuel_bulk');
@@ -10051,6 +10124,8 @@ New Delhi, 110016</textarea>
     }
 
     function openBulkPreviewPage() {
+      const validation = validateActiveForm('bulk-preview');
+      if (!validation.ok) return;
       withLoader('Preparing bulk preview…', async () => {
         try {
           const receipts = buildBulkReceipts();
@@ -10222,8 +10297,10 @@ New Delhi, 110016</textarea>
       initRentMode();
       initDriverMode();
       initGeneratorViewMode();
+      applyFuelModeDefaults();
       decorateStaticIcons();
       initNoobiusUxHints();
+      window.NOOBIUS_FORM_VALIDATE?.bindClearOnInput?.($('configPanelScroll'));
       syncBulkFuelValueFields();
       updateFuelTxnHints();
       updateBulkReceiptEstimate();
