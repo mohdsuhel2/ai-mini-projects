@@ -1,18 +1,34 @@
 (function (global) {
+  const AD_UNITS = {
+    horizontal: {
+      key: 'horizontal',
+      slotId: '1558430143',
+      format: 'auto',
+      fullWidthResponsive: true,
+      variant: 'horizontal',
+    },
+    square: {
+      key: 'square',
+      slotId: '5034374792',
+      format: 'auto',
+      fullWidthResponsive: true,
+      variant: 'square',
+    },
+    banner: {
+      key: 'banner',
+      slotId: '1095129785',
+      format: 'auto',
+      fullWidthResponsive: true,
+      variant: 'horizontal',
+    },
+  };
+
   const CONFIG = {
     publisherId: 'ca-pub-2293170892331368',
     loadAdScript: false,
-    /**
-     * Add your AdSense ad unit slot IDs here after creating units in AdSense.
-     * Example slot id: '1234567890' (from the ins data-ad-slot attribute).
-     *
-     * popupSlots: shown inside the download popup (recommend 2–3 display units).
-     */
-    popupSlots: [
-      { key: 'horizontal_1', slotId: '1558430143', format: 'auto', fullWidthResponsive: true, variant: 'horizontal' },
-      { key: 'square_1', slotId: '5034374792', format: 'auto', fullWidthResponsive: true, variant: 'square' },
-      { key: 'horizontal_2', slotId: '1095129785', format: 'auto', fullWidthResponsive: true, variant: 'horizontal' },
-    ],
+    units: AD_UNITS,
+    /** Reuses the same ad units inside the download popup. */
+    popupSlots: [AD_UNITS.horizontal, AD_UNITS.square, AD_UNITS.banner],
   };
 
   function upsertMeta(name, content) {
@@ -45,6 +61,12 @@
     if (!publisherId) return;
     upsertMeta('google-adsense-account', publisherId);
     if (CONFIG.loadAdScript) ensureAdScript();
+  }
+
+  function getUnit(unitKey) {
+    const unit = CONFIG.units?.[unitKey];
+    if (!unit?.slotId) return null;
+    return { ...unit };
   }
 
   function getPopupSlots() {
@@ -86,7 +108,9 @@
 
   global.NOOBIUS_ADSENSE = {
     CONFIG,
+    AD_UNITS,
     apply,
+    getUnit,
     getPopupSlots,
     mountSlot,
     refreshPopupAds,

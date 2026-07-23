@@ -87,6 +87,15 @@
       h1: 'Page not found',
       robots: 'noindex, follow',
     },
+    privacy: {
+      path: 'privacy.html',
+      title: 'Privacy Policy — NOOBius Document Generator',
+      description:
+        'Privacy Policy for NOOBius (noobius.in): browser storage, cookies, Google AdSense advertising, and how we handle data on our free receipt and bill generator.',
+      keywords:
+        'NOOBius privacy policy, noobius.in privacy, document generator privacy, AdSense cookies, browser storage policy',
+      h1: 'Privacy Policy',
+    },
   };
 
   const PATH_TO_GENERATOR = {
@@ -233,6 +242,7 @@
     }
     const file = (global.location.pathname.split('/').pop() || 'index.html').toLowerCase();
     if (file === 'about.html') applyStatic('about');
+    else if (file === 'privacy.html') applyStatic('privacy');
     else if (file === '404.html') applyStatic('notFound');
     else applyStatic('home');
   }
