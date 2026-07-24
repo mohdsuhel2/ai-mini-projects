@@ -1,6 +1,9 @@
 (function (global) {
+  const SITE_TITLE = 'Free Invoice Bill Receipt Generator';
+
   const SITE = {
     name: 'NOOBius',
+    title: SITE_TITLE,
     domain: 'noobius.in',
     origin: 'https://noobius.in',
     defaultImage: 'https://noobius.in/IndianOilLogo.png',
@@ -11,7 +14,7 @@
     fuel: {
       id: 'fuel',
       path: 'fuel-receipt.html',
-      title: 'Fuel Receipt Generator — Free Petrol & Diesel Receipt Maker',
+      title: SITE_TITLE,
       description:
         'Create fuel receipts online for petrol, diesel, and CNG. Free fuel receipt generator with live preview, bulk PNG export, and Indian fuel station layouts.',
       keywords:
@@ -21,7 +24,7 @@
     rent: {
       id: 'rent',
       path: 'rent-receipt.html',
-      title: 'Rent Receipt Generator — Free House Rent Receipt PDF',
+      title: SITE_TITLE,
       description:
         'Generate rent receipts online for house rent, HRA claims, and monthly rent proof. Free rent receipt generator with signature upload and bulk PDF export.',
       keywords:
@@ -31,7 +34,7 @@
     driver: {
       id: 'driver',
       path: 'driver-slip.html',
-      title: 'Driver Slip Generator — Driver Salary Receipt & Payment Slip',
+      title: SITE_TITLE,
       description:
         'Create driver slips and driver salary receipts online. Free driver slip generator with photo upload, employment details, and bulk PDF export.',
       keywords:
@@ -41,7 +44,7 @@
     ecommerce: {
       id: 'ecommerce',
       path: 'ecommerce-invoice.html',
-      title: 'Invoice Generator — Free GST Ecommerce Tax Invoice Maker',
+      title: SITE_TITLE,
       description:
         'Create GST invoices and ecommerce tax invoices online. Free invoice generator with line items, shipping, CGST/SGST, and multi-page PDF export.',
       keywords:
@@ -51,7 +54,7 @@
     postpaid: {
       id: 'postpaid',
       path: 'postpaid-bill.html',
-      title: 'Phone Bill Generator — Mobile & Broadband Postpaid Bill Maker',
+      title: SITE_TITLE,
       description:
         'Generate postpaid mobile bills, phone bills, and broadband bills online. Free bill generator with payment summary, QR section, and monthly bulk PDF export.',
       keywords:
@@ -63,7 +66,7 @@
   const STATIC_PAGES = {
     home: {
       path: 'index.html',
-      title: 'NOOBius — Free Document Generator for Receipts, Bills & Invoices',
+      title: SITE_TITLE,
       description:
         'NOOBius is a free online document generator for fuel receipts, rent receipts, driver slips, GST invoices, and postpaid phone bills. Live preview and instant PDF or PNG download.',
       keywords:
@@ -152,6 +155,14 @@
     el.textContent = JSON.stringify(data);
   }
 
+  function applyFavicon() {
+    const href = `${absoluteUrl('favicon.svg')}?v=1`;
+    upsertLink('icon', href);
+    upsertLink('apple-touch-icon', href);
+    const icon = document.querySelector('link[rel="icon"]');
+    if (icon) icon.setAttribute('type', 'image/svg+xml');
+  }
+
   function applyPageMeta(page, options) {
     if (!page) return;
     const canonical = absoluteUrl(page.path);
@@ -159,6 +170,7 @@
     const image = page.image || SITE.defaultImage;
 
     document.title = page.title;
+    applyFavicon();
     upsertMeta('name', 'description', page.description);
     upsertMeta('name', 'keywords', page.keywords);
     upsertMeta('name', 'robots', robots);
@@ -249,9 +261,11 @@
 
   global.NOOBIUS_SEO = {
     SITE,
+    SITE_TITLE,
     GENERATORS,
     STATIC_PAGES,
     PATH_TO_GENERATOR,
+    applyFavicon,
     applyGenerator,
     applyStatic,
     initFromPath,
