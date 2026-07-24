@@ -58,15 +58,15 @@
 
     postpaidPlans: [
       { name: 'Airtel Postpaid Infinity Family 699 Plan', charges: 699 },
-      { name: 'Jio Postpaid Plus 749 Plan', charges: 749 },
-      { name: 'Vi Max 839 Family Plan', charges: 839 },
       { name: 'Airtel Postpaid Infinity 549 Plan', charges: 549 },
-      { name: 'Jio Postpaid Plus 599 Plan', charges: 599 },
-      { name: 'Vi Max 699 Individual Plan', charges: 699 },
       { name: 'Airtel Postpaid Infinity 999 Plan', charges: 999 },
-      { name: 'Jio Postpaid Plus 999 Plan', charges: 999 },
-      { name: 'Vi Max 449 Plan', charges: 449 },
       { name: 'Airtel Postpaid Infinity 399 Plan', charges: 399 },
+      { name: 'Airtel Postpaid Infinity 449 Plan', charges: 449 },
+      { name: 'Airtel Infinity Family 1299 Plan', charges: 1299 },
+      { name: 'Airtel Postpaid Infinity 799 Plan', charges: 799 },
+      { name: 'Airtel Postpaid Infinity 1199 Plan', charges: 1199 },
+      { name: 'Airtel Postpaid Infinity 499 Plan', charges: 499 },
+      { name: 'Airtel Black Plan 1799', charges: 1799 },
     ],
 
     rentProperties: [

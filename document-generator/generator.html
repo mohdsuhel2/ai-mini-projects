@@ -1889,42 +1889,59 @@
       align-items: stretch;
     }
 
-    .field-input-row input,
-    .field-input-row textarea,
-    .field-input-row select {
-      flex: 1;
-      min-width: 0;
+    .input-affix-wrap {
+      position: relative;
+      display: block;
+      width: 100%;
     }
 
-    .field-input-row textarea {
-      resize: vertical;
+    .input-affix-wrap > input,
+    .input-affix-wrap > textarea {
+      width: 100%;
+      padding-right: 40px;
     }
 
-    .random-fill-btn {
-      flex-shrink: 0;
-      align-self: stretch;
+    .input-affix-wrap.is-textarea > textarea {
+      padding-right: 40px;
+    }
+
+    .input-affix-wrap .random-fill-btn {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      padding: 0;
-      border: 1px solid var(--border, #d8dce3);
-      border-radius: 8px;
-      background: var(--surface-2, #f5f6f8);
-      color: var(--muted, #5c6574);
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      transition: color 0.15s, background 0.15s;
     }
 
-    .random-fill-btn:hover {
-      background: var(--surface-3, #eceef2);
-      color: var(--text, #1a1d24);
-      border-color: #b8bec8;
+    .input-affix-wrap.is-textarea .random-fill-btn {
+      top: 8px;
+      transform: none;
     }
 
-    .random-fill-btn:focus-visible {
-      outline: 2px solid var(--focus, #4a7fd7);
+    .input-affix-wrap .random-fill-btn:hover {
+      color: var(--accent);
+      background: var(--surface);
+    }
+
+    .input-affix-wrap .random-fill-btn:focus-visible {
+      outline: 2px solid var(--accent);
       outline-offset: 1px;
+    }
+
+    .input-affix-wrap .random-fill-btn .icon {
+      width: 16px;
+      height: 16px;
     }
 
     .marketplace-select-wrap {
@@ -4248,10 +4265,7 @@
 
       <div class="field-group">
         <label for="receiptNo">Receipt Number</label>
-        <div class="ec-order-id-row">
-          <input type="text" id="receiptNo" placeholder="e.g. 2026AA3210" />
-          <button type="button" class="btn btn-secondary ec-regen-btn" id="regenReceiptNoBtn" data-btn-icon="shuffle" data-btn-label="Random">Random</button>
-        </div>
+        <input type="text" id="receiptNo" placeholder="e.g. 2026AA3210" />
       </div>
       </div>
       </div>
@@ -4478,7 +4492,7 @@
             <span class="marketplace-select-logo" id="ecOrderedThroughLogo" aria-hidden="true"></span>
             <select id="ecOrderedThrough" class="form-select marketplace-select">
               <option value="">— None —</option>
-              <option value="Flipkart">Flipkart</option>
+              <option value="Flipkart" selected>Flipkart</option>
               <option value="Amazon">Amazon</option>
               <option value="Myntra">Myntra</option>
               <option value="Nykaa">Nykaa</option>
@@ -5109,8 +5123,8 @@
   <script src="js/bootstrap-pickers.js?v=20260723r"></script>
   <script src="js/field-hints.js?v=20260723i"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
-  <script src="js/random-samples.js?v=20260724b"></script>
-  <script src="js/random-field-fill.js?v=20260724b"></script>
+  <script src="js/random-samples.js?v=20260724d"></script>
+  <script src="js/random-field-fill.js?v=20260724d"></script>
   <script src="js/ad-gate.js?v=20260723m"></script>
   <script src="js/ad-placements.js?v=20260723t" defer></script>
   <script>
@@ -6714,6 +6728,15 @@
       const logoEl = $('ecOrderedThroughLogo');
       if (!select || !logoEl) return;
       logoEl.innerHTML = buildEcMarketplaceLogoHtml(select.value, { compact: true });
+    }
+
+    function applyDefaultOrderedThrough() {
+      const select = $('ecOrderedThrough');
+      if (!select || fieldHasSavedValue('ecOrderedThrough')) return;
+      if (!String(select.value || '').trim()) {
+        select.value = 'Flipkart';
+        syncMarketplaceSelectLogo();
+      }
     }
 
     function buildEcBottomBarHtml(data) {
@@ -10755,16 +10778,26 @@
       wireRentForm();
       wireDriverForm();
       markUserEdited('receiptNo', 'bulkIdPrefix', 'bulkIdStart');
-      $('regenReceiptNoBtn')?.addEventListener('click', () => {
+      window.regenerateFuelReceiptNo = () => {
         const fuel = generateFuelReceiptNo(new Date());
         if (!fields.receiptNo) return;
         fields.receiptNo.value = fuel.full;
         fields.receiptNo.dataset.userEdited = '1';
         fields.receiptNo.dispatchEvent(new Event('input', { bubbles: true }));
         updatePreview();
-      });
+      };
+      window.regenerateBulkReceiptPrefix = () => {
+        const seed = generateBulkReceiptIdSeed(new Date());
+        const el = $('bulkIdPrefix');
+        if (!el) return;
+        el.value = seed.prefix;
+        el.dataset.userEdited = '1';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        updateBulkReceiptEstimate();
+      };
       const now = new Date();
       initFormPersistence();
+      applyDefaultOrderedThrough();
       syncMarketplaceSelectLogo();
       applyDefaultPickerDates(now);
       ensureEmptyUnlessSavedFields();

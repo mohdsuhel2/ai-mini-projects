@@ -1,5 +1,5 @@
 /**
- * Adds shuffle buttons to configured fields; fills from NOOBIUS_RANDOM_SAMPLES on click.
+ * Adds in-field shuffle buttons; fills from NOOBIUS_RANDOM_SAMPLES on click.
  */
 (function (global) {
   const SHUFFLE_SVG = '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-3.6-5.2"/></svg>';
@@ -26,14 +26,15 @@
   }
 
   function wrapWithRandomBtn(el, onClick) {
-    if (!el || el.closest('.field-input-row') || el.closest('.ec-order-id-row')) return;
+    if (!el || el.closest('.input-affix-wrap') || el.closest('.ec-order-id-row')) return;
     const parent = el.parentNode;
     if (!parent) return;
 
-    const row = document.createElement('div');
-    row.className = 'field-input-row';
-    parent.insertBefore(row, el);
-    row.appendChild(el);
+    const wrap = document.createElement('div');
+    wrap.className = 'input-affix-wrap';
+    if (el.tagName === 'TEXTAREA') wrap.classList.add('is-textarea');
+    parent.insertBefore(wrap, el);
+    wrap.appendChild(el);
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -41,8 +42,11 @@
     btn.setAttribute('aria-label', 'Fill with sample data');
     btn.title = 'Fill with sample data';
     btn.innerHTML = SHUFFLE_SVG;
-    btn.addEventListener('click', onClick);
-    row.appendChild(btn);
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      onClick();
+    });
+    wrap.appendChild(btn);
   }
 
   function fillSimpleField(id, sampleKey) {
@@ -103,6 +107,24 @@
 
     const planChargesBulk = $('bbBulkPlanCharges');
     if (planChargesBulk) wrapWithRandomBtn(planChargesBulk, () => fillPostpaidPlan('bbBulkPlanName', 'bbBulkPlanCharges'));
+
+    const receiptNo = $('receiptNo');
+    if (receiptNo) {
+      wrapWithRandomBtn(receiptNo, () => {
+        if (typeof global.regenerateFuelReceiptNo === 'function') {
+          global.regenerateFuelReceiptNo();
+        }
+      });
+    }
+
+    const bulkIdPrefix = $('bulkIdPrefix');
+    if (bulkIdPrefix) {
+      wrapWithRandomBtn(bulkIdPrefix, () => {
+        if (typeof global.regenerateBulkReceiptPrefix === 'function') {
+          global.regenerateBulkReceiptPrefix();
+        }
+      });
+    }
   }
 
   global.NOOBIUS_RANDOM_FIELD_FILL = { init };
