@@ -938,6 +938,14 @@
       font-family: inherit;
     }
 
+    .field-group input[type="month"] {
+      color-scheme: light;
+    }
+
+    [data-theme="dark"] .field-group input[type="month"] {
+      color-scheme: dark;
+    }
+
     .field-group textarea {
       resize: vertical;
       min-height: 72px;
@@ -4662,27 +4670,25 @@
               </button>
             </div>
           </div>
-          <div class="form-fields-row">
-            <div class="field-group">
-              <label for="rrRentAmount">Rent Amount (Rs.)</label>
-              <input type="number" id="rrRentAmount" value="" min="0" step="1" placeholder="e.g. 25000" />
-            </div>
-            <div class="field-group">
-              <label for="rrMonthlyRent">Rent @ per month (Rs.)</label>
-              <input type="number" id="rrMonthlyRent" value="" min="0" step="1" placeholder="e.g. 25000" />
-            </div>
+          <div class="field-group">
+            <label for="rrMonthlyRent">Rent per month (Rs.)</label>
+            <input type="number" id="rrMonthlyRent" value="" min="0" step="1" placeholder="e.g. 25000" />
           </div>
           <div class="form-fields-row">
             <div class="field-group">
-              <label for="rrPeriodFromYear">Period — April (year)</label>
-              <input type="number" id="rrPeriodFromYear" min="2000" max="2099" step="1" />
+              <label for="rrPeriodFrom">Period from</label>
+              <input type="month" id="rrPeriodFrom" />
             </div>
             <div class="field-group">
-              <label for="rrPeriodToYear">Period — March (year)</label>
-              <input type="number" id="rrPeriodToYear" min="2000" max="2099" step="1" />
+              <label for="rrPeriodTo">Period to</label>
+              <input type="month" id="rrPeriodTo" />
             </div>
           </div>
-          <p class="field-hint">Financial year is auto-filled from receipt date; edit if needed.</p>
+          <div class="field-group">
+            <label for="rrRentAmount">Total rent amount (Rs.)</label>
+            <input type="number" id="rrRentAmount" value="" min="0" step="1" readonly class="readonly-field" placeholder="Calculated from months × rent" />
+            <p class="field-hint" id="rrRentTotalHint">Select the month range and monthly rent to calculate the total.</p>
+          </div>
 
           <p class="fuel-section-label" data-section-icon="user">Tenant &amp; property</p>
           <div class="form-fields-row">
@@ -5122,7 +5128,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/plugins/bi-one.js" crossorigin="anonymous"></script>
   <script src="js/bootstrap-pickers.js?v=20260723r"></script>
   <script src="js/field-hints.js?v=20260723i"></script>
-  <script src="js/form-validation.js?v=20260723f"></script>
+  <script src="js/form-validation.js?v=20260724f"></script>
   <script src="js/random-samples.js?v=20260724d"></script>
   <script src="js/random-field-fill.js?v=20260724d"></script>
   <script src="js/ad-gate.js?v=20260724e"></script>
@@ -8263,6 +8269,52 @@
       return { fromYear, toYear: fromYear + 1 };
     }
 
+    const RR_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    function getReceiptMonthValue(receiptDate) {
+      const d = parseBillDateOnly(receiptDate) || new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function parseRentMonthValue(value) {
+      const match = String(value || '').trim().match(/^(\d{4})-(\d{2})$/);
+      if (!match) return null;
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      if (!year || month < 1 || month > 12) return null;
+      return { year, monthIndex: month - 1 };
+    }
+
+    function formatRentMonthLabel(value) {
+      const parsed = parseRentMonthValue(value);
+      if (!parsed) return '';
+      return `${RR_MONTH_NAMES[parsed.monthIndex]} ${parsed.year}`;
+    }
+
+    function countInclusiveRentMonths(fromValue, toValue) {
+      const from = parseRentMonthValue(fromValue);
+      const to = parseRentMonthValue(toValue || fromValue);
+      if (!from || !to) return 1;
+      const fromIndex = from.year * 12 + from.monthIndex;
+      const toIndex = to.year * 12 + to.monthIndex;
+      if (toIndex < fromIndex) return 0;
+      return toIndex - fromIndex + 1;
+    }
+
+    function migrateRentPeriodFields(source = {}) {
+      if (source.periodFrom && source.periodTo) {
+        return { periodFrom: source.periodFrom, periodTo: source.periodTo };
+      }
+      if (source.periodFromYear && source.periodToYear) {
+        return {
+          periodFrom: `${source.periodFromYear}-04`,
+          periodTo: `${source.periodToYear}-03`,
+        };
+      }
+      const monthValue = getReceiptMonthValue(source.receiptDate);
+      return { periodFrom: monthValue, periodTo: monthValue };
+    }
+
     function splitRentWordsLine(words) {
       const text = String(words || '').trim();
       const maxLen = 58;
@@ -8304,8 +8356,8 @@
       receiptDate: () => $('rrReceiptDate'),
       rentAmount: () => $('rrRentAmount'),
       monthlyRent: () => $('rrMonthlyRent'),
-      periodFromYear: () => $('rrPeriodFromYear'),
-      periodToYear: () => $('rrPeriodToYear'),
+      periodFrom: () => $('rrPeriodFrom'),
+      periodTo: () => $('rrPeriodTo'),
       tenantSalutation: () => $('rrTenantSalutation'),
       tenantName: () => $('rrTenantName'),
       houseNo: () => $('rrHouseNo'),
@@ -8317,22 +8369,36 @@
 
     function buildRentReceiptData(overrides = {}) {
       const receiptDateValue = overrides.receiptDate ?? rrFields.receiptDate()?.value;
-      const receiptDate = parseBillDateOnly(receiptDateValue);
-      const rentAmount = Math.max(0, Number(overrides.rentAmount ?? rrFields.rentAmount()?.value) || 0);
-      const monthlyRentRaw = overrides.monthlyRent ?? rrFields.monthlyRent()?.value;
-      const monthlyRent = Math.max(0, Number(monthlyRentRaw !== '' && monthlyRentRaw != null ? monthlyRentRaw : rentAmount) || 0);
-      const fy = getFinancialYearRange(receiptDateValue);
+      const migratedPeriod = migrateRentPeriodFields({
+        receiptDate: receiptDateValue,
+        periodFrom: overrides.periodFrom ?? rrFields.periodFrom()?.value,
+        periodTo: overrides.periodTo ?? rrFields.periodTo()?.value,
+        periodFromYear: overrides.periodFromYear,
+        periodToYear: overrides.periodToYear,
+      });
+      const periodFrom = migratedPeriod.periodFrom;
+      const periodTo = migratedPeriod.periodTo;
+      const monthlyRent = Math.max(0, Number(overrides.monthlyRent ?? rrFields.monthlyRent()?.value) || 0);
+      const monthCount = countInclusiveRentMonths(periodFrom, periodTo);
+      const rentAmount = Math.max(0, Number(
+        overrides.rentAmount != null && overrides.rentAmount !== ''
+          ? overrides.rentAmount
+          : monthlyRent * monthCount
+      ) || 0);
       const signatureMode = overrides.landlordSignatureMode ?? getSignatureModeValue('rrLandlordSignatureMode');
       const amountInWords = overrides.amountInWords ?? numberToBillWords(rentAmount);
       return {
         receiptDate: receiptDateValue,
         rentAmount,
         monthlyRent,
+        monthCount,
+        periodFrom,
+        periodTo,
+        periodFromLabel: formatRentMonthLabel(periodFrom),
+        periodToLabel: formatRentMonthLabel(periodTo),
         amountInWords,
         tenantSalutation: overrides.tenantSalutation ?? rrFields.tenantSalutation()?.value ?? '',
         tenantName: overrides.tenantName ?? rrFields.tenantName()?.value ?? '',
-        periodFromYear: overrides.periodFromYear ?? rrFields.periodFromYear()?.value ?? String(fy.fromYear),
-        periodToYear: overrides.periodToYear ?? rrFields.periodToYear()?.value ?? String(fy.toYear),
         houseNo: overrides.houseNo ?? rrFields.houseNo()?.value ?? '',
         propertyAddress: overrides.propertyAddress ?? rrFields.propertyAddress()?.value ?? '',
         landlordName: overrides.landlordName ?? rrFields.landlordName()?.value ?? '',
@@ -8404,10 +8470,10 @@
               <span class="form-text">per</span>
             </div>
             <div class="form-line">
-              <span class="form-text">month from April</span>
-              ${formField(data.periodFromYear, 'form-line-narrow')}
-              <span class="form-text">to March</span>
-              ${formField(data.periodToYear, 'form-line-narrow')}
+              <span class="form-text">month from</span>
+              ${formField(data.periodFromLabel, 'form-line-half')}
+              <span class="form-text">to</span>
+              ${formField(data.periodToLabel, 'form-line-half')}
               <span class="form-text">in respect of House</span>
             </div>
             <div class="form-line">
@@ -8481,16 +8547,39 @@
 
     function syncRentDerivedFields() {
       const receiptDate = rrFields.receiptDate()?.value;
-      const fy = getFinancialYearRange(receiptDate);
-      const fromInput = rrFields.periodFromYear();
-      const toInput = rrFields.periodToYear();
-      if (fromInput && !fromInput.dataset.userEdited) fromInput.value = String(fy.fromYear);
-      if (toInput && !toInput.dataset.userEdited) toInput.value = String(fy.toYear);
-      const monthlyRent = rrFields.monthlyRent();
+      const monthValue = getReceiptMonthValue(receiptDate);
+      const fromInput = rrFields.periodFrom();
+      const toInput = rrFields.periodTo();
+      if (fromInput && !fromInput.dataset.userEdited) fromInput.value = monthValue;
+      if (toInput && !toInput.dataset.userEdited) toInput.value = monthValue;
+      syncRentPeriodAndAmount();
+    }
+
+    function syncRentPeriodAndAmount() {
+      const monthlyRent = Math.max(0, Number(rrFields.monthlyRent()?.value) || 0);
+      const periodFrom = rrFields.periodFrom()?.value || '';
+      const periodTo = rrFields.periodTo()?.value || periodFrom;
+      const monthCount = countInclusiveRentMonths(periodFrom, periodTo);
+      const total = monthCount > 0 ? monthlyRent * monthCount : 0;
       const rentAmount = rrFields.rentAmount();
-      if (monthlyRent && rentAmount && !monthlyRent.dataset.userEdited && !monthlyRent.value) {
-        monthlyRent.value = rentAmount.value;
+      if (rentAmount) rentAmount.value = total > 0 ? String(total) : '';
+
+      const hint = $('rrRentTotalHint');
+      if (!hint) return;
+      if (!monthlyRent) {
+        hint.textContent = 'Enter monthly rent and choose the period months to calculate the total.';
+        return;
       }
+      if (!periodFrom || !periodTo) {
+        hint.textContent = 'Select from and to months to calculate the total rent.';
+        return;
+      }
+      if (monthCount === 0) {
+        hint.textContent = '“To” month must be the same as or after the “From” month.';
+        return;
+      }
+      const monthLabel = monthCount === 1 ? 'month' : 'months';
+      hint.textContent = `Total: ${formatBbPlainMoney(total)} (${monthCount} ${monthLabel} × ${formatBbPlainMoney(monthlyRent)})`;
     }
 
     function renderRentPreview() {
@@ -8557,12 +8646,12 @@
       };
       return dates.map(date => {
         const receiptDate = toDatetimeLocalValue(date).split(' ')[0];
-        const fy = getFinancialYearRange(receiptDate);
+        const receiptMonth = getReceiptMonthValue(receiptDate);
         return buildRentReceiptData({
           ...shared,
           receiptDate,
-          periodFromYear: String(fy.fromYear),
-          periodToYear: String(fy.toYear),
+          periodFrom: receiptMonth,
+          periodTo: receiptMonth,
         });
       });
     }
@@ -8620,13 +8709,14 @@
           migrated.tenantName = match[2];
         }
       }
-      if (!migrated.periodFromYear || !migrated.periodToYear) {
-        const fy = getFinancialYearRange(receiptDate);
-        migrated.periodFromYear = migrated.periodFromYear || String(fy.fromYear);
-        migrated.periodToYear = migrated.periodToYear || String(fy.toYear);
+      if (!migrated.periodFrom || !migrated.periodTo) {
+        const migratedPeriod = migrateRentPeriodFields(migrated);
+        migrated.periodFrom = migrated.periodFrom || migratedPeriod.periodFrom;
+        migrated.periodTo = migrated.periodTo || migratedPeriod.periodTo;
       }
       if (migrated.monthlyRent == null && migrated.rentAmount != null) {
-        migrated.monthlyRent = migrated.rentAmount;
+        const monthCount = countInclusiveRentMonths(migrated.periodFrom, migrated.periodTo) || 1;
+        migrated.monthlyRent = Math.round(Number(migrated.rentAmount) / monthCount) || migrated.rentAmount;
       }
       return buildRentReceiptData(migrated);
     }
@@ -8722,8 +8812,11 @@
         const el = getField();
         if (!el) return;
         el.addEventListener('input', () => {
-          if (el.id === 'rrPeriodFromYear' || el.id === 'rrPeriodToYear') el.dataset.userEdited = '1';
+          if (el.id === 'rrPeriodFrom' || el.id === 'rrPeriodTo') el.dataset.userEdited = '1';
           if (el.id === 'rrMonthlyRent') el.dataset.userEdited = '1';
+          if (el.id === 'rrPeriodFrom' || el.id === 'rrPeriodTo' || el.id === 'rrMonthlyRent') {
+            syncRentPeriodAndAmount();
+          }
           updateRentPreview();
         });
         el.addEventListener('change', updateRentPreview);
@@ -8737,11 +8830,14 @@
         if (sigText && !sigText.dataset.userEdited) sigText.value = rrFields.landlordName()?.value || '';
       });
       $('rrLandlordSignatureText')?.addEventListener('input', e => { e.target.dataset.userEdited = '1'; updateRentPreview(); });
-      rrFields.rentAmount()?.addEventListener('input', () => {
-        const monthlyRent = rrFields.monthlyRent();
-        if (monthlyRent && monthlyRent.dataset.userEdited !== '1') {
-          monthlyRent.value = rrFields.rentAmount()?.value || '';
-        }
+      rrFields.periodFrom()?.addEventListener('change', () => {
+        rrFields.periodFrom().dataset.userEdited = '1';
+        syncRentPeriodAndAmount();
+        updateRentPreview();
+      });
+      rrFields.periodTo()?.addEventListener('change', () => {
+        rrFields.periodTo().dataset.userEdited = '1';
+        syncRentPeriodAndAmount();
         updateRentPreview();
       });
       wireSignatureModeToggle({
@@ -9454,7 +9550,7 @@
       ecommerce: ['ecOrderDate', 'ecOrderId', 'ecInvoiceNo', 'ecInvoiceDate', 'ecSellerName', 'ecSellerAddress', 'ecSellerRegisteredAddress', 'ecCustomerName', 'ecBillingAddress', 'ecShippingAddress', 'ecOrderedThrough', 'ecShippingCharges'],
       postpaid_single: ['bbCustomerName', 'bbAddress', 'bbEmail', 'bbPhone', 'bbPlanName', 'bbPlanCharges', 'bbGstRate', 'bbLateFee', 'bbStatementDate', 'bbBillRefId', 'bbLastBillAmount', 'bbPaymentMade', 'bbCredits'],
       postpaid_bulk: ['bbBulkDateFrom', 'bbBulkCount', 'bbBulkCustomerName', 'bbBulkAddress', 'bbBulkEmail', 'bbBulkPhone', 'bbBulkPlanName', 'bbBulkPlanCharges', 'bbBulkGstRate', 'bbBulkLateFee'],
-      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFromYear', 'rrPeriodToYear', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText'],
+      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFrom', 'rrPeriodTo', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText'],
       rent_bulk: ['rrBulkDateFrom', 'rrBulkCount', 'rrBulkRentAmount', 'rrBulkMonthlyRent', 'rrBulkTenantSalutation', 'rrBulkTenantName', 'rrBulkHouseNo', 'rrBulkPropertyAddress', 'rrBulkLandlordName', 'rrBulkLandlordPan', 'rrBulkLandlordSignatureMode', 'rrBulkLandlordSignatureText'],
       driver_single: ['dsSlipDate', 'dsReceivedFrom', 'dsSalaryAmount', 'dsVehicleNo', 'dsDriverName', 'dsLicenseNo', 'dsSignatureMode', 'dsSignatureText'],
       driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText'],

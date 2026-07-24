@@ -162,12 +162,35 @@
     ]));
   }
 
+  function countInclusiveRentMonths(fromValue, toValue) {
+    const matchFrom = String(fromValue || '').trim().match(/^(\d{4})-(\d{2})$/);
+    const matchTo = String(toValue || fromValue || '').trim().match(/^(\d{4})-(\d{2})$/);
+    if (!matchFrom || !matchTo) return 1;
+    const fromIndex = Number(matchFrom[1]) * 12 + (Number(matchFrom[2]) - 1);
+    const toIndex = Number(matchTo[1]) * 12 + (Number(matchTo[2]) - 1);
+    if (toIndex < fromIndex) return 0;
+    return toIndex - fromIndex + 1;
+  }
+
+  function requireRentPeriodOrder() {
+    const from = document.getElementById('rrPeriodFrom')?.value || '';
+    const to = document.getElementById('rrPeriodTo')?.value || '';
+    if (!from || !to) return true;
+    if (countInclusiveRentMonths(from, to) === 0) {
+      showError('rrPeriodTo', '“To” month must be the same as or after “From” month.');
+      return false;
+    }
+    return true;
+  }
+
   function validateRentSingle() {
     clearErrors();
     return finish(runChecks([
       wrapCheck('rrReceiptDate', () => requireText('rrReceiptDate', 'Receipt date')),
-      wrapCheck('rrRentAmount', () => requirePositiveNumber('rrRentAmount', 'Rent amount')),
       wrapCheck('rrMonthlyRent', () => requirePositiveNumber('rrMonthlyRent', 'Monthly rent')),
+      wrapCheck('rrPeriodFrom', () => requireText('rrPeriodFrom', 'Period from month')),
+      wrapCheck('rrPeriodTo', () => requireText('rrPeriodTo', 'Period to month')),
+      wrapCheck('rrPeriodTo', requireRentPeriodOrder),
       wrapCheck('rrTenantName', () => requireText('rrTenantName', 'Tenant name')),
       wrapCheck('rrHouseNo', () => requireText('rrHouseNo', 'House number')),
       wrapCheck('rrPropertyAddress', () => requireText('rrPropertyAddress', 'Property address')),
