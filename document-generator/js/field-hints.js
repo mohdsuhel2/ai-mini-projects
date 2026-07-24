@@ -26,9 +26,9 @@
     txnModeAmountTab: 'Enter the total rupee amount; litres are derived from the rate.',
     txnModeCapacityTab: 'Enter litres filled; the rupee amount is derived from the rate.',
     bulkValueModeFixedTab: 'Use the same amount or litres on every receipt in the batch.',
-    bulkValueModeRandomTab: 'Pick a different random amount or litres for each receipt within your min–max range.',
+    bulkValueModeRandomTab: 'Pick a different random amount or litres for each receipt within your min–max range. Random amounts use multiples of ₹20.',
     bulkTxnModeAmountTab: 'Set fill values in rupees (fixed or random per receipt). Each receipt also uses a slightly random rate within ±₹2 of the base rate.',
-    bulkTxnModeCapacityTab: 'Set fill values in litres (fixed or random per receipt). Each receipt also uses a slightly random rate within ±₹2 of the base rate.',
+    bulkTxnModeCapacityTab: 'Set fill values in litres (fixed or random per receipt). Random mode keeps the payable amount on multiples of ₹20; litres are calculated from the rate.',
   };
 
   const SECTION_HINTS = {

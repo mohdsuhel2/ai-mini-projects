@@ -4248,11 +4248,11 @@
             </div>
             <div class="field-group hidden" id="bulkAmountRandomGroup">
               <label for="bulkAmountMin">Min amount per receipt (₹)</label>
-              <input type="number" id="bulkAmountMin" value="" min="0" step="1" placeholder="e.g. 3000" />
+              <input type="number" id="bulkAmountMin" value="" min="0" step="20" placeholder="e.g. 3000" />
             </div>
             <div class="field-group hidden" id="bulkAmountMaxGroup">
               <label for="bulkAmountMax">Max amount per receipt (₹)</label>
-              <input type="number" id="bulkAmountMax" value="" min="0" step="1" placeholder="e.g. 5000" />
+              <input type="number" id="bulkAmountMax" value="" min="0" step="20" placeholder="e.g. 5000" />
             </div>
             <div class="field-group hidden" id="bulkCapacityRandomGroup">
               <label for="bulkCapacityMin">Min litres per receipt</label>
@@ -9117,6 +9117,33 @@
       return Math.round(raw);
     }
 
+    const BULK_RANDOM_AMOUNT_STEP = 20;
+
+    function randomAmountStep(min, max, step = BULK_RANDOM_AMOUNT_STEP) {
+      const lo = Math.min(Number(min) || 0, Number(max) || 0);
+      const hi = Math.max(Number(min) || 0, Number(max) || 0);
+      if (hi < step) return step;
+
+      const minStep = Math.max(step, Math.ceil(lo / step) * step);
+      const maxStep = Math.floor(hi / step) * step;
+      if (maxStep < minStep) {
+        return minStep <= hi ? minStep : maxStep;
+      }
+
+      const steps = Math.floor((maxStep - minStep) / step);
+      return minStep + Math.floor(Math.random() * (steps + 1)) * step;
+    }
+
+    function averageAmountStep(min, max, step = BULK_RANDOM_AMOUNT_STEP) {
+      const lo = Math.min(Number(min) || 0, Number(max) || 0);
+      const hi = Math.max(Number(min) || 0, Number(max) || 0);
+      if (hi < step) return step;
+      const minStep = Math.max(step, Math.ceil(lo / step) * step);
+      const maxStep = Math.floor(hi / step) * step;
+      if (maxStep < minStep) return minStep <= hi ? minStep : maxStep;
+      return (minStep + maxStep) / 2;
+    }
+
     function randomBulkFuelRate() {
       const base = Number($('bulkRate').value) || 100;
       const offset = Math.round((Math.random() * 4 - 2) * 100) / 100;
@@ -9125,15 +9152,24 @@
 
     function resolveBulkFuelTransactionAtRate(rate) {
       const rateValue = String(rate ?? $('bulkRate').value ?? '100');
+      const rateNum = Math.max(0.01, Number(rateValue) || 100);
       const isRandom = bulkFuelValueMode === 'random';
       if (currentFuelTxnMode === 'capacity') {
-        const liters = isRandom
-          ? randomBetween($('bulkCapacityMin').value, $('bulkCapacityMax').value, 2).toFixed(2)
-          : (parseFloat($('bulkCapacity').value) || 0).toFixed(2);
+        if (isRandom) {
+          const minL = Number($('bulkCapacityMin').value) || 0;
+          const maxL = Number($('bulkCapacityMax').value) || 0;
+          const amount = randomAmountStep(minL * rateNum, maxL * rateNum);
+          const volume = (amount / rateNum).toFixed(2);
+          return {
+            amount: String(amount),
+            volume,
+          };
+        }
+        const liters = (parseFloat($('bulkCapacity').value) || 0).toFixed(2);
         return resolveFuelTransaction('capacity', null, liters, rateValue);
       }
       const amount = isRandom
-        ? randomBetween($('bulkAmountMin').value, $('bulkAmountMax').value, 0)
+        ? randomAmountStep($('bulkAmountMin').value, $('bulkAmountMax').value)
         : (parseFloat($('bulkAmount').value) || 0);
       return resolveFuelTransaction('amount', String(amount), null, rateValue);
     }
@@ -9146,10 +9182,11 @@
       const baseRate = Number($('bulkRate').value) || 100;
       if (bulkFuelValueMode === 'random') {
         if (currentFuelTxnMode === 'capacity') {
-          const avgL = (Number($('bulkCapacityMin').value) + Number($('bulkCapacityMax').value)) / 2;
-          return avgL * baseRate;
+          const minL = Number($('bulkCapacityMin').value) || 0;
+          const maxL = Number($('bulkCapacityMax').value) || 0;
+          return averageAmountStep(minL * baseRate, maxL * baseRate);
         }
-        return (Number($('bulkAmountMin').value) + Number($('bulkAmountMax').value)) / 2;
+        return averageAmountStep($('bulkAmountMin').value, $('bulkAmountMax').value);
       }
       return Number(resolveBulkFuelTransactionAtRate(baseRate).amount) || 0;
     }
@@ -9175,8 +9212,8 @@
       if (!intro) return;
       if (bulkFuelValueMode === 'random') {
         intro.textContent = currentFuelTxnMode === 'capacity'
-          ? 'Each receipt gets a random litres value between min and max.'
-          : 'Each receipt gets a random amount between min and max.';
+          ? 'Each receipt gets random litres derived from an amount that is always a multiple of ₹20.'
+          : 'Each receipt gets a random amount between min and max (multiples of ₹20).';
       } else {
         intro.textContent = 'Same fill amount or litres on every receipt in the batch.';
       }
