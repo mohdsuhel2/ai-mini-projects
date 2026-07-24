@@ -28,7 +28,9 @@
   <meta name="twitter:image" content="https://noobius.in/IndianOilLogo.png" />
   <script src="js/seo.js?v=20260724a"></script>
   <script>NOOBIUS_SEO.initFromPath();</script>
+  <script src="js/analytics.js?v=20260724f"></script>
   <script src="js/adsense.js?v=20260724e"></script>
+  <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -9331,6 +9333,11 @@
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      window.NOOBIUS_ANALYTICS?.trackDownload?.({
+        generator: currentGenerator,
+        mode: typeof getCurrentViewMode === 'function' ? getCurrentViewMode() : 'unknown',
+        filename,
+      });
     }
 
     function parseDateInput(value) {
