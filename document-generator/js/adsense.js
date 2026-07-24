@@ -73,6 +73,10 @@
     return (CONFIG.popupSlots || []).filter((slot) => String(slot.slotId || '').trim());
   }
 
+  function isConfigured() {
+    return Boolean(String(CONFIG.publisherId || '').trim() && getPopupSlots().length > 0);
+  }
+
   function mountSlot(container, slot) {
     if (!container || !slot?.slotId) return;
     const publisherId = String(CONFIG.publisherId || '').trim();
@@ -114,6 +118,7 @@
     apply,
     getUnit,
     getPopupSlots,
+    isConfigured,
     mountSlot,
     refreshPopupAds,
     ensureAdScript,

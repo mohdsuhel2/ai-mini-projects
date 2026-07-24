@@ -3,6 +3,7 @@
 
   const SINGLE_DELAY_SEC = 5;
   const BULK_DELAY_SEC = 15;
+  const AD_CHECK_WAIT_MS = 2500;
 
   let modalEl = null;
   let timerId = null;
@@ -62,6 +63,19 @@
 
   function getDelaySec(tier) {
     return tier === 'bulk' ? BULK_DELAY_SEC : SINGLE_DELAY_SEC;
+  }
+
+  async function resolveAdsAvailability() {
+    const ads = global.NOOBIUS_ADSENSE;
+    const placements = global.NOOBIUS_AD_PLACEMENTS;
+    if (!ads?.isConfigured?.()) return false;
+
+    const current = placements?.getAdState?.();
+    if (current === 'filled') return true;
+    if (current === 'unfilled') return false;
+
+    const resolved = await placements?.waitForAdState?.(AD_CHECK_WAIT_MS);
+    return resolved === 'filled';
   }
 
   function buildAdSlots(container) {
@@ -132,7 +146,7 @@
     }
   }
 
-  function open(options) {
+  function openModal(options) {
     const {
       tier = 'single',
       title = 'Support us to download',
@@ -140,10 +154,6 @@
       buttonLabel = 'Download',
       onConfirm,
     } = options || {};
-
-    if (typeof onConfirm !== 'function') {
-      return Promise.reject(new Error('onConfirm is required'));
-    }
 
     return new Promise((resolve, reject) => {
       const el = ensureModal();
@@ -172,10 +182,26 @@
     });
   }
 
+  function open(options) {
+    const { onConfirm } = options || {};
+
+    if (typeof onConfirm !== 'function') {
+      return Promise.reject(new Error('onConfirm is required'));
+    }
+
+    return resolveAdsAvailability().then((adsWorking) => {
+      if (!adsWorking) {
+        return Promise.resolve().then(() => onConfirm());
+      }
+      return openModal(options);
+    });
+  }
+
   global.NOOBIUS_AD_GATE = {
     SINGLE_DELAY_SEC,
     BULK_DELAY_SEC,
     open,
     close: () => closeModal(false),
+    resolveAdsAvailability,
   };
 })(window);
