@@ -1883,6 +1883,69 @@
       flex-shrink: 0;
     }
 
+    .field-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .field-input-row input,
+    .field-input-row textarea,
+    .field-input-row select {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .field-input-row textarea {
+      resize: vertical;
+    }
+
+    .random-fill-btn {
+      flex-shrink: 0;
+      align-self: stretch;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      padding: 0;
+      border: 1px solid var(--border, #d8dce3);
+      border-radius: 8px;
+      background: var(--surface-2, #f5f6f8);
+      color: var(--muted, #5c6574);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .random-fill-btn:hover {
+      background: var(--surface-3, #eceef2);
+      color: var(--text, #1a1d24);
+      border-color: #b8bec8;
+    }
+
+    .random-fill-btn:focus-visible {
+      outline: 2px solid var(--focus, #4a7fd7);
+      outline-offset: 1px;
+    }
+
+    .marketplace-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .marketplace-select-logo {
+      flex-shrink: 0;
+      min-width: 92px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .marketplace-select {
+      flex: 1;
+      min-width: 0;
+    }
+
     .readonly-field {
       opacity: 0.85;
       cursor: default;
@@ -2179,19 +2242,25 @@
       color: #222;
     }
 
+    .ec-marketplace-logo,
     .ec-flipkart-logo {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 4px;
+      line-height: 1;
+    }
+
+    .ec-mp-flipkart,
+    .ec-flipkart-logo {
       font-size: 16px;
       font-weight: 700;
       font-style: italic;
       color: #2874f0;
       letter-spacing: -0.02em;
-      line-height: 1;
     }
 
+    .ec-mp-flipkart .ec-fk-bag,
     .ec-flipkart-logo .ec-fk-bag {
       display: inline-block;
       width: 18px;
@@ -2202,6 +2271,7 @@
       box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
     }
 
+    .ec-mp-flipkart .ec-fk-bag::before,
     .ec-flipkart-logo .ec-fk-bag::before {
       content: 'f';
       position: absolute;
@@ -2213,6 +2283,68 @@
       font-weight: 800;
       font-style: italic;
       color: #2874f0;
+    }
+
+    .ec-mp-amazon {
+      gap: 2px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.04em;
+      text-transform: lowercase;
+    }
+
+    .ec-mp-amazon-arrow {
+      flex-shrink: 0;
+    }
+
+    .ec-mp-myntra {
+      gap: 5px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #282c3f;
+      letter-spacing: -0.02em;
+    }
+
+    .ec-mp-myntra-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 2px;
+      background: #ff3f6c;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .ec-mp-nykaa {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fc2779;
+      font-style: italic;
+      letter-spacing: -0.02em;
+    }
+
+    .ec-mp-empty {
+      color: #888;
+      font-size: 13px;
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    .ec-mp-text {
+      font-size: 12px;
+      font-style: normal;
+      color: #111;
+      font-weight: 600;
+    }
+
+    .marketplace-select-logo .ec-marketplace-logo {
+      transform: scale(0.92);
+      transform-origin: left center;
     }
 
     .ec-signature-block {
@@ -4116,7 +4248,10 @@
 
       <div class="field-group">
         <label for="receiptNo">Receipt Number</label>
-        <input type="text" id="receiptNo" placeholder="e.g. 2026AA3210" />
+        <div class="ec-order-id-row">
+          <input type="text" id="receiptNo" placeholder="e.g. 2026AA3210" />
+          <button type="button" class="btn btn-secondary ec-regen-btn" id="regenReceiptNoBtn" data-btn-icon="shuffle" data-btn-label="Random">Random</button>
+        </div>
       </div>
       </div>
       </div>
@@ -4339,7 +4474,16 @@
         </div>
         <div class="field-group">
           <label for="ecOrderedThrough">Ordered Through <span class="label-optional">(optional)</span></label>
-          <input type="text" id="ecOrderedThrough" value="" placeholder="e.g. Flipkart" />
+          <div class="marketplace-select-wrap">
+            <span class="marketplace-select-logo" id="ecOrderedThroughLogo" aria-hidden="true"></span>
+            <select id="ecOrderedThrough" class="form-select marketplace-select">
+              <option value="">— None —</option>
+              <option value="Flipkart">Flipkart</option>
+              <option value="Amazon">Amazon</option>
+              <option value="Myntra">Myntra</option>
+              <option value="Nykaa">Nykaa</option>
+            </select>
+          </div>
         </div>
         <div class="field-group">
           <label for="ecShippingCharges">Shipping &amp; Handling (₹)</label>
@@ -4965,6 +5109,8 @@
   <script src="js/bootstrap-pickers.js?v=20260723r"></script>
   <script src="js/field-hints.js?v=20260723i"></script>
   <script src="js/form-validation.js?v=20260723f"></script>
+  <script src="js/random-samples.js?v=20260724b"></script>
+  <script src="js/random-field-fill.js?v=20260724b"></script>
   <script src="js/ad-gate.js?v=20260723m"></script>
   <script src="js/ad-placements.js?v=20260723t" defer></script>
   <script>
@@ -4996,6 +5142,7 @@
       sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
       moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
       maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+      shuffle: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-3.6-5.2"/>',
     };
 
     function icon(name, size = 16, extraClass = '') {
@@ -6522,17 +6669,51 @@
       `;
     }
 
-    function buildEcFlipkartLogoHtml(channel) {
-      const label = escapeHtml(channel || 'Flipkart');
-      if (!/^flipkart$/i.test(channel || 'Flipkart')) {
-        return `<div class="ec-flipkart-logo" style="font-size:12px;font-style:normal;color:#111">${label}</div>`;
+    function buildEcMarketplaceLogoHtml(channel, opts = {}) {
+      const key = String(channel || '').trim().toLowerCase();
+      if (!key) {
+        return opts.compact
+          ? '<span class="ec-marketplace-logo ec-mp-empty">—</span>'
+          : '';
       }
-      return `
-        <div class="ec-flipkart-logo">
-          <span class="ec-fk-bag" aria-hidden="true"></span>
-          <span>Flipkart</span>
-        </div>
-      `;
+      if (key === 'flipkart') {
+        return `
+          <div class="ec-marketplace-logo ec-mp-flipkart">
+            <span class="ec-fk-bag" aria-hidden="true"></span>
+            <span>Flipkart</span>
+          </div>
+        `;
+      }
+      if (key === 'amazon') {
+        return `
+          <div class="ec-marketplace-logo ec-mp-amazon">
+            <span>amazon</span>
+            <svg class="ec-mp-amazon-arrow" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 18c6-3 12-3 18 0" fill="none" stroke="#ff9900" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M14 10l6 8" fill="none" stroke="#ff9900" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+        `;
+      }
+      if (key === 'myntra') {
+        return `
+          <div class="ec-marketplace-logo ec-mp-myntra">
+            <span class="ec-mp-myntra-mark" aria-hidden="true">M</span>
+            <span>Myntra</span>
+          </div>
+        `;
+      }
+      if (key === 'nykaa') {
+        return `<div class="ec-marketplace-logo ec-mp-nykaa">Nykaa</div>`;
+      }
+      return `<div class="ec-marketplace-logo ec-mp-text">${escapeHtml(channel)}</div>`;
+    }
+
+    function syncMarketplaceSelectLogo() {
+      const select = $('ecOrderedThrough');
+      const logoEl = $('ecOrderedThroughLogo');
+      if (!select || !logoEl) return;
+      logoEl.innerHTML = buildEcMarketplaceLogoHtml(select.value, { compact: true });
     }
 
     function buildEcBottomBarHtml(data) {
@@ -6540,7 +6721,7 @@
         <div class="ec-inv-eoe">E. &amp; O.E.</div>
         <div class="ec-inv-channel">
           <div class="ec-inv-channel-label">Ordered Through</div>
-          ${buildEcFlipkartLogoHtml(data.orderedThrough)}
+          ${buildEcMarketplaceLogoHtml(data.orderedThrough)}
         </div>
         <div class="ec-signature-block">
           <div class="ec-signature-box" aria-hidden="true"></div>
@@ -7221,6 +7402,9 @@
         syncInvoiceNoFromDate(true);
         updateEcommercePreview();
       });
+
+      syncMarketplaceSelectLogo();
+      ecFields.orderedThrough().addEventListener('change', syncMarketplaceSelectLogo);
 
       $('ecAddItemBtn').addEventListener('click', () => openEcItemModal());
       $('ecItemModalCancel').addEventListener('click', closeEcItemModal);
@@ -10571,8 +10755,17 @@
       wireRentForm();
       wireDriverForm();
       markUserEdited('receiptNo', 'bulkIdPrefix', 'bulkIdStart');
+      $('regenReceiptNoBtn')?.addEventListener('click', () => {
+        const fuel = generateFuelReceiptNo(new Date());
+        if (!fields.receiptNo) return;
+        fields.receiptNo.value = fuel.full;
+        fields.receiptNo.dataset.userEdited = '1';
+        fields.receiptNo.dispatchEvent(new Event('input', { bubbles: true }));
+        updatePreview();
+      });
       const now = new Date();
       initFormPersistence();
+      syncMarketplaceSelectLogo();
       applyDefaultPickerDates(now);
       ensureEmptyUnlessSavedFields();
       applyRandomDocumentIds(now);
