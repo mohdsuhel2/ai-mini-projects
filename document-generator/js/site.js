@@ -142,24 +142,28 @@
       menu: 'Fuel Receipt',
       single: 'Single Fuel Receipt',
       bulk: 'Bulk Fuel Receipt Generation',
+      bulkTab: 'Bulk Fuel Receipt',
       hasMode: true,
     },
     postpaid: {
       menu: 'Postpaid Bill',
       single: 'Single Postpaid Bill',
       bulk: 'Bulk Postpaid Bill Generation',
+      bulkTab: 'Bulk Postpaid Bill',
       hasMode: true,
     },
     rent: {
       menu: 'Rent Receipt',
       single: 'Single Rent Receipt',
       bulk: 'Bulk Rent Receipt Generation',
+      bulkTab: 'Bulk Rent Receipt',
       hasMode: true,
     },
     driver: {
       menu: 'Driver Slip',
       single: 'Single Driver Slip',
       bulk: 'Bulk Driver Slip Generation',
+      bulkTab: 'Bulk Driver Slip',
       hasMode: true,
     },
     ecommerce: {
@@ -174,6 +178,34 @@
     },
   };
 
+  function syncPageModeTabs(page, mode, meta) {
+    const tabsWrap = document.getElementById('sitePageModeTabs');
+    const singleTab = document.getElementById('sitePageModeSingleTab');
+    const bulkTab = document.getElementById('sitePageModeBulkTab');
+    if (!tabsWrap) return;
+
+    if (!meta?.hasMode) {
+      tabsWrap.hidden = true;
+      tabsWrap.classList.add('hidden');
+      return;
+    }
+
+    tabsWrap.hidden = false;
+    tabsWrap.classList.remove('hidden');
+    if (singleTab) {
+      singleTab.textContent = meta.single;
+      const isSingle = mode !== 'bulk';
+      singleTab.classList.toggle('active', isSingle);
+      singleTab.setAttribute('aria-selected', isSingle ? 'true' : 'false');
+    }
+    if (bulkTab) {
+      bulkTab.textContent = meta.bulkTab || meta.bulk;
+      const isBulk = mode === 'bulk';
+      bulkTab.classList.toggle('active', isBulk);
+      bulkTab.setAttribute('aria-selected', isBulk ? 'true' : 'false');
+    }
+  }
+
   function updatePageContextBar(page, mode, options) {
     const bar = document.getElementById('sitePageContext');
     const categoryEl = document.getElementById('sitePageCategory');
@@ -183,18 +215,18 @@
     const meta = NAV_PAGE_META[page];
     if (!meta) {
       bar.hidden = true;
+      syncPageModeTabs(page, mode, null);
       return;
     }
 
     bar.hidden = false;
     if (meta.hasMode) {
-      if (categoryEl) {
-        categoryEl.textContent = meta.menu;
-        categoryEl.hidden = false;
-      }
+      if (categoryEl) categoryEl.hidden = true;
+      syncPageModeTabs(page, mode, meta);
       titleEl.textContent = (options && options.pageTitle)
         || (mode === 'bulk' ? meta.bulk : meta.single);
     } else {
+      syncPageModeTabs(page, mode, null);
       if (categoryEl) categoryEl.hidden = true;
       titleEl.textContent = (options && options.pageTitle) || meta.title || meta.menu;
     }

@@ -32,11 +32,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geomini:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus@6.9.11/dist/css/tempus-dominus.min.css" crossorigin="anonymous" />
   <link rel="preload" as="image" href="White_BG.png" />
   <link rel="preload" as="font" href="fonts/pixFueler-A.ttf" type="font/ttf" crossorigin />
+  <link rel="preload" as="font" href="fonts/Priestacy.otf" type="font/otf" crossorigin />
   <style>
     @font-face {
       font-family: 'pixFueler-A';
@@ -44,6 +44,16 @@
         local('pixFueler-A'),
         url('fonts/pixFueler-A.ttf') format('truetype'),
         url('fonts/pixFueler-A.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Priestacy';
+      src:
+        local('Priestacy'),
+        url('fonts/Priestacy.otf') format('opentype');
       font-weight: normal;
       font-style: normal;
       font-display: swap;
@@ -3618,9 +3628,21 @@
       display: flex; align-items: flex-end; padding: 2px 0;
     }
     .signature-script {
-      font-family: 'Dancing Script', 'Segoe Script', 'Bradley Hand', cursive;
-      font-size: clamp(20px, 5vw, 28px); font-weight: 600;
-      color: #152a6b; line-height: 1.05; letter-spacing: 0.02em;
+      font-family: 'Priestacy', 'Segoe Script', 'Bradley Hand', cursive;
+      font-size: clamp(22px, 5vw, 32px);
+      font-weight: normal;
+      color: #152a6b;
+      line-height: 1.05;
+      letter-spacing: 0.01em;
+    }
+
+    #rrLandlordSignatureText,
+    #rrBulkLandlordSignatureText,
+    #dsSignatureText,
+    #dsBulkSignatureText {
+      font-family: 'Priestacy', 'Segoe Script', 'Bradley Hand', cursive;
+      font-size: 1.15rem;
+      letter-spacing: 0.01em;
     }
     .template-sign-img { max-height: 48px; max-width: 180px; object-fit: contain; }
     .signature-mode-hint { font-size: 11px; color: var(--text-muted, #666); margin-top: 4px; }
@@ -4161,7 +4183,11 @@
   <div class="site-page-context" id="sitePageContext">
     <div class="site-page-context-inner">
       <div class="site-page-context-heading">
-        <span class="site-page-context-category" id="sitePageCategory">Fuel Receipt</span>
+        <div class="site-page-mode-tabs view-tabs-segment hidden" id="sitePageModeTabs" role="tablist" aria-label="Document mode">
+          <button type="button" class="mode-tab active" id="sitePageModeSingleTab" data-view-mode="single" role="tab" aria-selected="true">Single</button>
+          <button type="button" class="mode-tab" id="sitePageModeBulkTab" data-view-mode="bulk" role="tab" aria-selected="false">Bulk</button>
+        </div>
+        <span class="site-page-context-category hidden" id="sitePageCategory" aria-hidden="true">Fuel Receipt</span>
         <h2 class="site-page-context-title" id="sitePageTitle">Single Fuel Receipt</h2>
       </div>
       <div data-ad-placement="header"></div>
@@ -4729,14 +4755,14 @@
           <div class="field-group">
             <label for="rrLandlordSignatureMode">Owner signature</label>
             <select id="rrLandlordSignatureMode">
-              <option value="text" selected>Type signature (script font)</option>
+              <option value="text" selected>Type signature (Priestacy font)</option>
               <option value="upload">Upload image</option>
             </select>
           </div>
           <div class="field-group" id="rrLandlordSignatureTextGroup">
             <label for="rrLandlordSignatureText">Signature text</label>
             <input type="text" id="rrLandlordSignatureText" value="" placeholder="e.g. Priya Verma" />
-            <p class="signature-mode-hint">Rendered in a handwriting font on the receipt.</p>
+            <p class="signature-mode-hint">Rendered in Priestacy handwriting font on the receipt.</p>
           </div>
           <div class="field-group hidden" id="rrLandlordSignatureUploadGroup">
             <label for="rrLandlordSignature">Owner signature (upload)</label>
@@ -4816,7 +4842,7 @@
           <div class="field-group">
             <label for="rrBulkLandlordSignatureMode">Owner signature</label>
             <select id="rrBulkLandlordSignatureMode">
-              <option value="text" selected>Type signature (script font)</option>
+              <option value="text" selected>Type signature (Priestacy font)</option>
               <option value="upload">Upload image</option>
             </select>
           </div>
@@ -4880,14 +4906,14 @@
           <div class="field-group">
             <label for="dsSignatureMode">Driver signature</label>
             <select id="dsSignatureMode">
-              <option value="text" selected>Type signature (script font)</option>
+              <option value="text" selected>Type signature (Priestacy font)</option>
               <option value="upload">Upload image</option>
             </select>
           </div>
           <div class="field-group" id="dsSignatureTextGroup">
             <label for="dsSignatureText">Signature text</label>
             <input type="text" id="dsSignatureText" value="" placeholder="e.g. Rahul Mehta" />
-            <p class="signature-mode-hint">Rendered in a handwriting font in the stamp area.</p>
+            <p class="signature-mode-hint">Rendered in Priestacy handwriting font in the stamp area.</p>
           </div>
           <div class="field-group hidden" id="dsSignatureUploadGroup">
             <label for="dsSignature">Signature (upload)</label>
@@ -4944,7 +4970,7 @@
           <div class="field-group">
             <label for="dsBulkSignatureMode">Driver signature</label>
             <select id="dsBulkSignatureMode">
-              <option value="text" selected>Type signature (script font)</option>
+              <option value="text" selected>Type signature (Priestacy font)</option>
               <option value="upload">Upload image</option>
             </select>
           </div>
@@ -6318,6 +6344,8 @@
           }
         });
       });
+      $('sitePageModeSingleTab')?.addEventListener('click', () => setGeneratorViewMode('single'));
+      $('sitePageModeBulkTab')?.addEventListener('click', () => setGeneratorViewMode('bulk'));
     }
 
     function setGeneratorViewMode(mode) {
