@@ -38,16 +38,20 @@ Compose file: `groww_gateway/deploy/docker-compose.vps.yml`
 
 ### Open firewall port 8787
 
-In Hostinger hPanel → VPS → **Firewall**, allow **TCP 8787** (or restrict to your IPs if you prefer).
+In Hostinger hPanel → VPS → **Firewall**, allow **TCP 8787**, then click **Sync** (rules show `is_synced: true` when applied).
+
+If port 8787 still times out, use the HTTPS proxy instead (port 443 is already open):
+
+`GROWW_GATEWAY_URL=https://noobius.in/groww`
 
 ### Health check
 
 ```bash
+# Direct (needs firewall 8787 + host networking)
 curl http://76.13.241.82:8787/health
-# {"status":"ok"}
 
-curl -H "Authorization: Bearer YOUR_GATEWAY_TOKEN" http://76.13.241.82:8787/v1/ready
-# {"status":"ready","mode":"live"}
+# Via nginx on noobius.in (recommended)
+curl https://noobius.in/groww/health
 ```
 
 ---
