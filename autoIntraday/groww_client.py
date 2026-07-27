@@ -19,6 +19,7 @@ VALID_MODES = ("paper", "live")
 # simulator without a real broker session. Any live-data/broker read on it fails fast, which is
 # correct — paper mode must never reach the real SDK.
 _PAPER_READY = "PAPER_READY"
+_GATEWAY_READY = "GATEWAY_READY"
 
 
 class GrowwClientError(Exception):
@@ -57,10 +58,23 @@ class GrowwClient:
         self.mode = mode
         self._sdk_factory = sdk_factory
         self._sdk: Any = None
+        self._gateway: Any = None
         self._paper_orders: list[dict] = []
         self._paper_order_seq = 0
 
+    def _gateway_enabled(self) -> bool:
+        return self.mode == "live" and bool(os.environ.get("GROWW_GATEWAY_URL", "").strip())
+
     def authenticate(self) -> None:
+        if self._gateway_enabled():
+            from groww_gateway_transport import GrowwGatewayTransport
+            self._gateway = GrowwGatewayTransport()
+            try:
+                self._gateway.ensure_session()
+            except Exception as e:
+                raise GrowwClientError(f"gateway authentication failed: {e}") from e
+            self._sdk = _GATEWAY_READY
+            return
         api_key = os.environ.get("GROWW_API_KEY")
         totp_secret = os.environ.get("GROWW_TOTP_SECRET")
         if not api_key or not totp_secret:
@@ -81,12 +95,19 @@ class GrowwClient:
         elif self._sdk is None:
             self._sdk = _PAPER_READY
 
+    def _via_gateway(self) -> Any:
+        if self._gateway is None:
+            raise GrowwClientError("gateway transport is not initialized")
+        return self._gateway
+
     def _require_auth(self) -> None:
         if self._sdk is None:
             raise GrowwClientError("not authenticated - call authenticate() first")
 
     def get_ltp(self, symbols: list[str]) -> dict[str, float]:
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_ltp(symbols)
         # Real SDK: get_ltp(exchange_trading_symbols: Tuple[str], segment: str), and keys
         # in the response are "EXCHANGE_SYMBOL" (e.g. "NSE_RELIANCE"), not bare symbols.
         exchange_symbols = tuple(f"NSE_{symbol}" for symbol in symbols)
@@ -95,6 +116,8 @@ class GrowwClient:
 
     def get_quote(self, symbol: str) -> dict[str, Any]:
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_quote(symbol)
         # Real SDK: get_quote(trading_symbol: str, exchange: str, segment: str).
         raw = _retry(lambda: self._sdk.get_quote(
             trading_symbol=symbol, exchange="NSE", segment=_SEGMENT_CASH))
@@ -110,6 +133,8 @@ class GrowwClient:
 
     def get_holdings(self) -> list[dict]:
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_holdings()
         # Real SDK: get_holdings_for_user() -> dict payload (not a bare list); the holdings
         # list is under the "holdings" key. Verified field names on a live account:
         # trading_symbol / quantity / average_price. There is NO ltp in this response —
@@ -124,6 +149,8 @@ class GrowwClient:
 
     def get_positions(self) -> list[dict]:
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_positions()
         # Real SDK: get_positions_for_user(segment=...) -> dict payload; positions under the
         # "positions" key. Verified fields: trading_symbol / quantity / product / net_price
         # (net_price is the position's net entry price). No ltp in this response.
@@ -142,6 +169,8 @@ class GrowwClient:
         if self.mode == "paper":
             return []
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_open_orders()
         raw = _retry(lambda: self._sdk.get_order_list(segment=_SEGMENT_CASH))
         orders = raw.get("order_list", raw) if isinstance(raw, dict) else raw
         return [
@@ -154,6 +183,8 @@ class GrowwClient:
 
     def get_margin(self) -> dict:
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_margin()
         # Real SDK: get_available_margin_details() (not get_margin()).
         raw = _retry(lambda: self._sdk.get_available_margin_details())
         return {"available": float(raw["available"]), "used": float(raw["used"]),
@@ -169,6 +200,17 @@ class GrowwClient:
         self._require_auth()
         if self.mode == "paper":
             return self._simulate_order(symbol, transaction_type, quantity, order_type, price)
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().place_order(
+                symbol=symbol,
+                exchange=exchange,
+                transaction_type=transaction_type,
+                quantity=quantity,
+                order_type=order_type,
+                price=price,
+                product=product,
+                trigger_price=trigger_price,
+            )
         try:
             # Real SDK: place_order(validity, exchange, order_type, product, quantity,
             # segment, trading_symbol, transaction_type, price=..., trigger_price=..., ...)
@@ -197,6 +239,8 @@ class GrowwClient:
                 if order["order_id"] == order_id:
                     return {"order_id": order["order_id"], "status": order["status"]}
             raise GrowwClientError(f"unknown paper order id: {order_id}")
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_order_status(order_id)
         # Real SDK: get_order_status(segment, groww_order_id) - `segment` is required and
         # the id param is named `groww_order_id`, not a positional `order_id`.
         raw = _retry(lambda: self._sdk.get_order_status(segment=_SEGMENT_CASH, groww_order_id=order_id))
@@ -210,6 +254,8 @@ class GrowwClient:
                     order["status"] = "CANCELLED"
                     return {"order_id": order["order_id"], "status": order["status"]}
             raise GrowwClientError(f"unknown paper order id: {order_id}")
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().cancel_order(order_id)
         try:
             # Real SDK: cancel_order(groww_order_id, segment) - same naming/segment gap as above.
             raw = self._sdk.cancel_order(groww_order_id=order_id, segment=_SEGMENT_CASH)
@@ -227,6 +273,8 @@ class GrowwClient:
             }
             self._paper_orders.append(order)
             return dict(order)
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().place_oco_order(symbol, entry, target, stop_loss)
         try:
             # Real SDK: there is no `place_oco_order`; smart orders (OCO/GTT) go through
             # `create_smart_order`. Per its docs, OCO wants net_position_quantity + target +
@@ -264,6 +312,8 @@ class GrowwClient:
                                           "price": stop_loss}
             return {"order_id": order_id, "status": "MODIFIED"}
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().modify_oco_order(order_id, target, stop_loss)
         try:
             # Real SDK: modify_smart_order(smart_order_id, smart_order_type, segment,
             # target={trigger_price, order_type, price}, stop_loss={...}) — OCO legs are
@@ -291,6 +341,8 @@ class GrowwClient:
                     order["status"] = "CANCELLED"
             return {"order_id": order_id, "status": "CANCELLED"}
         self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().cancel_oco_order(order_id)
         try:
             # Real SDK: smart orders are cancelled via cancel_smart_order(smart_order_id, segment,
             # smart_order_type) — UNVERIFIED against the live API; confirm in the 1-share test.
@@ -304,6 +356,8 @@ class GrowwClient:
         self._require_auth()
         if order_id.startswith("PAPER-"):
             return self.get_order_status(order_id)
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_smart_order_status(order_id)
         # Real SDK: get_smart_order(segment, smart_order_type, smart_order_id) - no
         # single-arg `get_smart_order(order_id)` overload; `segment`/`smart_order_type`
         # are required and were missing from the original assumption.

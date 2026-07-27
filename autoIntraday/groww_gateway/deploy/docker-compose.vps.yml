@@ -1,0 +1,24 @@
+services:
+  groww-gateway:
+    image: python:3.12-slim
+    container_name: groww-gateway
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      GROWW_API_KEY: ${GROWW_API_KEY}
+      GROWW_TOTP_SECRET: ${GROWW_TOTP_SECRET}
+      GROWW_GATEWAY_TOKEN: ${GROWW_GATEWAY_TOKEN}
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -euo pipefail
+        apt-get update -qq
+        apt-get install -y -qq git >/dev/null
+        rm -rf /tmp/repo
+        git clone --depth 1 https://github.com/mohdsuhel2/ai-mini-projects.git /tmp/repo
+        cd /tmp/repo/autoIntraday
+        pip install -q --no-cache-dir -r requirements.txt -r groww_gateway/requirements-gateway.txt
+        export PYTHONPATH=/tmp/repo/autoIntraday
+        exec uvicorn groww_gateway.app:app --host 0.0.0.0 --port 8787
