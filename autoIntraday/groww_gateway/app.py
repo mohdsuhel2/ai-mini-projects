@@ -51,8 +51,8 @@ def _get_live_client() -> GrowwClient:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if _GATEWAY_TOKEN:
-        _get_live_client()
+    # Lazy auth on first broker request — do not authenticate at startup (restarts would
+    # hammer Groww TOTP and trip the rate limit while the container is crash-looping).
     yield
     global _client
     with _client_lock:
