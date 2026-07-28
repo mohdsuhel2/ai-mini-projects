@@ -10,7 +10,8 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from groww_client import GrowwClient, GrowwClientError
@@ -18,6 +19,12 @@ from groww_client import GrowwClient, GrowwClientError
 _GATEWAY_TOKEN = os.environ.get("GROWW_GATEWAY_TOKEN", "").strip()
 _client_lock = threading.Lock()
 _client: Optional[GrowwClient] = None
+
+# When an SDK error smells like an expired/invalid session, drop the cached client so the NEXT
+# request re-authenticates once. ensure_ready() is idempotent, so healthy requests never re-auth
+# and never trip Groww's auth rate limit — this only kicks in on a genuine session expiry.
+_AUTH_ERROR_MARKERS = ("authentication failed", "access token", "unauthorized", "session expired",
+                       "invalid token", "401")
 
 
 def _require_gateway_token(authorization: Optional[str] = Header(default=None)) -> None:
@@ -53,6 +60,19 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Groww Gateway", version="1.0.0", lifespan=lifespan)
+
+
+@app.exception_handler(GrowwClientError)
+async def _groww_error_handler(_request: Request, exc: GrowwClientError) -> JSONResponse:
+    """Translate broker/SDK errors into a diagnosable HTTP 502 carrying the real message, instead
+    of an opaque 500. The transport reads {"detail": ...} from the body, so cancel/margin/ltp
+    failures now surface their actual cause to the client and the orchestrator's logs."""
+    msg = str(exc)
+    if any(marker in msg.lower() for marker in _AUTH_ERROR_MARKERS):
+        global _client
+        with _client_lock:
+            _client = None
+    return JSONResponse(status_code=502, content={"detail": msg})
 
 
 @app.get("/health")

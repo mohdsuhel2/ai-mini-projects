@@ -13,8 +13,8 @@
 
     <!-- launchd starts with cwd=/ and a minimal PATH, and inherits none of your shell env.
          config.yaml drives DECISION_BACKEND (claude_cli), tool paths, db_path via AUTOINTRADAY_CONFIG.
-         PAPER needs no creds; LIVE needs GROWW_API_KEY + GROWW_TOTP_SECRET added here (and still NO
-         ANTHROPIC_API_KEY, which would force API billing instead of the subscription). -->
+         PAPER needs no creds; LIVE uses GROWW_GATEWAY_URL + GROWW_GATEWAY_TOKEN via config.yaml/.env
+         (Groww API keys stay on the VPS). Still NO ANTHROPIC_API_KEY — that forces API billing. -->
     <key>WorkingDirectory</key>
     <string>/Users/mohdsuhel/ai-mini-projects/autoIntraday</string>
 

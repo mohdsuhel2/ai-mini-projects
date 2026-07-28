@@ -14,6 +14,10 @@ decision:
 credentials:
   # For backend: claude_cli, LEAVE anthropic_api_key unset (a set ANTHROPIC_API_KEY forces API billing).
   anthropic_api_key: ${ANTHROPIC_API_KEY}
+  # Live trading via VPS gateway (recommended — works from any WiFi; Groww creds stay on server).
+  groww_gateway_url: ${GROWW_GATEWAY_URL:-https://noobius.in/groww}
+  groww_gateway_token: ${GROWW_GATEWAY_TOKEN}
+  # Direct SDK only when running on the Groww-whitelisted static IP (e.g. the VPS itself).
   groww_api_key: ${GROWW_API_KEY}
   groww_totp_secret: ${GROWW_TOTP_SECRET}
 

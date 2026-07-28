@@ -1,8 +1,7 @@
-"""Groww API client wrapper — the only module that talks to the growwapi SDK.
+"""Groww API client wrapper — the only module that talks to Groww.
 
-Paper mode intercepts every write (order placement/cancellation) and simulates it
-locally instead of calling Groww, so the same code path later phases use can run
-against a live account without risk. See
+Live mode routes through the VPS gateway when GROWW_GATEWAY_URL is set (recommended on Mac).
+Paper mode simulates every write locally. See groww_gateway/README.md and
 docs/superpowers/specs/2026-07-09-groww-client-design.md.
 """
 from __future__ import annotations
@@ -20,6 +19,10 @@ VALID_MODES = ("paper", "live")
 # correct — paper mode must never reach the real SDK.
 _PAPER_READY = "PAPER_READY"
 _GATEWAY_READY = "GATEWAY_READY"
+
+# A cancel that fails because the order is already in one of these states is a benign no-op:
+# the resting order is gone, which is exactly what cancel wanted. Distinguished from a real error.
+_TERMINAL_STATUSES = frozenset({"EXECUTED", "COMPLETED", "CANCELLED", "REJECTED", "FAILED"})
 
 
 class GrowwClientError(Exception):
@@ -78,7 +81,10 @@ class GrowwClient:
         api_key = os.environ.get("GROWW_API_KEY")
         totp_secret = os.environ.get("GROWW_TOTP_SECRET")
         if not api_key or not totp_secret:
-            raise GrowwClientError("GROWW_API_KEY and GROWW_TOTP_SECRET must be set in the environment")
+            raise GrowwClientError(
+                "live mode requires GROWW_GATEWAY_URL + GROWW_GATEWAY_TOKEN (recommended) "
+                "or GROWW_API_KEY + GROWW_TOTP_SECRET on a Groww-whitelisted static IP"
+            )
         totp = pyotp.TOTP(totp_secret).now()
         try:
             self._sdk = self._sdk_factory(api_key, totp)
@@ -89,11 +95,25 @@ class GrowwClient:
         """Prepare the client to run a cycle. Live mode must authenticate against Groww; paper
         mode simulates every order locally and reads no broker data (the orchestrator prices from
         the indicator feed and tracks positions in the DB), so it needs no credentials — it just
-        marks itself ready so `_require_auth` passes for the local order simulator."""
+        marks itself ready so `_require_auth` passes for the local order simulator.
+
+        Live auth is IDEMPOTENT: authenticate once, then reuse the session for the rest of the
+        day. Re-authenticating on every call re-runs the TOTP login, which trips Groww's auth
+        rate limit — that was the root cause of intermittent gateway 500/502s (the gateway server
+        calls ensure_ready() on every request). Use reauthenticate() to force a fresh login when
+        the session actually expires."""
         if self.mode == "live":
-            self.authenticate()
+            if self._sdk is None:
+                self.authenticate()
         elif self._sdk is None:
             self._sdk = _PAPER_READY
+
+    def reauthenticate(self) -> None:
+        """Force a fresh login — call this only when a live call fails with a session-expiry /
+        auth error, so we don't re-run TOTP (and hit the rate limit) on healthy requests."""
+        self._sdk = None
+        self._gateway = None
+        self.authenticate()
 
     def _via_gateway(self) -> Any:
         if self._gateway is None:
@@ -260,8 +280,27 @@ class GrowwClient:
             # Real SDK: cancel_order(groww_order_id, segment) - same naming/segment gap as above.
             raw = self._sdk.cancel_order(groww_order_id=order_id, segment=_SEGMENT_CASH)
         except Exception as e:
+            # Groww rejects cancelling an order that is already terminal (filled/cancelled/
+            # rejected) or unknown. That is NOT a real failure for us — the resting order is
+            # gone, which is what cancel wanted. This is the armed-exit race: we try to cancel
+            # a take-profit order that already filled. Report it benignly so callers don't alarm.
+            status = self._safe_order_status(order_id)
+            if status in _TERMINAL_STATUSES:
+                return {"order_id": order_id, "status": status, "cancelled": False,
+                        "note": "order already terminal — nothing to cancel"}
+            if status is None:
+                return {"order_id": order_id, "status": "NOT_FOUND", "cancelled": False,
+                        "note": "order not found — nothing to cancel"}
             raise GrowwClientError(f"order cancellation failed: {e}") from e
-        return {"order_id": order_id, "status": raw["order_status"]}
+        return {"order_id": order_id, "status": raw["order_status"], "cancelled": True}
+
+    def _safe_order_status(self, order_id: str) -> Optional[str]:
+        """Best-effort order status for cancel's benign-terminal check. Returns the status string,
+        or None if the order can't be found / status can't be read. Never raises."""
+        try:
+            return self.get_order_status(order_id).get("status")
+        except Exception:
+            return None
 
     def place_oco_order(self, symbol: str, entry: dict, target: dict, stop_loss: dict) -> dict:
         self._require_auth()

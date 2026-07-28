@@ -14,7 +14,7 @@ real. See `docs/superpowers/specs/2026-07-09-groww-client-design.md` for the ful
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-cp .env.example .env  # fill in GROWW_API_KEY and GROWW_TOTP_SECRET
+cp .env.example .env  # fill in GROWW_GATEWAY_TOKEN (Groww creds live on the VPS only)
 ```
 
 ### Test

@@ -13,8 +13,8 @@ enforced by the runner's guard, not launchd. Your Mac must be awake at those tim
 > the `EDIT ME` steps below only matter if you move the project. The `claude_cli` decision
 > backend reads your Claude subscription token from the macOS **login Keychain** — a gui
 > LaunchAgent can reach it (verified), but the keychain must be unlocked (i.e. you're logged in).
-> Live mode still requires real Groww creds in the plist `EnvironmentVariables` **and** the
-> "before LIVE" hardening.
+> Live mode uses the **Groww VPS gateway** (`GROWW_GATEWAY_URL` + `GROWW_GATEWAY_TOKEN` in
+> `config.yaml` / `.env`). Groww API keys stay on the server — not in the plist.
 
 ## 1. Edit the plist paths
 
@@ -27,10 +27,8 @@ Open `deploy/com.autointraday.cycle.plist` and fix every line marked `EDIT ME`:
 
 launchd jobs do NOT inherit your shell env. Put credentials the job needs where launchd can
 see them — either add a `<key>EnvironmentVariables</key>` dict to the plist with
-`ANTHROPIC_API_KEY`, `GROWW_API_KEY`, `GROWW_TOTP_SECRET` (and `AUTOINTRADAY_DB` — if you
-override it, it MUST include a directory component, e.g. `~/.autointraday/foo.db`, not a bare
-`foo.db`; plus `INTRADAY_PYTHON`/`INTRADAY_SCRIPT`, `SCREENER_PYTHON`/`SCREENER_SCRIPT` if not default), or
-authenticate a persistent credential the job can read. Never commit real keys.
+`GROWW_GATEWAY_URL`, `GROWW_GATEWAY_TOKEN` (for live mode via the VPS relay), or rely on
+`config.yaml` + a project `.env` loaded by `load_settings()` (recommended). Never commit real keys.
 
 - **Decision backend:** set `DECISION_BACKEND=claude_cli` in the plist `EnvironmentVariables`
   to run decisions on your Claude subscription via `claude -p` (and then do NOT set

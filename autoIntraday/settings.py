@@ -28,6 +28,8 @@ _ENV_MAP = {
     "anthropic_api_key": "ANTHROPIC_API_KEY",
     "groww_api_key": "GROWW_API_KEY",
     "groww_totp_secret": "GROWW_TOTP_SECRET",
+    "groww_gateway_url": "GROWW_GATEWAY_URL",
+    "groww_gateway_token": "GROWW_GATEWAY_TOKEN",
 }
 
 _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
@@ -52,7 +54,22 @@ class Settings:
     anthropic_api_key: str
     groww_api_key: str
     groww_totp_secret: str
+    groww_gateway_url: str = ""
+    groww_gateway_token: str = ""
     trading_defaults: dict = field(default_factory=dict)
+    # Multi-strategy framework (2026-07-24). `strategies` is the available roster (list of
+    # {id,name,skill} dicts, or None -> built-in V1/V2). live/paper pick which strategy runs;
+    # compare runs several as isolated paper ledgers. Absent config -> single default strategy,
+    # i.e. today's behaviour.
+    strategies: Optional[list] = None
+    live_strategy: str = "intraday-v1"
+    paper_strategy: str = "intraday-v1"
+    compare_enabled: bool = False
+    compare_strategies: list = field(default_factory=lambda: ["intraday-v1", "intraday-v2"])
+
+    def active_strategy_id(self, mode: str) -> str:
+        """The single strategy that generates decisions for a normal (non-compare) mode run."""
+        return self.live_strategy if mode == "live" else self.paper_strategy
 
     def apply_to_environ(self, env: Optional[dict] = None) -> None:
         env = os.environ if env is None else env
@@ -110,6 +127,10 @@ def load_settings(path: Optional[str] = None, env: Optional[dict] = None) -> Set
     decision = raw.get("decision") or {}
     tools = raw.get("tools") or {}
     creds = raw.get("credentials") or {}
+    strategies = (raw.get("strategies") or {}).get("available")
+    live_cfg = raw.get("live") or {}
+    paper_cfg = raw.get("paper") or {}
+    compare_cfg = raw.get("compare") or {}
 
     def pick(env_var: Optional[str], yaml_val, default):
         if env_var and env.get(env_var):
@@ -136,5 +157,13 @@ def load_settings(path: Optional[str] = None, env: Optional[dict] = None) -> Set
         anthropic_api_key=pick("ANTHROPIC_API_KEY", creds.get("anthropic_api_key"), ""),
         groww_api_key=pick("GROWW_API_KEY", creds.get("groww_api_key"), ""),
         groww_totp_secret=pick("GROWW_TOTP_SECRET", creds.get("groww_totp_secret"), ""),
+        groww_gateway_url=pick("GROWW_GATEWAY_URL", creds.get("groww_gateway_url"), ""),
+        groww_gateway_token=pick("GROWW_GATEWAY_TOKEN", creds.get("groww_gateway_token"), ""),
         trading_defaults={**_DEFAULT_TRADING, **(raw.get("trading_defaults") or {})},
+        strategies=strategies,
+        live_strategy=live_cfg.get("strategy") or "intraday-v1",
+        paper_strategy=paper_cfg.get("strategy") or "intraday-v1",
+        compare_enabled=bool(compare_cfg.get("enabled", False)),
+        compare_strategies=compare_cfg.get("strategies")
+        or ["intraday-v1", "intraday-v2"],
     )

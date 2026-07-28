@@ -21,6 +21,42 @@ def test_missing_file_all_defaults(tmp_path, monkeypatch):
     assert s.trading_defaults["mode"] == "paper"
 
 
+def test_strategy_defaults_when_absent(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    s = load_settings(path=None, env={})
+    assert s.strategies is None                         # -> registry uses built-in V1/V2
+    assert s.live_strategy == "intraday-v1" and s.paper_strategy == "intraday-v1"
+    assert s.compare_enabled is False
+    assert s.active_strategy_id("live") == "intraday-v1"
+    assert s.active_strategy_id("paper") == "intraday-v1"
+
+
+def test_strategy_config_parsed(tmp_path):
+    path = _write(tmp_path, """
+strategies:
+  available:
+    - id: intraday-v1
+      name: V1
+      skill: ~/.claude/skills/intraday-analyst/SKILL.md
+    - id: intraday-v2
+      name: V2
+      skill: ~/.claude/skills/intraday-analyst-2/SKILL.md
+live:
+  strategy: intraday-v1
+paper:
+  strategy: intraday-v2
+compare:
+  enabled: true
+  strategies: [intraday-v1, intraday-v2]
+""")
+    s = load_settings(path=path, env={})
+    assert [e["id"] for e in s.strategies] == ["intraday-v1", "intraday-v2"]
+    assert s.active_strategy_id("live") == "intraday-v1"
+    assert s.active_strategy_id("paper") == "intraday-v2"
+    assert s.compare_enabled is True
+    assert s.compare_strategies == ["intraday-v1", "intraday-v2"]
+
+
 def test_loads_fields_from_yaml(tmp_path):
     path = _write(tmp_path, """
 db_path: /tmp/foo.db
@@ -63,6 +99,21 @@ credentials:
     assert s.anthropic_api_key == "sk-1"
     assert s.groww_api_key == "gk"
     assert s.groww_totp_secret == "ts"
+
+
+def test_gateway_credentials_and_apply_to_environ(tmp_path, monkeypatch):
+    path = _write(tmp_path, """
+credentials:
+  groww_gateway_url: ${GROWW_GATEWAY_URL:-https://noobius.in/groww}
+  groww_gateway_token: ${GROWW_GATEWAY_TOKEN}
+""")
+    s = load_settings(path=path, env={"GROWW_GATEWAY_TOKEN": "tok"})
+    assert s.groww_gateway_url == "https://noobius.in/groww"
+    assert s.groww_gateway_token == "tok"
+    env = {}
+    s.apply_to_environ(env)
+    assert env["GROWW_GATEWAY_URL"] == "https://noobius.in/groww"
+    assert env["GROWW_GATEWAY_TOKEN"] == "tok"
 
 
 def test_var_interpolation_unset_is_empty(tmp_path):
