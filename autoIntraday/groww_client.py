@@ -6,11 +6,16 @@ docs/superpowers/specs/2026-07-09-groww-client-design.md.
 """
 from __future__ import annotations
 
+import json
+import logging
 import os
 import time
+from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
 
 import pyotp
+
+log = logging.getLogger("autointraday.groww_client")
 
 VALID_MODES = ("paper", "live")
 
@@ -34,10 +39,79 @@ class GrowwClientError(Exception):
     """Wraps every error raised while talking to Groww: auth, SDK, network, rate limit."""
 
 
+# --- Access-token cache -----------------------------------------------------------------------
+# Groww access tokens are valid until 06:00 IST daily, so the intended pattern is generate ONCE
+# and reuse — NOT per request or per restart. Groww's auth endpoint has an anti-abuse (brute-force)
+# limiter, so a login storm (the old per-request re-auth + every container redeploy re-generating a
+# token) trips "rate limit exceeded". Persisting the token to a mounted volume lets restarts and
+# redeploys REUSE the day's token instead of minting a new one. Enabled only when
+# GROWW_TOKEN_CACHE_PATH is set (the VPS gateway); unset elsewhere -> behave exactly as before.
+
+def _token_cache_path() -> Optional[str]:
+    return os.environ.get("GROWW_TOKEN_CACHE_PATH", "").strip() or None
+
+
+def _next_6am_ist_epoch(now: Optional[datetime] = None) -> float:
+    """Epoch of the next 06:00 Asia/Kolkata — a Groww access token's daily expiry."""
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+    now = now or datetime.now(ist)
+    six = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now >= six:
+        six += timedelta(days=1)
+    return six.timestamp()
+
+
+def _load_cached_token() -> Optional[str]:
+    """Return a cached access token if one is stored and not yet at its 06:00 IST expiry, else None."""
+    path = _token_cache_path()
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        if float(data.get("expiry", 0)) > time.time():
+            return data.get("access_token") or None
+    except Exception:
+        log.warning("could not read token cache %s — will re-authenticate", path, exc_info=True)
+    return None
+
+
+def _save_cached_token(token: str) -> None:
+    path = _token_cache_path()
+    if not path:
+        return
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w") as f:
+            json.dump({"access_token": token, "expiry": _next_6am_ist_epoch()}, f)
+        os.replace(tmp, path)                       # atomic — never leave a half-written token
+        try:
+            os.chmod(path, 0o600)                   # it's a live credential
+        except OSError:
+            pass
+    except Exception:
+        log.warning("could not write token cache %s", path, exc_info=True)
+
+
+def _clear_cached_token() -> None:
+    """Drop a cached token that Groww rejected mid-day, so the next login mints a fresh one."""
+    path = _token_cache_path()
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            log.warning("could not remove token cache %s", path, exc_info=True)
+
+
 def _default_sdk_factory(api_key: str, totp: str) -> Any:
     from growwapi import GrowwAPI
-    access_token = GrowwAPI.get_access_token(api_key=api_key, totp=totp)
-    return GrowwAPI(access_token)
+    token = _load_cached_token()
+    if token is None:                               # no valid cached token -> mint one and persist
+        token = GrowwAPI.get_access_token(api_key=api_key, totp=totp)
+        _save_cached_token(token)
+    return GrowwAPI(token)
 
 
 # Real growwapi (v1.5.0) segment/exchange/product constants used at the SDK call sites
@@ -125,9 +199,11 @@ class GrowwClient:
 
     def reauthenticate(self) -> None:
         """Force a fresh login — call this only when a live call fails with a session-expiry /
-        auth error, so we don't re-run TOTP (and hit the rate limit) on healthy requests."""
+        auth error, so we don't re-run TOTP (and hit the rate limit) on healthy requests. Drops any
+        cached token first so a token Groww rejected mid-day is replaced, not reloaded."""
         self._sdk = None
         self._gateway = None
+        _clear_cached_token()
         self.authenticate()
 
     def _via_gateway(self) -> Any:

@@ -8,6 +8,11 @@ services:
       GROWW_API_KEY: ${GROWW_API_KEY}
       GROWW_TOTP_SECRET: ${GROWW_TOTP_SECRET}
       GROWW_GATEWAY_TOKEN: ${GROWW_GATEWAY_TOKEN}
+      # Persist the daily access token here so restarts/redeploys REUSE it (valid until 06:00 IST)
+      # instead of minting a new one each time — the redeploy churn that tripped Groww's auth limiter.
+      GROWW_TOKEN_CACHE_PATH: /var/lib/groww/token.json
+    volumes:
+      - groww-token:/var/lib/groww     # named volume survives container recreate (up -d / redeploy)
     command:
       - /bin/bash
       - -c
@@ -22,3 +27,6 @@ services:
         pip install -q --no-cache-dir -r requirements.txt -r groww_gateway/requirements-gateway.txt
         export PYTHONPATH=/tmp/repo/autoIntraday
         exec uvicorn groww_gateway.app:app --host 0.0.0.0 --port 8787
+
+volumes:
+  groww-token:                         # holds the daily access token across redeploys
