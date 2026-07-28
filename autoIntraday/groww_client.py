@@ -24,6 +24,11 @@ _GATEWAY_READY = "GATEWAY_READY"
 # the resting order is gone, which is exactly what cancel wanted. Distinguished from a real error.
 _TERMINAL_STATUSES = frozenset({"EXECUTED", "COMPLETED", "CANCELLED", "REJECTED", "FAILED"})
 
+# After a rate-limited login, back off this long before attempting Groww auth again. While rate-
+# limited, retrying a login on every request keeps Groww's window from resetting (the login storm
+# perpetuates itself) — the cooldown breaks that loop so the window can clear.
+_AUTH_COOLDOWN_SECONDS = 120.0
+
 
 class GrowwClientError(Exception):
     """Wraps every error raised while talking to Groww: auth, SDK, network, rate limit."""
@@ -64,6 +69,7 @@ class GrowwClient:
         self._gateway: Any = None
         self._paper_orders: list[dict] = []
         self._paper_order_seq = 0
+        self._auth_cooldown_until = 0.0    # monotonic deadline; set on a rate-limited auth failure
 
     def _gateway_enabled(self) -> bool:
         return self.mode == "live" and bool(os.environ.get("GROWW_GATEWAY_URL", "").strip())
@@ -104,7 +110,16 @@ class GrowwClient:
         the session actually expires."""
         if self.mode == "live":
             if self._sdk is None:
-                self.authenticate()
+                if self._auth_cooldown_until and time.monotonic() < self._auth_cooldown_until:
+                    raise GrowwClientError(
+                        "auth cooling down after a Groww rate-limit — not re-attempting login yet "
+                        "so the rate-limit window can reset")
+                try:
+                    self.authenticate()
+                except GrowwClientError as e:
+                    if "rate limit" in str(e).lower():
+                        self._auth_cooldown_until = time.monotonic() + _AUTH_COOLDOWN_SECONDS
+                    raise
         elif self._sdk is None:
             self._sdk = _PAPER_READY
 
