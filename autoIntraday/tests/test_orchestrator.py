@@ -920,6 +920,37 @@ def test_live_resting_places_real_limit_then_fills_on_broker_confirm():
     assert client.oco == [] and op[0].oco_order_id is None
 
 
+class _OrigEntryFilledClient(_FakeClient):
+    """get_order_status reports the ORIGINAL resting entry (ENT-1) FILLED and every replacement
+    order still OPEN — the between-cycles fill that _refresh_pending's cancel+replace churn used
+    to orphan (TIL, 2026-07-29)."""
+    def get_order_status(self, order_id):
+        return {"order_id": order_id, "status": "EXECUTED" if order_id == "ENT-1" else "OPEN"}
+
+
+def test_live_pending_fill_armed_before_refresh_churn():
+    # A resting LIMIT entry that FILLED between cycles must be ARMED, not cancelled+replaced by
+    # _refresh_pending — cancel_order silently succeeds on an already-filled order, so the churn
+    # orphaned the real fill and no exit was ever placed (TIL, 2026-07-29).
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=5,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=100,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="live",
+                              status="PENDING", entry_order_id="ENT-1", trigger_kind="LIMIT")
+    client = _OrigEntryFilledClient(mode="live")
+    # The engine re-quotes to a MOVED same-side level — exactly the read that triggers the
+    # cancel+replace churn. The ENT-1 fill must still win.
+    engine = _FakeEngine(_decision(action="BUY_ON_PULLBACK", tq=80, rr=2.0, conf=75,
+                                   entry=103.0, stop=98.0, target1=113.0))
+    orch = _orch(store, client, engine, {"AAA": _indic("AAA", last=100.5)})
+    fills, filled_ids = orch._resolve_pending(store.start_run("live"))
+    p = store.get_position(pid)
+    assert fills == 1 and pid in filled_ids
+    assert p.status == "OPEN" and p.entry_price == pytest.approx(100.0)
+    assert "ENT-1" not in client.cancelled   # the filled order was never churned away
+
+
 # ---- safety layer: OCO cancel, circuit breaker, reconciliation, two-direction screen ---------
 
 def test_close_position_cancels_oco_first():
@@ -1621,7 +1652,11 @@ def _live_pos(store, qty=100, entry=100.0, target=110.0, stop=95.0):
                                entry_price=entry, target_price=target, stop_loss=stop, mode="live")
 
 
-def test_on_fill_places_full_bracket():
+def test_on_fill_places_stop_only():
+    # A full-qty target LIMIT and a full-qty stop SL_M cannot co-rest on one MIS holding — Groww
+    # keeps the LIMIT and auto-cancels the SL_M, leaving the position naked on the downside and
+    # flooding the order book (verified 2026-07-29). So ONLY the protective stop rests at the
+    # broker; the target is taken by the soft cycle-level take-profit instead.
     store = Store(":memory:")
     store.update_config(mode="live", exit_mode="on_fill")
     pid = _live_pos(store)
@@ -1631,12 +1666,42 @@ def test_on_fill_places_full_bracket():
     p = store.get_position(pid)
     assert p.status == "OPEN"
     assert p.broker_stop_price == pytest.approx(95.0)
-    assert p.broker_target_price == pytest.approx(103.0)          # min(full-profit 103, target 110)
-    by_type = {o["order_type"]: o for o in client.orders}
-    assert by_type["SL_M"]["trigger_price"] == pytest.approx(95.0)
-    assert by_type["SL_M"]["transaction_type"] == "SELL" and by_type["SL_M"]["quantity"] == 100
-    assert by_type["LIMIT"]["price"] == pytest.approx(103.0)
-    assert by_type["LIMIT"]["transaction_type"] == "SELL"
+    assert p.broker_target_order_id is None and p.broker_target_price is None
+    assert [o["order_type"] for o in client.orders] == ["SL_M"]   # ONLY the stop — no target LIMIT
+    sl = client.orders[0]
+    assert sl["trigger_price"] == pytest.approx(95.0)
+    assert sl["transaction_type"] == "SELL" and sl["quantity"] == 100
+
+
+def test_on_fill_target_taken_softly_when_no_target_leg():
+    # With only the stop resting, the target is enforced by the soft cycle-level take-profit:
+    # price at/above the full-profit level exits at market (no broker target leg to own it).
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store, entry=100.0, target=110.0, stop=95.0)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    # ltp 103 == the full-profit level (15% on margin at 5x = +3%): soft full take-profit fires
+    exits = _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+                  {"RELIANCE": _indic(last=103.0)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert exits == 1 and p.status == "CLOSED" and p.exit_reason == "TAKE_PROFIT"
+    assert p.exit_price == pytest.approx(103.0)
+
+
+def test_ensure_bracket_tears_down_stale_target_leg():
+    # A target leg that somehow exists (legacy row / a leg placed before this change) is cancelled
+    # on the next manage cycle — only the stop is allowed to rest.
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store)
+    store.set_bracket_leg(pid, "target", "TG-OLD", 103.0)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=100.5)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert "TG-OLD" in client.cancelled                          # stale target leg torn down
+    assert p.broker_target_order_id is None
+    assert p.broker_stop_price == pytest.approx(95.0)            # protective stop still rests
 
 
 def test_db_only_places_no_bracket():
@@ -1662,20 +1727,23 @@ def test_paper_mode_places_no_bracket():
     assert client.orders == [] and store.get_position(pid).broker_stop_order_id is None
 
 
-def test_armed_places_only_when_near_a_level():
+def test_armed_places_stop_only_when_near_the_stop():
     store = Store(":memory:")
-    store.update_config(mode="live", exit_mode="armed", profit_book_enabled=False)  # bracket = 95/110
+    store.update_config(mode="live", exit_mode="armed", profit_book_enabled=False)  # stop = 95
     pid = _live_pos(store)
     client = _FakeClient(mode="live", order_status="OPEN")
-    # mid-range: not within 1% of the stop (95) or target (110) -> nothing placed
+    # mid-range: not within 1% of the stop (95) -> nothing placed
     _orch(store, client, _FakeEngine(_decision(action="HOLD")),
           {"RELIANCE": _indic(last=100.0)})._manage_positions(store.start_run("live"))
-    assert store.get_position(pid).broker_target_order_id is None
-    # within 1% of the target -> place the full bracket
+    assert store.get_position(pid).broker_stop_order_id is None
+    assert client.orders == []
+    # within 1% of the stop -> place the protective stop (still no target leg)
     _orch(store, client, _FakeEngine(_decision(action="HOLD")),
-          {"RELIANCE": _indic(last=109.5)})._manage_positions(store.start_run("live"))
+          {"RELIANCE": _indic(last=95.5)})._manage_positions(store.start_run("live"))
     p = store.get_position(pid)
-    assert p.broker_target_price == pytest.approx(110.0) and p.broker_stop_price == pytest.approx(95.0)
+    assert p.broker_stop_price == pytest.approx(95.0)
+    assert p.broker_target_order_id is None
+    assert [o["order_type"] for o in client.orders] == ["SL_M"]
 
 
 def test_bracket_target_fill_closes_and_cancels_stop():
@@ -1767,7 +1835,8 @@ def test_partial_book_resizes_bracket():
     p = store.get_position(pid)
     assert p.partial_booked is True and p.quantity == 50
     assert "SL-1" in client.cancelled and "TG-1" in client.cancelled     # old bracket torn down
-    assert p.broker_stop_order_id is not None and p.broker_target_order_id is not None   # rebuilt
+    assert p.broker_stop_order_id is not None                   # stop rebuilt at the new size
+    assert p.broker_target_order_id is None                     # stop only — no target leg
     assert p.broker_stop_price == pytest.approx(100.0)          # runner stop trailed to breakeven
 
 

@@ -990,21 +990,25 @@ class Orchestrator:
                      "re-placed" if cur_id else "placed", tpx, position.quantity)
 
     def _ensure_bracket(self, run_id: int, position, indicators, cfg) -> None:
-        """Place/refresh the broker stop+target bracket (eager modes). 'on_fill' always maintains
-        both legs; 'armed' places them once price is within arm_exit_band_pct of a level (then keeps
-        them). Skipped in the square-off window (that flattens at market)."""
+        """Rest the protective STOP at the broker (eager modes). ONLY the stop rests: a full-qty
+        target LIMIT and a full-qty stop SL_M cannot co-exist on one MIS holding — Groww keeps the
+        LIMIT and auto-cancels the SL_M, so a two-leg bracket left the downside naked and re-placed
+        a fresh (uncancelled) stop every cycle, flooding the order book (verified 2026-07-29). The
+        target is enforced by the soft cycle-level take-profit / exit instead; native OCO stays off
+        (USE_BROKER_OCO=False — Groww's smart-order modify/cancel proved unreliable 2026-07-20).
+        'on_fill' always keeps the stop; 'armed' places it once price is within arm_exit_band_pct of
+        the stop. Skipped in the square-off window (that flattens at market)."""
         if self.client.mode != "live" or _should_square_off(indicators):
             return
-        stop_px, target_px = self._bracket_levels(position, cfg)
+        stop_px, _ = self._bracket_levels(position, cfg)
+        if position.broker_target_order_id:      # tear down any stale/legacy target leg — stop only
+            self._cancel_leg(position, "target")
         if (cfg.exit_mode == "armed" and not position.force_bracket
-                and not self._bracket_live(position)):
+                and not position.broker_stop_order_id):
             ltp = _ltp(indicators)
-            near = ((stop_px is not None and _near(ltp, stop_px, cfg.arm_exit_band_pct))
-                    or (target_px is not None and _near(ltp, target_px, cfg.arm_exit_band_pct)))
-            if not near:
-                return                                     # not near an exit yet -> stay soft
+            if stop_px is None or not _near(ltp, stop_px, cfg.arm_exit_band_pct):
+                return                                     # not near the stop yet -> stay soft
         self._ensure_leg(run_id, position, "stop", stop_px)
-        self._ensure_leg(run_id, position, "target", target_px)
 
     def _maybe_scale_in(self, run_id: int, position, decision, indicators) -> bool:
         """Add to an underwater position when the engine still re-affirms it — sized so the
@@ -1345,16 +1349,29 @@ class Orchestrator:
         filled_ids = set()
         for position in self.store.get_pending_positions():
             try:
-                # Re-evaluate the resting order against a fresh read BEFORE trying to fill it:
-                # cancel if the setup is gone, else refresh its levels. Then resolve as usual.
+                # A live broker-tracked resting order is checked for a FILL before any refresh.
+                # _refresh_pending does a cancel+replace, and cancel_order silently succeeds on an
+                # order the broker has already FILLED (it is terminal), so a fill that landed
+                # between cycles was churned into a fresh resting order and NEVER armed — the
+                # position sat "pending" until square-off cancelled it, with no exit ever placed
+                # (TIL, 2026-07-29). Resolve the fill first; only a still-resting order is then
+                # re-evaluated and its levels refreshed.
+                if self.client.mode == "live" and position.entry_order_id:
+                    if self._resolve_pending_broker(run_id, position):
+                        filled_ids.add(position.id)
+                        fills += 1
+                        continue
+                    position = self.store.get_position(position.id)
+                    if position is None or position.status != "PENDING":
+                        continue                               # broker rejected it this cycle
+                    self._refresh_pending(run_id, position)    # still resting -> refresh levels
+                    continue                                   # fills only on a later cycle
+                # Synthetic (paper / live breakout stop) — no broker fill to miss: re-evaluate
+                # against a fresh read (cancel if the setup is gone), then fill by price.
                 if self._refresh_pending(run_id, position):
                     continue                                   # cancelled early — slot freed
                 position = self.store.get_position(position.id)   # reload refreshed levels
-                # A broker-tracked resting order (live pullback LIMIT) resolves by broker status;
-                # everything else (paper, live breakout) resolves synthetically by price.
-                filled = (self._resolve_pending_broker(run_id, position)
-                          if position.entry_order_id
-                          else self._resolve_pending_synthetic(run_id, position))
+                filled = self._resolve_pending_synthetic(run_id, position)
             except Exception as e:
                 log.exception("pending resolve failed for %s", position.symbol)
                 self.store.record_decision(run_id=run_id, symbol=position.symbol, action="SKIP",
