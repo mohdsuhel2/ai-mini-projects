@@ -1833,3 +1833,23 @@ def test_paper_mode_reconciles_nothing():
     run_id = store.start_run("paper")
     assert orch._reconcile_broker(run_id) == 0
     assert store.get_open_positions() == []
+
+
+def test_reconcile_manual_exit_cancels_bracket_and_oco():
+    # The bot's resting stop must NOT survive the user's manual exit — it would fire against
+    # shares we no longer hold and open a naked reverse position.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              oco_order_id="OCO-1", mode="live")
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 110.0)
+    client = _FakeClient(mode="live", broker_positions=[])     # flat at the broker
+    orch = _live_screen_orch(store, client)
+    orch.run_cycle()
+    assert set(client.cancelled) == {"SL-1", "TG-1"}
+    assert client.cancelled_ocos == ["OCO-1"]
+    p = store.get_position(pid)
+    assert p.status == "CLOSED" and p.exit_reason == "BROKER_SYNC"

@@ -451,20 +451,9 @@ class Orchestrator:
             net = int((mis.get(position.symbol) or {}).get("net", 0))
             try:
                 if net == 0:
-                    try:
-                        exit_price = _ltp(self.get_indicators(position.symbol))
-                    except Exception:
-                        exit_price = position.entry_price   # P&L unknown; don't invent a move
-                    pnl = self._realized_pnl(position.side, position.entry_price, exit_price,
-                                             position.quantity)
-                    self.store.close_position(position.id, exit_price=exit_price,
-                                              exit_reason="BROKER_SYNC", realized_pnl=pnl)
-                    self.store.record_decision(
-                        run_id=run_id, symbol=position.symbol, action="EXIT",
-                        reason="broker sync: no net qty at broker (manual exit / OCO fired?)",
-                        position_id=position.id)
-                    log.warning("reconciled %s: closed in DB (absent at broker), exit~%.2f",
-                                position.symbol, exit_price)
+                    self._close_broker_synced(
+                        run_id, position,
+                        "broker sync: no net qty at broker (manual exit / OCO fired?)")
                     synced += 1
                 elif abs(net) < position.quantity:
                     self.store.update_position_quantity(position.id, abs(net))
@@ -561,16 +550,44 @@ class Orchestrator:
         if position.broker_target_order_id:
             self._cancel_leg(position, "target")
 
-    def _close_position(self, position, exit_price: float, reason: str) -> None:
+    def _cancel_stale_orders(self, position) -> None:
+        """Cancel EVERY broker order this position owns — both bracket legs and the OCO —
+        because its size or its existence just changed at the broker. A leg left resting after
+        a manual exit fires against shares we no longer hold and opens a naked reverse
+        position. Never raises; a failed cancel is counted and logged loudly."""
         self._cancel_bracket(position)
-        # Disarm the protective OCO FIRST: exiting at market while the OCO legs stay armed at the
-        # broker means a leg can fire after we're flat and leave a naked reverse position.
         if position.oco_order_id:
             try:
                 self.client.cancel_oco_order(position.oco_order_id)
             except Exception:
+                self._cycle_errors += 1
                 log.exception("OCO cancel failed for %s (%s) — verify at broker!",
                               position.symbol, position.oco_order_id)
+
+    def _close_broker_synced(self, run_id: int, position, reason: str) -> None:
+        """Book a position the user closed (or reversed) by hand. Stale broker orders are
+        cancelled FIRST, then the position is booked at LTP — the manual fill price is unknown
+        and never invented; if indicators fail we book at entry so no fictional move lands in
+        the P&L."""
+        self._cancel_stale_orders(position)
+        try:
+            exit_price = _ltp(self.get_indicators(position.symbol))
+        except Exception:
+            exit_price = position.entry_price
+        pnl = self._realized_pnl(position.side, position.entry_price, exit_price,
+                                 position.quantity)
+        self.store.close_position(position.id, exit_price=exit_price,
+                                  exit_reason="BROKER_SYNC", realized_pnl=pnl)
+        self.store.record_decision(run_id=run_id, symbol=position.symbol, action="EXIT",
+                                   reason=reason, position_id=position.id)
+        log.warning("reconciled %s: closed in DB (%s), exit~%.2f",
+                    position.symbol, reason, exit_price)
+
+    def _close_position(self, position, exit_price: float, reason: str) -> None:
+        # Disarm every protective order FIRST: exiting at market while a bracket leg or the OCO
+        # stays armed at the broker means a leg can fire after we're flat and leave a naked
+        # reverse position.
+        self._cancel_stale_orders(position)
         txn = "SELL" if position.side == "LONG" else "BUY"
         order = self.client.place_order(
             symbol=position.symbol, exchange=position.exchange, transaction_type=txn,
