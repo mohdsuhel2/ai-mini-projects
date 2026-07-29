@@ -50,9 +50,13 @@ EXIT_CONFIRM_CYCLES = 2
 # daily/1h/15m/5m aggregate). Neutral/mixed tapes are allowed. Fails OPEN if the field is absent
 # (the engine's own gates still apply). One switch to relax if it proves too strict.
 TREND_VETO_ENABLED = True
-# Risk-based sizing: every trade risks the same fraction of the pool (entry-to-stop distance
-# determines quantity), still capped by capital_per_position as a margin/concentration limit.
-RISK_PER_TRADE_PCT = 1.0
+# Capital-based sizing (user, 2026-07-24): a position deploys the FULL capital_per_position as
+# intraday margin — quantity = capital_per_position * LEVERAGE / entry (e.g. 30k margin at 5x on a
+# 1000 stock = 150 shares, costing the 30k margin). MAX_RISK_PER_TRADE_PCT is only a SAFETY
+# CEILING: if that full-margin size would lose more than this fraction of the pool to its stop
+# (a pathological wide stop), the quantity is trimmed so one trade can't blow that ceiling. For
+# normal ~1.5-2.5% stops the ceiling doesn't bind and the full margin is deployed.
+MAX_RISK_PER_TRADE_PCT = 2.5
 # Execution-probability margins ("breathing space", widened 2026-07-20 on user request after
 # a pullback call — JGCHEM — never filled because price rallied without dipping to the level).
 # Each margin trades a sliver of profit for a higher chance the trade actually happens. Entry
@@ -73,10 +77,11 @@ ENTRY_FILL_TOLERANCE_PCT = 0.40
 PENDING_REFRESH_MIN_MOVE_PCT = 0.5
 # Disciplined scale-in (add to a LOSING position when the engine still re-affirms the trade —
 # user request 2026-07-20). This is the SAFE form: the add is sized so the COMBINED position
-# still risks <= RISK_PER_TRADE_PCT to the UNCHANGED stop (never widen a stop on an add), and
+# stays within MAX_RISK_PER_TRADE_PCT to the UNCHANGED stop (never widen a stop on an add), and
 # is hard-capped by the free pool + per-position capital so it can never over-commit. Only on a
-# genuine dip (below entry by >= the min drawdown) that is still above the stop. The 1%-risk math
-# self-limits it to effectively ONE meaningful add (after it, the risk budget is spent).
+# genuine dip (below entry by >= the min drawdown) that is still above the stop. NOTE: with
+# full-margin sizing the initial entry usually spends the per-position capital, leaving no room to
+# add — scale-in now fires mainly when the first entry was trimmed by the risk ceiling (wide stop).
 SCALE_IN_ENABLED = True
 SCALE_IN_MIN_DRAWDOWN_PCT = 0.5
 # Target shave is proportional to the EXPECTED MOVE, not the price (user, 2026-07-20): keep
@@ -89,23 +94,26 @@ SCALE_IN_MIN_DRAWDOWN_PCT = 0.5
 TARGET_MOVE_SHAVE_PCT = 10.0
 # --- Intraday leverage & profit-taking (added 2026-07-22, user request) --------------------
 # The broker gives ~5x MIS intraday leverage: capital_per_position and total_pool are treated as
-# MARGIN, and a position deploys up to LEVERAGE x that as NOTIONAL. Per-trade RUPEE RISK is
-# unchanged (risk-based sizing still caps each trade at RISK_PER_TRADE_PCT of the pool to its
-# stop); leverage only lets a position reach that risk cap with a bigger notional, so a normal
-# ~2% move produces a meaningful rupee P&L. WARNING: leverage amplifies losses too — only sound
-# because the R:R re-gate + stop floor above make each trade's reward >= risk.
+# MARGIN, and a position deploys LEVERAGE x that as NOTIONAL — full-margin sizing (see
+# _size_quantity), trimmed only by the MAX_RISK_PER_TRADE_PCT safety ceiling on a pathological
+# wide stop. So the full margin is put to work on every normal trade and a ~2% move produces a
+# meaningful rupee P&L. WARNING: leverage amplifies losses too — only sound because the R:R
+# re-gate + stop floor above keep each trade's reward >= risk.
 LEVERAGE = 5.0
-# Book PART of a winner once it has earned this % return ON DEPLOYED MARGIN, rather than waiting
-# for a target that may be too far and revert. 10% return on margin at LEVERAGE=5 == a ~2%
-# favorable price move (PROFIT_BOOK_MOVE_PCT below). Quality-scaled: a higher-quality trade is let
-# to run a little further before booking. On trigger we sell PROFIT_BOOK_FRACTION of the position
-# and trail the remaining runner's stop to breakeven (a free trade to the target).
-PROFIT_BOOK_RETURN_PCT = 10.0
-PROFIT_BOOK_MOVE_PCT = PROFIT_BOOK_RETURN_PCT / LEVERAGE   # favorable price-move trigger, %
+# Early profit-taking — stop before the far (~25%) target that often reverts. Config-driven &
+# toggleable (config.profit_book_enabled / _partial_pct / _full_pct, edited from the dashboard):
+# book PROFIT_BOOK_FRACTION of the position once it has earned `profit_book_partial_pct` RETURN ON
+# MARGIN (trailing the runner to breakeven), then EXIT the whole remaining position at
+# `profit_book_full_pct`. Percentages are return-on-margin, so at LEVERAGE=5 a 7% level == a ~1.4%
+# price move and 15% == a ~3% move. Only PROFIT_BOOK_FRACTION (how much the partial books) is a
+# code constant; the trigger levels + on/off live in config so they can be tuned without a deploy.
 PROFIT_BOOK_FRACTION = 0.5
-# Quality tilt: book move is scaled by clamp(0.8, 1.2, 1 + (quality-70)/100), so a quality-52
-# trade books ~0.8x sooner and a quality-90 trade rides ~1.2x further before the partial book.
-PROFIT_BOOK_QUALITY_PIVOT = 70.0
+# Armed broker exit (LIVE-only, config.arm_exit_enabled): when price comes within
+# config.arm_exit_band_pct of a profit level, rest a real SELL LIMIT at the broker so a between-
+# poll spike fills instantly. If the target then trails and the armed order's price drifts more
+# than this fraction from the new level, cancel + re-arm at the new level (never lock a stale
+# target). See docs/superpowers/specs/2026-07-28-armed-exit-design.md.
+ARM_REARM_DRIFT_PCT = 0.1
 # Broker-side OCO bracket. False after the 2026-07-20 1-share verification: Groww accepts
 # create_smart_order but modify/cancel return "Order already terminated" for orders whose
 # status still reads ACTIVE, the list endpoint returns them as absent, and a live fire was
@@ -168,23 +176,23 @@ def _passes_entry_gate(decision) -> bool:
 
 
 def _size_quantity(entry: float, stop_loss: float | None, capital_per_position: float,
-                   risk_amount: float, leverage: float = 1.0) -> int:
-    """Risk-based sizing: qty = risk_amount / |entry - stop| so every trade risks the same
-    rupee amount regardless of how wide the stop is, capped by (capital_per_position * leverage)
-    / entry — the NOTIONAL cap, i.e. the margin allotment times intraday leverage. Capital-only
-    sizing let the stop distance silently decide the risk: a 1% stop risked 4x less than a 4%
-    stop on the same capital. Per-trade rupee risk is set by risk_amount and is UNCHANGED by
-    leverage; leverage only raises the notional ceiling so a trade can reach that risk cap."""
+                   max_risk_amount: float, leverage: float = 1.0) -> int:
+    """Capital-based sizing with a risk SAFETY CEILING. The target is to deploy the full margin
+    allotment at intraday leverage: qty = floor(capital_per_position * leverage / entry) — e.g.
+    30k margin at 5x on a 1000 stock = 150 shares (costing the 30k margin). That size is then
+    trimmed only if it would lose more than `max_risk_amount` to its stop (a pathological wide
+    stop): qty = min(full-margin qty, floor(max_risk_amount / stop_distance)). For a normal stop
+    the ceiling doesn't bind and the full margin is deployed."""
     if entry <= 0:
         return 0
-    cap_qty = int(math.floor(capital_per_position * leverage / entry))
+    cap_qty = int(math.floor(capital_per_position * leverage / entry))   # full-margin target
     if stop_loss is None:
         return cap_qty
     stop_distance = abs(entry - stop_loss)
     if stop_distance <= 0:
         return 0
-    risk_qty = int(math.floor(risk_amount / stop_distance))
-    return min(cap_qty, risk_qty)
+    risk_ceiling_qty = int(math.floor(max_risk_amount / stop_distance))   # catastrophe guard only
+    return min(cap_qty, risk_ceiling_qty)
 
 
 def _position_side(action: str) -> str:
@@ -250,29 +258,38 @@ def _stop_distance_ok(entry, stop) -> bool:
     return abs(entry - stop) / entry >= MIN_STOP_DISTANCE_PCT / 100.0
 
 
-def _with_level_margins(decision):
-    """Copy of the decision with execution-probability margins applied (see the
-    *_TOLERANCE_PCT constants). Direction logic: entry moves toward current price
-    (pullback limit up, breakout trigger down — shorts are market-only so entry is
-    untouched for them); stop widens away from entry; target pulls in toward entry."""
+def _with_level_margins(decision, entry_tol_pct: float = ENTRY_TOLERANCE_PCT,
+                        stop_tol_pct: float = STOP_TOLERANCE_PCT,
+                        target_shave_pct: float = TARGET_MOVE_SHAVE_PCT):
+    """Copy of the decision with execution "breathing space" applied (config-driven — see the
+    Config.*_tolerance_pct / target_shave_pct fields; the constants are just the defaults).
+    Direction logic: entry moves toward current price (pullback limit up, breakout trigger down —
+    shorts are market-only so entry is untouched for them); stop widens AWAY from entry (a long's
+    SL goes a little lower, a short's a little higher); target pulls in toward entry."""
     from dataclasses import replace
     short = _position_side(decision.action) == "SHORT"
     entry = decision.entry
     if entry is not None and decision.action in RESTING_ENTRY_ACTIONS:
-        e_tol = ENTRY_TOLERANCE_PCT / 100.0
+        e_tol = entry_tol_pct / 100.0
         entry = entry * (1 - e_tol) if decision.action == "BUY_ON_BREAKOUT" \
             else entry * (1 + e_tol)
     stop = decision.stop_loss
     if stop is not None:
-        s_tol = STOP_TOLERANCE_PCT / 100.0
+        s_tol = stop_tol_pct / 100.0
         stop = stop * (1 + s_tol) if short else stop * (1 - s_tol)
     target = decision.target1
     if target is not None and decision.entry is not None:
         # Keep (100 - shave)% of the projected move, measured from the ORIGINAL entry —
         # works symmetrically for shorts because the move is signed.
-        keep = 1.0 - TARGET_MOVE_SHAVE_PCT / 100.0
+        keep = 1.0 - target_shave_pct / 100.0
         target = decision.entry + (target - decision.entry) * keep
     return replace(decision, entry=entry, stop_loss=stop, target1=target)
+
+
+def _margins_from_cfg(cfg):
+    """The three breathing-space percentages from config, as a kwargs dict for _with_level_margins."""
+    return {"entry_tol_pct": cfg.entry_tolerance_pct, "stop_tol_pct": cfg.stop_tolerance_pct,
+            "target_shave_pct": cfg.target_shave_pct}
 
 
 def _should_square_off(indicators: dict) -> bool:
@@ -288,6 +305,31 @@ def _should_square_off(indicators: dict) -> bool:
 
 def _ltp(indicators: dict) -> float:
     return float(indicators["price"]["last"])
+
+
+def _profit_price(side: str, entry: float, return_pct: float, leverage: float = LEVERAGE) -> float:
+    """Price at which a position reaches `return_pct` RETURN ON MARGIN. At LEVERAGE x, that return
+    is a (return_pct / leverage)% price move — up for a LONG, down for a SHORT."""
+    move = (return_pct / leverage) / 100.0
+    return entry * (1 + move) if side == "LONG" else entry * (1 - move)
+
+
+def _full_exit_price(side: str, entry: float, full_pct: float, target: float | None,
+                     leverage: float = LEVERAGE) -> float:
+    """The price the poll would take the FULL profit at — the nearer (to entry) of the full-margin
+    take-profit level and the structural target, so the armed order never sits past where the poll
+    would already have exited. Falls back to the take-profit level when there is no target."""
+    tp = _profit_price(side, entry, full_pct, leverage)
+    if target is None:
+        return tp
+    return min(tp, target) if side == "LONG" else max(tp, target)
+
+
+def _near(ltp: float, level: float, band_pct: float) -> bool:
+    """True once price is within band_pct% of `level` (either side). Arming trigger."""
+    if level <= 0:
+        return False
+    return abs(ltp - level) / level <= band_pct / 100.0
 
 
 def _day_high(indicators: dict) -> float:
@@ -355,6 +397,32 @@ class Orchestrator:
             self.store.finish_run(run_id, "FAILED", error=str(e))
             raise
 
+    def _broker_state(self):
+        """Read the broker ONCE per cycle and normalize it. Returns (mis, orders):
+        - mis: symbol -> {"net": signed_qty, "avg": avg_price|None}, built from MIS rows ONLY.
+          CNC/delivery is excluded on purpose — summing it in let a delivery holding mask a
+          fully-closed MIS position, keeping a dead trade alive in the book.
+        - orders: the non-terminal broker order book, or None if that read FAILED. None and []
+          must stay distinguishable: an empty list means the user has no resting orders, while
+          None means we don't know — and we must never cancel or exclude on a guess.
+        A positions failure propagates; the caller skips the whole reconcile."""
+        mis: dict[str, dict] = {}
+        for p in self.client.get_positions():
+            if p.get("product", "MIS") != "MIS":
+                continue
+            row = mis.setdefault(p["symbol"], {"net": 0, "avg": None})
+            row["net"] += int(p["quantity"])
+            if p.get("avg_price"):
+                row["avg"] = float(p["avg_price"])
+        try:
+            terminal = set(_REJECTED_STATES) | set(_FILLED_STATES)
+            orders = [o for o in self.client.get_open_orders()
+                      if o.get("symbol") and str(o.get("status", "")).upper() not in terminal]
+        except Exception:
+            log.exception("broker reconcile: get_open_orders failed — no takeover, no exclusions")
+            return mis, None
+        return mis, orders
+
     def _reconcile_broker(self, run_id: int) -> int:
         """LIVE only, first thing every cycle: the BROKER is the source of truth, not the DB —
         the user trades manually between cycles (their explicit request 2026-07-20). Syncs:
@@ -365,37 +433,22 @@ class Orchestrator:
            own from this cycle on (engine exits, square-off included — user chose
            adopt-and-manage). CNC/delivery rows are NEVER adopted: flattening the long-term
            portfolio would be catastrophic.
-        Also snapshots non-terminal broker-order symbols into _external_order_symbols so the
-        entry screen can't double-commit a symbol that already has a live order.
+        Broker state (positions + the order book) is read once by _broker_state; non-terminal
+        order symbols land in _external_order_symbols so the entry screen can't double-commit a
+        symbol that already has a live order.
         Fully defensive: any error here must never block the cycle."""
         self._external_order_symbols = set()
         if self.client.mode != "live":
             return 0
         try:
-            broker_positions = self.client.get_positions()
+            mis, orders = self._broker_state()
         except Exception:
             log.exception("broker reconcile: get_positions failed — skipping reconcile")
             return 0
-        try:
-            terminal = set(_REJECTED_STATES) | set(_FILLED_STATES)
-            self._external_order_symbols = {
-                o["symbol"] for o in self.client.get_open_orders()
-                if o.get("symbol") and str(o.get("status", "")).upper() not in terminal}
-        except Exception:
-            log.exception("broker reconcile: get_open_orders failed — no order exclusions")
-        qty_by_symbol: dict[str, int] = {}
-        mis_net: dict[str, int] = {}
-        mis_avg: dict[str, float] = {}
-        for p in broker_positions:
-            qty = int(p["quantity"])
-            qty_by_symbol[p["symbol"]] = qty_by_symbol.get(p["symbol"], 0) + qty
-            if p.get("product", "MIS") == "MIS":
-                mis_net[p["symbol"]] = mis_net.get(p["symbol"], 0) + qty
-                if p.get("avg_price"):
-                    mis_avg[p["symbol"]] = float(p["avg_price"])
+        self._external_order_symbols = {o["symbol"] for o in orders} if orders else set()
         synced = 0
         for position in self.store.get_open_positions():
-            net = qty_by_symbol.get(position.symbol, 0)
+            net = int((mis.get(position.symbol) or {}).get("net", 0))
             try:
                 if net == 0:
                     try:
@@ -426,12 +479,13 @@ class Orchestrator:
                 log.exception("broker reconcile failed for %s", position.symbol)
         known = ({p.symbol for p in self.store.get_open_positions()}
                  | {p.symbol for p in self.store.get_pending_positions()})
-        for symbol, net in mis_net.items():
+        for symbol, row in mis.items():
+            net = int(row["net"])
             if net == 0 or symbol in known:
                 continue
             try:
                 side = "LONG" if net > 0 else "SHORT"
-                entry = mis_avg.get(symbol)
+                entry = row["avg"]
                 if not entry:
                     entry = _ltp(self.get_indicators(symbol))
                 pid = self.store.open_position(
@@ -485,7 +539,30 @@ class Orchestrator:
     def _realized_pnl(side: str, entry: float, exit_price: float, qty: int) -> float:
         return (exit_price - entry) * qty if side == "LONG" else (entry - exit_price) * qty
 
+    def _cancel_leg(self, position, which: str) -> None:
+        """Cancel one broker bracket leg ('stop'|'target') and clear its id. cancel_order is benign
+        on an already-filled/terminal order, so the fill-vs-cancel race is safe; a cancel that fails
+        on a STILL-RESTING order is surfaced loudly (never swallowed) — a live leg could remain."""
+        order_id = position.broker_stop_order_id if which == "stop" else position.broker_target_order_id
+        if order_id:
+            try:
+                self.client.cancel_order(order_id)
+            except Exception:
+                self._cycle_errors += 1
+                log.exception("bracket cancel FAILED for %s (%s %s) — a live resting order may "
+                              "remain; verify at broker!", position.symbol, which, order_id)
+        self.store.set_bracket_leg(position.id, which, None, None)
+
+    def _cancel_bracket(self, position) -> None:
+        """Cancel BOTH bracket legs before any market exit, so a resting order can't fire after
+        we're flat and open a naked reverse position."""
+        if position.broker_stop_order_id:
+            self._cancel_leg(position, "stop")
+        if position.broker_target_order_id:
+            self._cancel_leg(position, "target")
+
     def _close_position(self, position, exit_price: float, reason: str) -> None:
+        self._cancel_bracket(position)
         # Disarm the protective OCO FIRST: exiting at market while the OCO legs stay armed at the
         # broker means a leg can fire after we're flat and leave a naked reverse position.
         if position.oco_order_id:
@@ -548,17 +625,45 @@ class Orchestrator:
     def _manage_one(self, run_id: int, position) -> int:
         """Exit-or-trail a single open position. Returns 1 if it exited, else 0."""
         indicators = self.get_indicators(position.symbol)
+        cfg = self.store.get_config()
+        eager = cfg.exit_mode in ("armed", "on_fill") and self.client.mode == "live"
+        # Broker bracket (eager modes): reflect any FILLED leg first — one fills, the OTHER is
+        # cancelled (software OCO). A fill closes the position; a dead leg refreshes our snapshot.
+        if eager:
+            res = self._reconcile_bracket_fills(run_id, position, indicators)
+            if res == "closed":
+                return 1
+            if res == "changed":
+                position = self.store.get_position(position.id)
+        # Soft poll exit — but a live broker leg OWNS its side (skip the poll market-exit, no
+        # double-sell); square-off always flattens (and _close_position cancels the bracket first).
         level = self._exit_level(position, indicators)
         if level is not None:
             exit_price, reason = level
-            self.store.record_decision(run_id=run_id, symbol=position.symbol,
-                                       action="EXIT", reason=reason, position_id=position.id)
-            self._close_position(position, exit_price, reason)
+            owned = ((reason == "STOP" and position.broker_stop_order_id)
+                     or (reason == "TARGET" and position.broker_target_order_id))
+            if reason == "SQUARE_OFF" or not owned:
+                self.store.record_decision(run_id=run_id, symbol=position.symbol,
+                                           action="EXIT", reason=reason, position_id=position.id)
+                self._close_position(position, exit_price, reason)
+                return 1
+        # Early profit-taking: full exit at the upper level (suppressed if a broker target leg owns
+        # it), or book half at the lower level (soft in all modes) and trail the rest to breakeven.
+        tp = self._maybe_take_profit(run_id, position, indicators)
+        if tp == "full":
             return 1
-        # Lock in a reverting winner: once the trade has earned the profit-book return, sell part
-        # and trail the rest to breakeven. Purely price-driven (no engine call); stays open after.
-        if self._maybe_book_partial(run_id, position, indicators):
-            return 0
+        if tp == "partial":
+            position = self.store.get_position(position.id)
+            if eager and self._bracket_live(position):
+                self._cancel_bracket(position)            # stale quantity — rebuild below
+                position = self.store.get_position(position.id)
+        # Place/refresh the broker bracket (eager), or tear it down if the mode is now db_only.
+        if eager:
+            self._ensure_bracket(run_id, position, indicators, cfg)
+            position = self.store.get_position(position.id)
+        elif self._bracket_live(position):
+            self._cancel_bracket(position)
+            position = self.store.get_position(position.id)
         ctx = {"side": position.side, "quantity": position.quantity,
                "entry_price": position.entry_price,
                "unrealized_pnl_pct": round(
@@ -597,31 +702,47 @@ class Orchestrator:
         self._maybe_trail(run_id, position, decision)
         return 0
 
-    def _profit_book_move(self, position) -> float:
-        """The favorable price move (as a fraction) that triggers the partial book for this
-        position — PROFIT_BOOK_MOVE_PCT tilted by the entry trade_quality: higher-quality trades
-        ride a little further before booking, lower-quality book sooner."""
-        q = position.entry_quality if position.entry_quality is not None \
-            else PROFIT_BOOK_QUALITY_PIVOT
-        q_factor = min(1.2, max(0.8, 1.0 + (q - PROFIT_BOOK_QUALITY_PIVOT) / 100.0))
-        return PROFIT_BOOK_MOVE_PCT / 100.0 * q_factor
-
-    def _maybe_book_partial(self, run_id: int, position, indicators) -> bool:
-        """Book PROFIT_BOOK_FRACTION of a position once it has run the (quality-scaled)
-        profit-book move in our favor, and trail the runner's stop to breakeven. Books at most
-        once per position (partial_booked). Returns True if it booked. Never near square-off (the
-        whole position is about to flatten anyway), never if it can't leave >=1 share running."""
-        if position.partial_booked or _should_square_off(indicators):
-            return False
+    def _maybe_take_profit(self, run_id: int, position, indicators):
+        """Config-driven early profit-taking (stops before the far target). Exit the WHOLE position
+        at profit_book_full_pct return-on-margin; else book PROFIT_BOOK_FRACTION once at
+        profit_book_partial_pct (trailing the runner to breakeven). Returns 'full' (position
+        closed), 'partial' (booked, still open), or None. Disabled / near square-off -> None."""
+        cfg = self.store.get_config()
+        if not cfg.profit_book_enabled or _should_square_off(indicators):
+            return None
         ltp = _ltp(indicators)
         if position.entry_price <= 0 or ltp <= 0:
-            return False
+            return None
         if position.side == "LONG":
             favorable = (ltp - position.entry_price) / position.entry_price
         else:
             favorable = (position.entry_price - ltp) / position.entry_price
-        if favorable < self._profit_book_move(position):
-            return False
+        # return-on-margin % -> favorable price-move fraction (return / leverage)
+        full_move = (cfg.profit_book_full_pct / LEVERAGE) / 100.0
+        partial_move = (cfg.profit_book_partial_pct / LEVERAGE) / 100.0
+        # Full take-profit: close the whole remaining position. Suppressed while a broker TARGET
+        # leg is resting at Groww — that order is the single source of this exit (no double-sell).
+        if (cfg.profit_book_full_pct > 0 and favorable >= full_move
+                and not position.broker_target_order_id):
+            self.store.record_decision(
+                run_id=run_id, symbol=position.symbol, action="EXIT",
+                reason=f"take-profit {cfg.profit_book_full_pct:g}% on margin @ {ltp}",
+                position_id=position.id)
+            self._close_position(position, ltp, "TAKE_PROFIT")
+            log.info("take-profit FULL %s @ %.2f (+%.1f%% on margin)", position.symbol, ltp,
+                     favorable * LEVERAGE * 100)
+            return "full"
+        # Partial book once at the lower level, trailing the runner to breakeven. Stays SOFT in all
+        # modes; when it books in an eager mode the caller resizes the bracket to the new quantity.
+        if (not position.partial_booked and cfg.profit_book_partial_pct > 0
+                and favorable >= partial_move):
+            if self._book_partial_slice(run_id, position, ltp):
+                return "partial"
+        return None
+
+    def _book_partial_slice(self, run_id: int, position, ltp: float) -> bool:
+        """Sell PROFIT_BOOK_FRACTION of the position at ltp and trail the runner's stop to
+        breakeven. Returns True if booked (never if it can't leave >=1 share running)."""
         sell_qty = int(math.floor(position.quantity * PROFIT_BOOK_FRACTION))
         if sell_qty < 1 or sell_qty >= position.quantity:
             return False                       # can't split (would leave the runner empty)
@@ -654,6 +775,126 @@ class Orchestrator:
                  position.entry_price)
         return True
 
+    # --- Broker exit bracket (LIVE eager modes: exit_mode 'armed' / 'on_fill') ----------------
+    def _broker_order_status(self, order_id: str) -> str:
+        """Best-effort broker status, UPPER-cased; '' on any error (treated as still-resting so a
+        transient status glitch never books/closes a position by mistake)."""
+        try:
+            return str(self.client.get_order_status(order_id).get("status", "")).upper()
+        except Exception:
+            log.exception("bracket status check failed for %s", order_id)
+            return ""
+
+    def _bracket_live(self, position) -> bool:
+        return bool(position.broker_stop_order_id or position.broker_target_order_id)
+
+    def _bracket_levels(self, position, cfg):
+        """The (stop_price, target_price) the bracket should rest at. Target = the nearer of the
+        full-profit level and the structural target (never past where we'd exit), or the raw target
+        when profit-taking is off. Either may be None (that leg is not placed)."""
+        stop_px = position.stop_loss
+        if cfg.profit_book_enabled and cfg.profit_book_full_pct > 0 and position.entry_price > 0:
+            target_px = _full_exit_price(position.side, position.entry_price,
+                                         cfg.profit_book_full_pct, position.target_price)
+        else:
+            target_px = position.target_price
+        return stop_px, target_px
+
+    def _reconcile_bracket_fills(self, run_id: int, position, indicators):
+        """Reflect a FILLED bracket leg into the DB before soft levels are evaluated, cancelling the
+        OTHER leg (software OCO). Returns 'closed' (position exited), 'changed' (a dead leg cleared),
+        else None. LIVE-only."""
+        if self.client.mode != "live":
+            return None
+        for which, reason, order_id, price in (
+                ("target", "TAKE_PROFIT", position.broker_target_order_id,
+                 position.broker_target_price),
+                ("stop", "STOP", position.broker_stop_order_id, position.broker_stop_price)):
+            if not order_id:
+                continue
+            status = self._broker_order_status(order_id)
+            if status in _FILLED_STATES:
+                fill_px = price or _ltp(indicators)
+                self.store.set_bracket_leg(position.id, which, None, None)   # filled; don't cancel
+                self._cancel_leg(position, "stop" if which == "target" else "target")   # OCO
+                pnl = self._realized_pnl(position.side, position.entry_price, fill_px,
+                                         position.quantity)
+                self.store.close_position(position.id, exit_price=fill_px, exit_reason=reason,
+                                          realized_pnl=pnl)
+                self.store.record_decision(run_id=run_id, symbol=position.symbol, action="EXIT",
+                                           reason=f"broker {which} filled @ {fill_px}",
+                                           position_id=position.id)
+                log.info("broker %s leg filled %s @ %.2f (%s)", which, position.symbol, fill_px,
+                         reason)
+                return "closed"
+            if status in _REJECTED_STATES:
+                self.store.set_bracket_leg(position.id, which, None, None)
+                return "changed"
+        return None
+
+    def _place_bracket_leg(self, run_id: int, position, which: str, px: float):
+        """Place one resting exit leg — target = LIMIT at px, stop = SL_M triggered at px; SELL for a
+        long, BUY for a short. Returns the broker order id, or None if rejected."""
+        txn = "SELL" if position.side == "LONG" else "BUY"
+        qty = position.quantity
+        if which == "target":
+            order = self.client.place_order(
+                symbol=position.symbol, exchange=position.exchange, transaction_type=txn,
+                quantity=qty, order_type="LIMIT", price=px, product="MIS")
+            otype = "LIMIT"
+        else:                                              # protective stop = market on trigger
+            order = self.client.place_order(
+                symbol=position.symbol, exchange=position.exchange, transaction_type=txn,
+                quantity=qty, order_type="SL_M", trigger_price=px, product="MIS")
+            otype = "SL_M"
+        if _is_rejected(order):
+            self._cycle_errors += 1
+            self.store.record_decision(run_id=run_id, symbol=position.symbol, action="SKIP",
+                                       reason=f"bracket {which} rejected: {order.get('status')}",
+                                       position_id=position.id)
+            return None
+        self.store.record_order(
+            broker_order_id=order["order_id"], symbol=position.symbol, transaction_type=txn,
+            quantity=qty, order_type=otype, price=px, status=order.get("status", "PENDING"),
+            mode=self.client.mode, position_id=position.id, raw_json=json.dumps(order, default=str))
+        return order["order_id"]
+
+    def _ensure_leg(self, run_id: int, position, which: str, desired_px) -> None:
+        """Make the `which` leg rest at desired_px: place it if missing, cancel+replace it if its
+        price drifted past ARM_REARM_DRIFT_PCT (a trailed level). No-op if already correct."""
+        if desired_px is None:
+            return
+        tpx = _tick(desired_px)
+        cur_id = (position.broker_stop_order_id if which == "stop"
+                  else position.broker_target_order_id)
+        cur_px = (position.broker_stop_price if which == "stop"
+                  else position.broker_target_price)
+        if cur_id and cur_px is not None and _near(cur_px, tpx, ARM_REARM_DRIFT_PCT):
+            return                                         # already resting at the right price
+        if cur_id:                                         # drifted -> cancel + replace
+            self._cancel_leg(position, which)
+        new_id = self._place_bracket_leg(run_id, position, which, tpx)
+        if new_id:
+            self.store.set_bracket_leg(position.id, which, new_id, tpx)
+            log.info("bracket %s leg %s @ %.2f (%d)", which,
+                     "re-placed" if cur_id else "placed", tpx, position.quantity)
+
+    def _ensure_bracket(self, run_id: int, position, indicators, cfg) -> None:
+        """Place/refresh the broker stop+target bracket (eager modes). 'on_fill' always maintains
+        both legs; 'armed' places them once price is within arm_exit_band_pct of a level (then keeps
+        them). Skipped in the square-off window (that flattens at market)."""
+        if self.client.mode != "live" or _should_square_off(indicators):
+            return
+        stop_px, target_px = self._bracket_levels(position, cfg)
+        if cfg.exit_mode == "armed" and not self._bracket_live(position):
+            ltp = _ltp(indicators)
+            near = ((stop_px is not None and _near(ltp, stop_px, cfg.arm_exit_band_pct))
+                    or (target_px is not None and _near(ltp, target_px, cfg.arm_exit_band_pct)))
+            if not near:
+                return                                     # not near an exit yet -> stay soft
+        self._ensure_leg(run_id, position, "stop", stop_px)
+        self._ensure_leg(run_id, position, "target", target_px)
+
     def _maybe_scale_in(self, run_id: int, position, decision, indicators) -> bool:
         """Add to an underwater position when the engine still re-affirms it — sized so the
         COMBINED position risks <= 1% of the pool to the UNCHANGED stop, and hard-capped by the
@@ -679,10 +920,10 @@ class Orchestrator:
         if not on_dip or per_share_risk <= 0:
             return False
         cfg = self.store.get_config()
-        risk_amount = cfg.total_pool * RISK_PER_TRADE_PCT / 100.0
-        remaining_risk = risk_amount - existing_risk
+        max_risk_amount = cfg.total_pool * MAX_RISK_PER_TRADE_PCT / 100.0
+        remaining_risk = max_risk_amount - existing_risk
         if remaining_risk <= 0:
-            return False                   # combined position already at the 1% budget — no add
+            return False                   # combined position already at the risk ceiling — no add
         add_by_risk = remaining_risk / per_share_risk
         # Pool guard (user requirement): the add's cost must fit the FREE pool and the per-position
         # capital cap — an add can never push committed capital past the pool. All in MARGIN terms
@@ -825,7 +1066,7 @@ class Orchestrator:
                                               f"(< {MIN_STOP_DISTANCE_PCT}% from entry)",
                                        raw_json=decision.raw_response)
             return False
-        decision = _with_level_margins(decision)   # sizing below uses the widened stop
+        decision = _with_level_margins(decision, **_margins_from_cfg(cfg))   # config breathing space
         # P0 guard #2 — re-gate on the ACTUAL geometry after margins moved the levels. The entry
         # gate trusted the engine's self-reported risk_reward; here we recompute it from
         # entry/stop/target so a shaved target or widened stop can't open a sub-1.5 trade.
@@ -838,9 +1079,9 @@ class Orchestrator:
                                               f"< {MIN_RISK_REWARD}",
                                        raw_json=decision.raw_response)
             return False
-        risk_amount = cfg.total_pool * RISK_PER_TRADE_PCT / 100.0
+        max_risk_amount = cfg.total_pool * MAX_RISK_PER_TRADE_PCT / 100.0
         qty = _size_quantity(decision.entry, decision.stop_loss, cfg.capital_per_position,
-                             risk_amount, LEVERAGE)
+                             max_risk_amount, LEVERAGE)
         # Pool is MARGIN; committed_capital() is NOTIONAL (sum of qty*entry across OPEN+PENDING),
         # so the free margin is pool minus committed-notional/LEVERAGE, and this trade's margin
         # cost is qty*entry/LEVERAGE. This keeps a resting order from over-committing the pool.
@@ -1019,9 +1260,11 @@ class Orchestrator:
             return False
         if _should_square_off(indicators):
             return False                       # let the normal resolve path expire it at close
+        cfg = self.store.get_config()
         try:
             decision = _with_level_margins(
-                self.engine.decide(position.symbol, indicators, position=None))
+                self.engine.decide(position.symbol, indicators, position=None),
+                **_margins_from_cfg(cfg))
         except Exception:
             log.exception("refresh pending: engine failed for %s — leaving as-is",
                           position.symbol)
@@ -1047,10 +1290,9 @@ class Orchestrator:
         if not (_passes_entry_gate(decision)
                 and _position_side(decision.action) == position.side):
             return False
-        cfg = self.store.get_config()
-        risk_amount = cfg.total_pool * RISK_PER_TRADE_PCT / 100.0
+        max_risk_amount = cfg.total_pool * MAX_RISK_PER_TRADE_PCT / 100.0   # cfg fetched above
         qty = _size_quantity(decision.entry, decision.stop_loss, cfg.capital_per_position,
-                             risk_amount, LEVERAGE)
+                             max_risk_amount, LEVERAGE)
         # Only churn the order (live: a broker cancel+replace) for a MEANINGFUL move — a few
         # paise of drift isn't worth losing queue position / a round of broker risk.
         thresh = PENDING_REFRESH_MIN_MOVE_PCT / 100.0
@@ -1286,10 +1528,12 @@ class Orchestrator:
             try:
                 placed = self._place_entry(run_id, symbol, decision, indicators, cfg.mode)
             except Exception as e:
-                # A broker error placing ONE entry must not abort the rest of the screen.
+                # A broker error placing ONE entry must not abort the rest of the screen. Keep the
+                # engine's raw output so the run's Claude output stays visible even when the order
+                # failed (e.g. a gateway 502) — the decision was real, only the placement failed.
                 log.exception("entry placement failed for %s", symbol)
                 self.store.record_decision(run_id=run_id, symbol=symbol, action="SKIP",
-                                           reason=f"entry error: {e}")
+                                           reason=f"entry error: {e}", raw_json=decision.raw_response)
                 continue
             if placed:
                 entries += 1
@@ -1327,7 +1571,7 @@ class Orchestrator:
             except Exception as e:
                 log.exception("entry placement failed for %s", symbol)
                 self.store.record_decision(run_id=run_id, symbol=symbol, action="SKIP",
-                                           reason=f"entry error: {e}")
+                                           reason=f"entry error: {e}", raw_json=decision.raw_response)
                 continue
             if placed:
                 entries += 1

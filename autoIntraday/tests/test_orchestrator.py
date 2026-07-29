@@ -108,11 +108,21 @@ def test_stop_distance_ok_floor():
 
 
 def test_size_quantity_leverage_raises_notional_cap():
-    # 1x: capital cap 10000/100 = 100 binds. 5x: cap 500 no longer binds -> risk cap 1000/5 = 200.
+    # 1x: capital cap 10000/100 = 100 binds. 5x: cap 500 no longer binds -> risk ceiling 1000/5 = 200.
     assert _size_quantity(100.0, 95.0, 10000.0, 1000.0, 1.0) == 100
     assert _size_quantity(100.0, 95.0, 10000.0, 1000.0, 5.0) == 200
     # default leverage is 1.0 (backwards compatible)
     assert _size_quantity(100.0, 95.0, 10000.0, 1000.0) == 100
+
+
+def test_size_quantity_full_margin_with_risk_ceiling():
+    # Full-margin sizing: quantity = capital * leverage / entry when the risk ceiling doesn't bind.
+    # 30k margin at 5x on a 1000 stock = 150 shares; a normal ~2% stop (20) leaves a big ceiling.
+    assert _size_quantity(1000.0, 980.0, 30000.0, 10000.0, 5.0) == 150   # cap 150, ceiling 500
+    # A pathological WIDE stop (10% = 100) trims below full margin: ceiling 10000/100 = 100 < 150.
+    assert _size_quantity(1000.0, 900.0, 30000.0, 10000.0, 5.0) == 100
+    # No stop -> full margin, no ceiling to apply.
+    assert _size_quantity(1000.0, None, 30000.0, 10000.0, 5.0) == 150
 
 
 def test_should_square_off_near_close():
@@ -216,39 +226,72 @@ def test_manage_closes_long_on_target():
     assert p.realized_pnl == pytest.approx((111.0 - 100.0) * 10)
 
 
-def test_partial_book_sells_half_and_trails_to_breakeven():
-    # LONG entered at 100, quality 80 (book move = 2% * 1.1 = 2.2%). At 103 (+3%) it books half
-    # and trails the runner's stop to breakeven; the position stays OPEN with the remainder.
-    store = Store(":memory:")
-    pid = store.open_position(symbol="RELIANCE", exchange="NSE", side="LONG", quantity=100,
-                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper",
-                              entry_quality=80.0)
-    client, engine = _FakeClient(), _FakeEngine(_decision(action="HOLD"))
-    orch = _orch(store, client, engine, {"RELIANCE": _indic(last=103)})
-    run_id = store.start_run("paper")
-    exits = orch._manage_positions(run_id)
-    assert exits == 0                                  # booked, not fully exited
-    p = store.get_position(pid)
-    assert p.status == "OPEN"
-    assert p.quantity == 50                            # sold half
-    assert p.partial_booked is True
-    assert p.stop_loss == pytest.approx(100.0)         # runner trailed to breakeven
-    assert p.booked_pnl == pytest.approx((103.0 - 100.0) * 50)   # +150 banked
-    # a later full close ADDS the booked slice to the total realized P&L
-    store.close_position(pid, exit_price=100.0, exit_reason="STOP", realized_pnl=0.0)
-    assert store.get_position(pid).realized_pnl == pytest.approx(150.0)
+def _tp_pos(store):
+    # defaults: profit_book partial 7% / full 15% return-on-margin => ~1.4% / ~3% price move at 5x
+    return store.open_position(symbol="RELIANCE", exchange="NSE", side="LONG", quantity=100,
+                               entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
 
 
-def test_partial_book_does_not_fire_below_threshold_or_twice():
+def test_partial_book_at_lower_level_sells_half_and_trails_to_breakeven():
+    # +2% move = 10% return-on-margin — between the 7% partial and 15% full levels -> book half.
     store = Store(":memory:")
-    pid = store.open_position(symbol="RELIANCE", exchange="NSE", side="LONG", quantity=100,
-                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper",
-                              entry_quality=80.0)
+    pid = _tp_pos(store)
     orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
-                 {"RELIANCE": _indic(last=101.5)})   # +1.5% < 2.2% quality-scaled threshold
-    run_id = store.start_run("paper")
-    orch._manage_positions(run_id)
+                 {"RELIANCE": _indic(last=102)})
+    exits = orch._manage_positions(store.start_run("paper"))
+    p = store.get_position(pid)
+    assert exits == 0 and p.status == "OPEN"           # booked, not fully exited
+    assert p.quantity == 50 and p.partial_booked is True
+    assert p.stop_loss == pytest.approx(100.0)         # runner trailed to breakeven
+    assert p.booked_pnl == pytest.approx((102.0 - 100.0) * 50)   # +100 banked
+    store.close_position(pid, exit_price=100.0, exit_reason="STOP", realized_pnl=0.0)
+    assert store.get_position(pid).realized_pnl == pytest.approx(100.0)
+
+
+def test_full_exit_at_upper_level():
+    # +3% move = 15% return-on-margin -> EXIT the WHOLE position (take-profit).
+    store = Store(":memory:")
+    pid = _tp_pos(store)
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+                 {"RELIANCE": _indic(last=103)})
+    exits = orch._manage_positions(store.start_run("paper"))
+    p = store.get_position(pid)
+    assert exits == 1 and p.status == "CLOSED" and p.exit_reason == "TAKE_PROFIT"
+    assert p.realized_pnl == pytest.approx((103.0 - 100.0) * 100)
+
+
+def test_no_book_below_partial_level():
+    store = Store(":memory:")
+    pid = _tp_pos(store)
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+                 {"RELIANCE": _indic(last=101)})     # +1% = 5% return < 7% partial
+    orch._manage_positions(store.start_run("paper"))
     assert store.get_position(pid).partial_booked is False and store.get_position(pid).quantity == 100
+
+
+def test_profit_book_disabled_lets_it_ride():
+    store = Store(":memory:")
+    store.update_config(profit_book_enabled=False)
+    pid = _tp_pos(store)
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+                 {"RELIANCE": _indic(last=103)})     # would be a full-exit if enabled
+    exits = orch._manage_positions(store.start_run("paper"))
+    p = store.get_position(pid)
+    assert exits == 0 and p.status == "OPEN" and p.partial_booked is False and p.quantity == 100
+
+
+def test_profit_book_levels_are_configurable():
+    store = Store(":memory:")
+    store.update_config(profit_book_partial_pct=10.0, profit_book_full_pct=20.0)  # 2% / 4% moves
+    pid = _tp_pos(store)
+    # +2% move now hits the (raised) partial level -> books half
+    _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=102)})._manage_positions(store.start_run("paper"))
+    assert store.get_position(pid).quantity == 50
+    # +4% move hits the (raised) full level -> exits the rest
+    exits = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+                  {"RELIANCE": _indic(last=104)})._manage_positions(store.start_run("paper"))
+    assert exits == 1 and store.get_position(pid).status == "CLOSED"
 
 
 def test_manage_day_range_alone_does_not_exit():
@@ -368,16 +411,16 @@ def test_enter_opens_position_on_good_buy():
     _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
          capital_per_position=10000.0)
     client, engine = _FakeClient(), _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0,
-                                                          entry=100.0, stop=95.0))
+                                                          entry=100.0, stop=98.0, target1=110.0))
     orch = _orch(store, client, engine, {"RELIANCE": _indic()}, candidates=_cands("RELIANCE"))
     run_id = store.start_run("paper")
     screened, entries = orch._screen_and_enter(run_id)
     assert screened == 1 and entries == 1
     p = store.get_open_positions()[0]
     assert p.symbol == "RELIANCE" and p.side == "LONG"
-    # With 5x leverage the notional cap (5*10000/100 = 500) no longer binds; the trade is now
-    # RISK-bound at 1% of the 100000 pool: risk 1000 / widened-stop distance 5.3325 = 187.
-    assert p.quantity == 187
+    # Full 5x margin: capital 10000 * 5 / 100 = 500 shares (a ~2% stop is well inside the 2.5%
+    # risk ceiling, so the full margin is deployed). Margin used = 500*100/5 = 10000 = capital.
+    assert p.quantity == 500
     assert len(client.orders) == 1 and len(client.oco) == 1
 
 
@@ -508,23 +551,24 @@ def test_run_cycle_exit_frees_slot_for_entry():
     assert open_syms == {"NEW"}
 
 
-def test_leverage_lets_deployed_notional_exceed_the_pool_but_margin_stays_within():
-    # Under 5x MIS leverage the pool (total_pool) and capital_per_position are MARGIN. Each 1%-risk
-    # position is small in margin terms, so all 4 candidates enter and the deployed NOTIONAL
-    # (74000) exceeds the 25000 pool — that IS leverage — while the MARGIN committed (74000/5 =
-    # 14800) stays within the pool.
+def test_full_margin_sizing_deploys_leverage_and_notional_exceeds_pool():
+    # Full-margin sizing at 5x: each position buys capital*5/entry = 10000*5/100 = 500 shares
+    # (a 2% stop is inside the 2.5% risk ceiling), deploying the full 10000 margin. All 4
+    # candidates enter; deployed NOTIONAL (200000) exceeds the 100000 pool — that IS leverage —
+    # while the MARGIN committed (200000/5 = 40000) stays within the pool.
     store = Store(":memory:")
-    _cfg(store, mode="paper", total_pool=25000.0, max_open_positions=5,
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=5,
          capital_per_position=10000.0)
-    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, entry=100.0, stop=99.0))
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, entry=100.0, stop=98.0,
+                                   target1=110.0))
     indic = {"A": _indic("A"), "B": _indic("B"), "C": _indic("C"), "D": _indic("D")}
     orch = _orch(store, _FakeClient(), engine, indic, candidates=_cands("A", "B", "C", "D"))
     run_id = store.start_run("paper")
     _, entries = orch._screen_and_enter(run_id)
-    assert entries == 4                        # risk-bound 185 sh each; capital no longer binds
-    assert store.count_open_positions() == 4
-    assert store.deployed_capital() == pytest.approx(74000.0)          # notional > 25000 pool
-    assert store.committed_capital() / 5.0 <= 25000.0                  # margin within the pool
+    assert entries == 4
+    assert all(p.quantity == 500 for p in store.get_open_positions())   # full 5x margin each
+    assert store.deployed_capital() == pytest.approx(200000.0)          # notional > 100000 pool
+    assert store.committed_capital() / 5.0 <= 100000.0                  # margin within the pool
 
 
 def test_run_cycle_marks_failed_and_reraises():
@@ -965,7 +1009,7 @@ def test_reconcile_leaves_position_still_held_at_broker():
             return [{"symbol": "HELD", "quantity": 10, "product": "MIS", "avg_price": 100.0}]
 
     orch = _orch(store, BrokerHolds(mode="live"), _FakeEngine(_decision(action="HOLD")),
-                 {"HELD": _indic("HELD", last=105)})
+                 {"HELD": _indic("HELD", last=101)})
     orch.run_cycle()
     assert store.get_position(pid).status == "OPEN"   # untouched
 
@@ -1284,7 +1328,7 @@ def test_skill_screen_skipped_when_book_full():
     store.open_position(symbol="A", exchange="NSE", side="LONG", quantity=10,
                         entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
     eng = _FakeScreenEngine(results=[("B", _decision(action="BUY_NOW", tq=90, conf=80))])
-    orch = _screen_orch(store, eng, indic_map={"A": _indic("A", last=105)})
+    orch = _screen_orch(store, eng, indic_map={"A": _indic("A", last=101)})
     orch.run_cycle()
     assert eng.calls == []                           # book full -> no expensive skill call
 
@@ -1341,6 +1385,31 @@ def test_level_margins_long_breakout_entry_early():
     assert d.entry == pytest.approx(199.5)       # -0.25%
     assert d.stop_loss == pytest.approx(189.335) # -0.35%
     assert d.target1 == pytest.approx(218.0)     # 200 + 20*0.90
+
+
+def test_level_margins_are_configurable():
+    from orchestrator import _with_level_margins
+    # custom breathing space: entry nudge 0.5%, stop widen 1%, target shave 20%
+    d = _with_level_margins(_decision(action="BUY_ON_PULLBACK", entry=100.0, stop=95.0,
+                                      target1=110.0),
+                            entry_tol_pct=0.5, stop_tol_pct=1.0, target_shave_pct=20.0)
+    assert d.entry == pytest.approx(100.5)       # +0.5%
+    assert d.stop_loss == pytest.approx(94.05)   # -1.0% (wider)
+    assert d.target1 == pytest.approx(108.0)     # 100 + 10*0.80
+
+
+def test_place_entry_uses_config_breathing_space():
+    # A wider configured stop-widen changes the stop actually stored on the placed position.
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3, capital_per_position=10000.0)
+    store.update_config(stop_tolerance_pct=1.0)   # widen stop by 1% (default is 0.35%)
+    orch = _orch(store, _FakeClient(),
+                 _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, conf=75,
+                                       entry=100.0, stop=95.0, target1=115.0)),
+                 {"RELIANCE": _indic()}, candidates=_cands("RELIANCE"))
+    orch._screen_and_enter(store.start_run("paper"))
+    p = store.get_open_positions()[0]
+    assert p.stop_loss == pytest.approx(95.0 * (1 - 0.01))   # 94.05, config's 1% widen
 
 
 def test_level_margins_short_and_market_entry_untouched():
@@ -1458,8 +1527,9 @@ def test_scale_in_adds_on_dip_when_engine_reaffirms():
     assert p.status == "OPEN" and p.quantity > 100          # added
     assert p.stop_loss == 95.0                              # stop NEVER widened
     assert p.entry_price < 100.0                            # average pulled down
-    # total risk to the (unchanged) stop stays within 1% of the 100k pool = 1000
-    assert p.quantity * (p.entry_price - p.stop_loss) <= 1000.0 + 1e-6
+    # combined risk to the (unchanged) stop stays within the MAX_RISK_PER_TRADE_PCT (2.5%) ceiling
+    # of the 100k pool = 2500
+    assert p.quantity * (p.entry_price - p.stop_loss) <= 2500.0 + 1e-6
 
 
 def test_scale_in_never_exceeds_pool():
@@ -1540,3 +1610,226 @@ def test_scale_in_self_limits_to_one_add():
     # second cycle, same dip: risk budget already spent -> no further add
     orch._manage_one(run_id, store.get_position(pid))
     assert store.get_position(pid).quantity == qty_after_first
+
+
+# --- Broker exit bracket (exit_mode db_only / armed / on_fill, LIVE-only) -----------------------
+# defaults: profit-taking 7%/15% at 5x; for a 100-entry long -> bracket target = min(103, structural
+# target), stop = the position stop; band 1.0%.
+
+def _live_pos(store, qty=100, entry=100.0, target=110.0, stop=95.0):
+    return store.open_position(symbol="RELIANCE", exchange="NSE", side="LONG", quantity=qty,
+                               entry_price=entry, target_price=target, stop_loss=stop, mode="live")
+
+
+def test_on_fill_places_full_bracket():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=100.5)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert p.status == "OPEN"
+    assert p.broker_stop_price == pytest.approx(95.0)
+    assert p.broker_target_price == pytest.approx(103.0)          # min(full-profit 103, target 110)
+    by_type = {o["order_type"]: o for o in client.orders}
+    assert by_type["SL_M"]["trigger_price"] == pytest.approx(95.0)
+    assert by_type["SL_M"]["transaction_type"] == "SELL" and by_type["SL_M"]["quantity"] == 100
+    assert by_type["LIMIT"]["price"] == pytest.approx(103.0)
+    assert by_type["LIMIT"]["transaction_type"] == "SELL"
+
+
+def test_db_only_places_no_bracket():
+    store = Store(":memory:")
+    store.update_config(mode="live")                             # exit_mode db_only (default)
+    pid = _live_pos(store)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=100.5)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert p.broker_stop_order_id is None and p.broker_target_order_id is None
+    assert client.orders == []
+
+
+def test_paper_mode_places_no_bracket():
+    store = Store(":memory:")
+    store.update_config(mode="paper", exit_mode="on_fill")       # eager, but paper -> soft only
+    pid = store.open_position(symbol="RELIANCE", exchange="NSE", side="LONG", quantity=100,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    client = _FakeClient(mode="paper")
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=100.5)})._manage_positions(store.start_run("paper"))
+    assert client.orders == [] and store.get_position(pid).broker_stop_order_id is None
+
+
+def test_armed_places_only_when_near_a_level():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="armed", profit_book_enabled=False)  # bracket = 95/110
+    pid = _live_pos(store)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    # mid-range: not within 1% of the stop (95) or target (110) -> nothing placed
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=100.0)})._manage_positions(store.start_run("live"))
+    assert store.get_position(pid).broker_target_order_id is None
+    # within 1% of the target -> place the full bracket
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=109.5)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert p.broker_target_price == pytest.approx(110.0) and p.broker_stop_price == pytest.approx(95.0)
+
+
+def test_bracket_target_fill_closes_and_cancels_stop():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store, qty=100)
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 103.0)
+    client = _FakeClient(mode="live", order_status="EXECUTED")   # target checked first -> fills
+    exits = _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+                  {"RELIANCE": _indic(last=103)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert exits == 1 and p.status == "CLOSED" and p.exit_reason == "TAKE_PROFIT"
+    assert p.exit_price == pytest.approx(103.0)
+    assert p.realized_pnl == pytest.approx((103 - 100) * 100)
+    assert "SL-1" in client.cancelled                            # OCO: the other leg cancelled
+
+
+class _StopFilledClient(_FakeClient):
+    def get_order_status(self, order_id):
+        return {"order_id": order_id, "status": "EXECUTED" if order_id == "SL-1" else "OPEN"}
+
+
+def test_bracket_stop_fill_closes_and_cancels_target():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store, qty=100)
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 103.0)
+    client = _StopFilledClient(mode="live")
+    exits = _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+                  {"RELIANCE": _indic(last=95)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert exits == 1 and p.exit_reason == "STOP" and p.exit_price == pytest.approx(95.0)
+    assert p.realized_pnl == pytest.approx((95 - 100) * 100)
+    assert "TG-1" in client.cancelled
+
+
+def test_square_off_cancels_bracket():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store)
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 103.0)
+    client = _FakeClient(mode="live", order_status="OPEN")       # legs resting, not filled
+    exits = _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+                  {"RELIANCE": _indic(last=101, bars=0, mins=0)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert exits == 1 and p.exit_reason == "SQUARE_OFF"
+    assert "SL-1" in client.cancelled and "TG-1" in client.cancelled
+    assert p.broker_stop_order_id is None and p.broker_target_order_id is None
+
+
+def test_poll_stop_suppressed_while_stop_leg_live():
+    """A live broker stop OWNS the downside — the poll must not also market-exit (no double-sell)."""
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")
+    pid = _live_pos(store, stop=98.0)
+    store.set_bracket_leg(pid, "stop", "SL-1", 98.0)
+    client = _FakeClient(mode="live", order_status="OPEN")       # stop not filled yet
+    exits = _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+                  {"RELIANCE": _indic(last=97)})._manage_positions(store.start_run("live"))
+    assert exits == 0 and store.get_position(pid).status == "OPEN"
+
+
+def test_db_only_tears_down_existing_bracket():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="db_only")
+    pid = _live_pos(store)
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 103.0)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=100.5)})._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert "SL-1" in client.cancelled and "TG-1" in client.cancelled
+    assert p.broker_stop_order_id is None and p.broker_target_order_id is None
+
+
+def test_partial_book_resizes_bracket():
+    store = Store(":memory:")
+    store.update_config(mode="live", exit_mode="on_fill")        # profit-taking default 7%/15%
+    pid = _live_pos(store, qty=100)
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 103.0)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    _orch(store, client, _FakeEngine(_decision(action="HOLD")),
+          {"RELIANCE": _indic(last=102)})._manage_positions(store.start_run("live"))  # +2% = 10% -> book half
+    p = store.get_position(pid)
+    assert p.partial_booked is True and p.quantity == 50
+    assert "SL-1" in client.cancelled and "TG-1" in client.cancelled     # old bracket torn down
+    assert p.broker_stop_order_id is not None and p.broker_target_order_id is not None   # rebuilt
+    assert p.broker_stop_price == pytest.approx(100.0)          # runner stop trailed to breakeven
+
+
+def test_reconcile_cnc_holding_does_not_mask_closed_mis_position():
+    # A delivery holding in the SAME symbol must not keep a fully-exited MIS position alive:
+    # net qty for the sync decision is MIS-only.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 50, "product": "CNC", "avg_price": 90.0}])
+    orch = _live_screen_orch(store, client)
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "CLOSED" and p.exit_reason == "BROKER_SYNC"
+
+
+def test_broker_state_splits_mis_and_reports_orders():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "AAA", "quantity": 5, "product": "MIS", "avg_price": 101.0},
+        {"symbol": "AAA", "quantity": 40, "product": "CNC", "avg_price": 90.0},
+        {"symbol": "BBB", "quantity": -3, "product": "MIS", "avg_price": 55.0}])
+    client.open_orders = [
+        {"symbol": "AAA", "order_id": "G1", "status": "APPROVED",
+         "transaction_type": "SELL", "product": "MIS"},
+        {"symbol": "ZZZ", "order_id": "G2", "status": "EXECUTED",
+         "transaction_type": "BUY", "product": "MIS"}]
+    orch = _live_screen_orch(store, client)
+    mis, orders = orch._broker_state()
+    assert mis == {"AAA": {"net": 5, "avg": 101.0}, "BBB": {"net": -3, "avg": 55.0}}
+    assert [o["order_id"] for o in orders] == ["G1"]      # EXECUTED is terminal, filtered out
+
+
+def test_broker_state_returns_none_orders_when_order_book_fails():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    client = _FakeClient(mode="live")
+    def boom():
+        raise RuntimeError("gateway 502")
+    client.get_open_orders = boom
+    orch = _live_screen_orch(store, client)
+    mis, orders = orch._broker_state()
+    assert mis == {}
+    assert orders is None          # unavailable != empty; takeover must stay disabled
+
+
+def test_paper_mode_reconciles_nothing():
+    # Paper has no broker to reconcile against — the DB is the only ledger. A broker payload
+    # must be ignored entirely, never adopted.
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    client = _FakeClient(mode="paper", broker_positions=[
+        {"symbol": "MANUAL", "quantity": 5, "product": "MIS", "avg_price": 101.5}])
+    orch = _live_screen_orch(store, client)
+    run_id = store.start_run("paper")
+    assert orch._reconcile_broker(run_id) == 0
+    assert store.get_open_positions() == []
