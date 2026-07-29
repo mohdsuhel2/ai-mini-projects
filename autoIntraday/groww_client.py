@@ -303,9 +303,10 @@ class GrowwClient:
         return out
 
     def get_open_orders(self) -> list[dict]:
-        """Today's broker order book (ALL statuses — the caller filters terminal ones out).
-        Lets the orchestrator see manually placed orders. Paper mode has no broker book
-        (paper orders live in the DB), so it returns []."""
+        """Today's broker order book (ALL statuses — the caller filters terminal ones out),
+        including each order's product (MIS/CNC). Lets the orchestrator see manually placed
+        orders and tell an intraday order apart from a delivery one. Paper mode has no broker
+        book (paper orders live in the DB), so it returns []."""
         if self.mode == "paper":
             return []
         self._require_auth()
@@ -317,7 +318,10 @@ class GrowwClient:
             {"symbol": o.get("trading_symbol") or o.get("symbol"),
              "order_id": o.get("groww_order_id") or o.get("order_id"),
              "status": o.get("order_status") or o.get("status"),
-             "transaction_type": o.get("transaction_type")}
+             "transaction_type": o.get("transaction_type"),
+             # MIS vs CNC. Reconcile only ever cancels MIS orders — a resting CNC sell belongs
+             # to the user's delivery portfolio. Absent -> None, which fails safe (not MIS).
+             "product": o.get("product") or None}
             for o in (orders or [])
         ]
 

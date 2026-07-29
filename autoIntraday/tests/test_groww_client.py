@@ -315,8 +315,63 @@ def test_cancel_order_live_calls_sdk():
     sdk = _FakeSdkWithOrders()
     client = _authed_client(sdk)
     result = client.cancel_order("LIVE-1")
-    assert result == {"order_id": "LIVE-1", "status": "CANCELLED"}
+    assert result == {"order_id": "LIVE-1", "status": "CANCELLED", "cancelled": True}
     assert sdk.cancelled == ["LIVE-1"]
+
+
+def test_cancel_order_terminal_is_benign():
+    """Groww rejects cancelling an already-filled/cancelled order. That's a no-op, not a failure
+    (the resting order is gone) — the armed-exit race where a take-profit already filled."""
+    class _Sdk(_FakeSdkWithOrders):
+        def cancel_order(self, groww_order_id=None, segment=None, timeout=None):
+            raise RuntimeError("order not cancellable")
+        def get_order_status(self, segment=None, groww_order_id=None, timeout=None):
+            return {"order_status": "EXECUTED"}
+    client = _authed_client(_Sdk())
+    result = client.cancel_order("LIVE-1")
+    assert result["status"] == "EXECUTED" and result["cancelled"] is False
+
+
+def test_cancel_order_not_found_is_benign():
+    class _Sdk(_FakeSdkWithOrders):
+        def cancel_order(self, groww_order_id=None, segment=None, timeout=None):
+            raise RuntimeError("order not found")
+        def get_order_status(self, segment=None, groww_order_id=None, timeout=None):
+            raise RuntimeError("no such order")
+    client = _authed_client(_Sdk())
+    result = client.cancel_order("GHOST")
+    assert result["status"] == "NOT_FOUND" and result["cancelled"] is False
+
+
+def test_cancel_order_real_failure_still_raises():
+    """A cancel failure on an order that is STILL open (not terminal) is a genuine error."""
+    class _Sdk(_FakeSdkWithOrders):
+        def cancel_order(self, groww_order_id=None, segment=None, timeout=None):
+            raise RuntimeError("broker timeout")
+        def get_order_status(self, segment=None, groww_order_id=None, timeout=None):
+            return {"order_status": "OPEN"}
+    client = _authed_client(_Sdk())
+    with pytest.raises(GrowwClientError, match="order cancellation failed"):
+        client.cancel_order("LIVE-1")
+
+
+def test_ensure_ready_live_is_idempotent(monkeypatch):
+    """Live auth must happen ONCE and be reused — re-logging-in on every call re-runs TOTP and
+    trips Groww's auth rate limit (the gateway calls ensure_ready() per request)."""
+    monkeypatch.setenv("GROWW_API_KEY", "key123")
+    monkeypatch.setenv("GROWW_TOTP_SECRET", pyotp.random_base32())
+    calls = {"n": 0}
+    def counting_factory(api_key, totp):
+        calls["n"] += 1
+        return _FakeSdkWithOrders()
+    client = GrowwClient(mode="live", sdk_factory=counting_factory)
+    client.ensure_ready()
+    client.ensure_ready()
+    client.ensure_ready()
+    assert calls["n"] == 1
+    # a forced re-auth (session expiry) does log in again
+    client.reauthenticate()
+    assert calls["n"] == 2
 
 
 class _FakeSdkWithSmartOrders(_FakeSdkWithOrders):
@@ -384,8 +439,11 @@ def test_get_open_orders_live_maps_fields():
         def get_order_list(self, segment=None, page=None, page_size=None, timeout=None):
             return {"order_list": [
                 {"trading_symbol": "AAA", "groww_order_id": "G1", "order_status": "APPROVED",
-                 "transaction_type": "BUY"},
+                 "transaction_type": "BUY", "product": "MIS"},
                 {"trading_symbol": "BBB", "groww_order_id": "G2", "order_status": "EXECUTED",
+                 "transaction_type": "SELL", "product": "CNC"},
+                # product omitted entirely -> None, so reconcile never treats it as MIS
+                {"trading_symbol": "CCC", "groww_order_id": "G3", "order_status": "APPROVED",
                  "transaction_type": "SELL"},
             ]}
 
@@ -397,7 +455,142 @@ def test_get_open_orders_live_maps_fields():
     orders = client.get_open_orders()
     assert orders == [
         {"symbol": "AAA", "order_id": "G1", "status": "APPROVED",
-         "transaction_type": "BUY"},
+         "transaction_type": "BUY", "product": "MIS"},
         {"symbol": "BBB", "order_id": "G2", "status": "EXECUTED",
-         "transaction_type": "SELL"},
+         "transaction_type": "SELL", "product": "CNC"},
+        {"symbol": "CCC", "order_id": "G3", "status": "APPROVED",
+         "transaction_type": "SELL", "product": None},
     ]
+
+
+def test_rate_limited_auth_sets_cooldown_and_stops_retrying(monkeypatch):
+    """A rate-limited login must NOT be retried on the next call — retrying every request keeps
+    Groww's rate-limit window from resetting. Cooldown breaks that self-perpetuating loop."""
+    monkeypatch.setenv("GROWW_API_KEY", "k")
+    monkeypatch.setenv("GROWW_TOTP_SECRET", pyotp.random_base32())
+    calls = {"n": 0}
+    def rate_limited_factory(api_key, totp):
+        calls["n"] += 1
+        raise RuntimeError("The rate limit for the Groww API has been exceeded. Please try later.")
+    client = GrowwClient(mode="live", sdk_factory=rate_limited_factory)
+    with pytest.raises(GrowwClientError, match="rate limit"):
+        client.ensure_ready()                       # attempt 1 -> rate-limited -> cooldown set
+    assert calls["n"] == 1 and client._auth_cooldown_until > 0
+    with pytest.raises(GrowwClientError, match="cooling down"):
+        client.ensure_ready()                       # within cooldown -> NO new login attempt
+    assert calls["n"] == 1
+    client._auth_cooldown_until = 0.0               # window elapsed -> retry is allowed again
+    with pytest.raises(GrowwClientError, match="rate limit"):
+        client.ensure_ready()
+    assert calls["n"] == 2
+
+
+def test_non_rate_limit_auth_failure_sets_no_cooldown(monkeypatch):
+    monkeypatch.setenv("GROWW_API_KEY", "k")
+    monkeypatch.setenv("GROWW_TOTP_SECRET", pyotp.random_base32())
+    def bad_factory(api_key, totp):
+        raise RuntimeError("invalid TOTP")
+    client = GrowwClient(mode="live", sdk_factory=bad_factory)
+    with pytest.raises(GrowwClientError, match="authentication failed"):
+        client.ensure_ready()
+    assert client._auth_cooldown_until == 0.0       # ordinary failure -> retry immediately, no cooldown
+
+
+# --- Access-token persistence (GROWW_TOKEN_CACHE_PATH) ------------------------------------------
+
+def test_token_cache_roundtrip_and_clear(monkeypatch, tmp_path):
+    import groww_client as gc
+    monkeypatch.setenv("GROWW_TOKEN_CACHE_PATH", str(tmp_path / "tok.json"))
+    assert gc._load_cached_token() is None
+    gc._save_cached_token("TKN-1")
+    assert gc._load_cached_token() == "TKN-1"          # persisted + reused
+    gc._clear_cached_token()
+    assert gc._load_cached_token() is None             # dropped on invalidation
+
+
+def test_token_cache_expired_returns_none(monkeypatch, tmp_path):
+    import json as _json
+    import groww_client as gc
+    cache = tmp_path / "tok.json"
+    monkeypatch.setenv("GROWW_TOKEN_CACHE_PATH", str(cache))
+    cache.write_text(_json.dumps({"access_token": "OLD", "expiry": 1.0}))   # expiry in the past
+    assert gc._load_cached_token() is None             # past 06:00 expiry -> not reused
+
+
+def test_token_cache_disabled_without_env(monkeypatch):
+    import groww_client as gc
+    monkeypatch.delenv("GROWW_TOKEN_CACHE_PATH", raising=False)
+    assert gc._load_cached_token() is None
+    gc._save_cached_token("X")                         # no-op, no error, no file
+    gc._clear_cached_token()
+
+
+def test_next_6am_ist_is_in_the_future():
+    import time as _t
+    import groww_client as gc
+    assert gc._next_6am_ist_epoch() > _t.time()
+
+
+def test_default_factory_reuses_cached_token(monkeypatch, tmp_path):
+    """The whole point: a valid cached token is reused -> NO get_access_token (no login storm)."""
+    import sys
+    import types
+    import groww_client as gc
+    monkeypatch.setenv("GROWW_TOKEN_CACHE_PATH", str(tmp_path / "tok.json"))
+    gc._save_cached_token("CACHED")
+    logins = {"n": 0}
+    class FakeAPI:
+        def __init__(self, token):
+            self.token = token
+        @staticmethod
+        def get_access_token(api_key=None, totp=None):
+            logins["n"] += 1
+            return "FRESH"
+    mod = types.ModuleType("growwapi")
+    mod.GrowwAPI = FakeAPI
+    monkeypatch.setitem(sys.modules, "growwapi", mod)
+    sdk = gc._default_sdk_factory("k", "123456")
+    assert sdk.token == "CACHED" and logins["n"] == 0   # reused, no login
+    gc._clear_cached_token()
+    sdk2 = gc._default_sdk_factory("k", "123456")
+    assert sdk2.token == "FRESH" and logins["n"] == 1    # no cache -> mint once
+    assert gc._load_cached_token() == "FRESH"            # and persist it
+
+
+def test_reauthenticate_clears_cache(monkeypatch, tmp_path):
+    import groww_client as gc
+    monkeypatch.setenv("GROWW_TOKEN_CACHE_PATH", str(tmp_path / "tok.json"))
+    monkeypatch.setenv("GROWW_API_KEY", "k")
+    monkeypatch.setenv("GROWW_TOTP_SECRET", pyotp.random_base32())
+    gc._save_cached_token("STALE")
+    client = gc.GrowwClient(mode="live", sdk_factory=lambda k, t: "sdk")
+    client.reauthenticate()                              # forces fresh -> must drop the stale token
+    assert gc._load_cached_token() is None
+    assert client._sdk == "sdk"
+
+
+def test_prefer_ipv4_forces_af_inet(monkeypatch):
+    """Outbound DNS resolution must be pinned to IPv4 so Groww sees the whitelisted static IPv4,
+    not the VPS's IPv6 egress (which Groww rejects as 'unregistered IP address')."""
+    import socket
+    import groww_client as gc
+    monkeypatch.setenv("GROWW_FORCE_IPV4", "1")
+    monkeypatch.setattr(socket, "_ai_ipv4_forced", False, raising=False)
+    seen = {}
+    def fake_gai(host, port, family=0, *a, **k):
+        seen["family"] = family
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("1.2.3.4", port))]
+    monkeypatch.setattr(socket, "getaddrinfo", fake_gai)
+    gc._prefer_ipv4()
+    socket.getaddrinfo("api.groww.in", 443)          # goes through the IPv4-forcing wrapper
+    assert seen["family"] == socket.AF_INET
+
+
+def test_prefer_ipv4_can_be_disabled(monkeypatch):
+    import socket
+    import groww_client as gc
+    monkeypatch.setenv("GROWW_FORCE_IPV4", "0")
+    monkeypatch.setattr(socket, "_ai_ipv4_forced", False, raising=False)
+    before = socket.getaddrinfo
+    gc._prefer_ipv4()
+    assert socket.getaddrinfo is before              # no patch applied when disabled
