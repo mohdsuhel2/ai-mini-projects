@@ -166,6 +166,77 @@ def _md_table(rows: list[dict]) -> None:
                 unsafe_allow_html=True)
 
 
+def _runs_table(rows: list) -> None:
+    """Job-runs table with a per-row 🔎 link that opens that run's Claude output. Built as raw HTML
+    (like _md_table) because _md_table escapes cells and can't hold a clickable link. The link keeps
+    the current tab params and adds vout=<run_id>, so clicking stays on this section and opens the
+    dialog (handled where the table is rendered)."""
+    import html as _html
+    import urllib.parse
+    if not rows:
+        st.caption("— nothing here right now")
+        return
+    cols = list(rows[0].keys())
+    base = dict(st.query_params)
+    head = "".join(f"<th>{_html.escape(str(c))}</th>" for c in cols) + "<th>Output</th>"
+    body = ""
+    for r in rows:
+        cells = "".join(_cell_html(str(c), r.get(c)) for c in cols)
+        rid = r.get("id")
+        if rid is None:
+            cell = "<td></td>"
+        else:
+            qs = urllib.parse.urlencode({**base, "vout": rid})
+            cell = (f'<td><a class="ai-act" href="?{qs}" target="_self" '
+                    f'title="View Claude output">🔎</a></td>')
+        body += f"<tr>{cells}{cell}</tr>"
+    st.markdown(f'<div class="ai-tblwrap"><table class="ai-tbl">'
+                f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>",
+                unsafe_allow_html=True)
+
+
+def _url_tabs(param: str, labels: list) -> str:
+    """A tab-like selector whose choice is kept in the URL (?param=Label), so a browser refresh
+    stays on the same section instead of snapping back to the first tab. Replaces st.tabs where
+    the active section must survive a reload (st.tabs is client-side only and can't be persisted)."""
+    stored = st.query_params.get(param)
+    default = stored if stored in labels else labels[0]
+    choice = st.segmented_control(param, labels, default=default, key=f"urltab_{param}",
+                                  label_visibility="collapsed")
+    if not choice:                       # single-select can be cleared — keep the current section
+        choice = default
+    if st.query_params.get(param) != choice:
+        st.query_params[param] = choice
+    return choice
+
+
+@st.dialog("Claude skill output", width="large")
+def _run_output_dialog(run_id: int) -> None:
+    """Modal showing the raw Claude JSON recorded for every decision in one job run — the exact
+    skill/engine output, per symbol, pretty-printed (falls back to raw text if it isn't JSON)."""
+    import json as _json
+    decs = _db(lambda s: s.get_decisions_for_run(run_id))
+    with_json = [d for d in decs if d.raw_json]
+    st.caption(f"Run #{run_id} · {len(decs)} decision(s), {len(with_json)} with Claude output")
+    if not with_json:
+        st.info("No Claude output recorded for this run (no decisions, or a backend that stores none).")
+        return
+    syms = sorted({d.symbol for d in with_json})
+    pick = st.multiselect("Filter by symbol", syms, key=f"vout_sym_{run_id}",
+                          placeholder="All symbols")
+    for d in with_json:
+        if pick and d.symbol not in pick:
+            continue
+        label = f"{d.symbol} — {d.action or '—'}"
+        if d.score is not None:
+            label += f"  ·  q{d.score:g}"
+        with st.expander(label, expanded=len(with_json) == 1):
+            try:
+                st.json(_json.loads(d.raw_json))
+            except Exception:
+                st.code(d.raw_json)
+
+
 def _tile(label: str, value: str, sub: str = "", tone: str = "plain") -> str:
     import html as _html
     sub_html = f'<div class="ai-tile-sub">{_html.escape(sub)}</div>' if sub else ""
@@ -343,6 +414,16 @@ button[data-baseweb="tab"][aria-selected="true"] p { color: var(--ai-accent) !im
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important;
   transform: none !important; } }
+
+/* ---- compare equity chart (self-built SVG — PyArrow-safe) --------------------------- */
+.ai-eqwrap { border: 1px solid var(--ai-line-soft); border-radius: 12px; padding: .6rem .8rem;
+  margin: .3rem 0 .9rem; background: var(--ai-tint); }
+.ai-eqchart { width: 100%; height: 200px; display: block; }
+.ai-eq-zero { stroke: var(--ai-line); stroke-width: 1; stroke-dasharray: 3 3; }
+.ai-eq-legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: .4rem;
+  font-size: .8rem; font-variant-numeric: tabular-nums; }
+.ai-eq-key { display: inline-flex; align-items: center; gap: .4rem; opacity: .85; }
+.ai-eq-dot { width: .6rem; height: .6rem; border-radius: 2px; flex: none; }
 </style>
 """
 
@@ -390,22 +471,142 @@ def _settings_dialog() -> None:
     """All controls, in one compact modal opened from the top-right. Grouped into tabs so only
     the relevant section shows at a time: Trading, Schedule, Data."""
     h = _db(header_view)
-    t_capital, t_schedule, t_data = st.tabs(["Capital", "Schedule", "Data"])
+    t_capital, t_strategies, t_schedule, t_data = st.tabs(
+        ["Capital", "Strategies", "Schedule", "Data"])
 
-    with t_capital:
-        st.caption("Pause and Paper/Live are on the header. These are the sizing rules.")
-        cc1, cc2, cc3 = st.columns(3)
-        total_pool = cc1.number_input("Pool (₹)", min_value=0.0, value=float(h["total_pool"]),
-                                      step=1000.0)
-        max_pos = cc2.number_input("Max positions", min_value=0,
-                                   value=int(h["max_open_positions"]), step=1)
-        cap_pos = cc3.number_input("Per position (₹)", min_value=0.0,
-                                   value=float(h["capital_per_position"]), step=1000.0)
-        if st.button("Save capital rules", use_container_width=True):
-            _db(lambda s: s.update_config(total_pool=total_pool, max_open_positions=int(max_pos),
-                                          capital_per_position=cap_pos))
+    with t_strategies:
+        cfg = _db(lambda s: s.get_config())
+        reg = _strategy_registry()
+        names = {x.id: x.name for x in reg.all()}
+        ids = reg.ids()
+
+        def _idx(val):
+            return ids.index(val) if val in ids else 0
+
+        st.caption("Pick which strategy generates decisions in each mode, or turn on Compare "
+                   "Testing to run several side by side (paper-only).")
+        live_sel = st.radio("Live strategy", ids, index=_idx(cfg.live_strategy),
+                            format_func=lambda i: names.get(i, i), horizontal=True, key="cfg_live_strat")
+        paper_sel = st.radio("Paper strategy", ids, index=_idx(cfg.paper_strategy),
+                             format_func=lambda i: names.get(i, i), horizontal=True, key="cfg_paper_strat")
+        st.divider()
+        comp_on = st.toggle("Enable Compare Testing", value=cfg.compare_enabled)
+        comp_sel = st.multiselect("Strategies to compare", ids,
+                                  default=[i for i in cfg.compare_strategies if i in ids] or ids,
+                                  format_func=lambda i: names.get(i, i))
+        if comp_on:
+            st.warning("Compare Testing runs PAPER trades only — Live mode is turned OFF while "
+                       "it's on, and no broker orders are placed.")
+        if st.button("Save strategy settings", use_container_width=True):
+            fields = {"live_strategy": live_sel, "paper_strategy": paper_sel,
+                      "compare_enabled": comp_on, "compare_strategies": comp_sel or ids}
+            if comp_on:
+                fields["mode"] = "paper"          # compare is paper-only -> disable live
+            _db(lambda s: s.update_config(**fields))
             st.success("Saved.")
             st.rerun()
+
+    with t_capital:
+        sub_capital, sub_exits, sub_exec = st.tabs(["Capital", "Exits", "Execution"])
+
+        with sub_capital:
+            st.caption("Pause and Paper/Live are on the header. These are the sizing rules.")
+            cc1, cc2, cc3 = st.columns(3)
+            total_pool = cc1.number_input("Pool (₹)", min_value=0.0, value=float(h["total_pool"]),
+                                          step=1000.0)
+            max_pos = cc2.number_input("Max positions", min_value=0,
+                                       value=int(h["max_open_positions"]), step=1)
+            cap_pos = cc3.number_input("Per position (₹)", min_value=0.0,
+                                       value=float(h["capital_per_position"]), step=1000.0)
+            if st.button("Save capital rules", use_container_width=True):
+                _db(lambda s: s.update_config(total_pool=total_pool,
+                                              max_open_positions=int(max_pos),
+                                              capital_per_position=cap_pos))
+                st.success("Saved.")
+                st.rerun()
+
+        with sub_exits:
+            st.caption("Early profit-taking — secure the win before the far target reverts. "
+                       "Percentages are RETURN ON MARGIN (at 5x, 7% ≈ a 1.4% move, 15% ≈ 3%).")
+            pb = _db(lambda s: s.get_config())
+            pb_on = st.toggle("Take profit early", value=pb.profit_book_enabled,
+                              help="Off = let winners ride all the way to the structural target.")
+            pc1, pc2 = st.columns(2)
+            partial_pct = pc1.number_input("Book half at (% on margin)", min_value=0.0,
+                                           max_value=100.0, value=float(pb.profit_book_partial_pct),
+                                           step=1.0, disabled=not pb_on)
+            full_pct = pc2.number_input("Exit all at (% on margin)", min_value=0.0, max_value=300.0,
+                                        value=float(pb.profit_book_full_pct), step=1.0,
+                                        disabled=not pb_on)
+            if st.button("Save profit-taking", use_container_width=True):
+                if pb_on and full_pct and partial_pct and full_pct < partial_pct:
+                    st.error("'Exit all' % must be ≥ 'Book half' %.")
+                else:
+                    _db(lambda s: s.update_config(profit_book_enabled=pb_on,
+                                                  profit_book_partial_pct=partial_pct,
+                                                  profit_book_full_pct=full_pct))
+                    st.success("Saved.")
+                    st.rerun()
+
+            st.divider()
+            st.caption("Exit placement (LIVE only) — where the stop + target actually live. "
+                       "DB-only keeps them soft (the 5-min cycle market-exits when hit). The eager "
+                       "modes rest a REAL Groww bracket (stop SL_M + target LIMIT, one-cancels-other).")
+            ex = _db(lambda s: s.get_config())
+            _EXIT_MODES = [("db_only", "DB-only (soft levels)"),
+                           ("armed", "Armed (place near a level)"),
+                           ("on_fill", "On fill (bracket at Groww)")]
+            _mode_ids = [m for m, _ in _EXIT_MODES]
+            _labels = {m: lbl for m, lbl in _EXIT_MODES}
+            cur_mode = ex.exit_mode if ex.exit_mode in _mode_ids else "db_only"
+            em = st.radio("Exit order placement", _mode_ids, index=_mode_ids.index(cur_mode),
+                          format_func=lambda m: _labels[m],
+                          help="DB-only = market exit at the 5-min cycle (default, today's behavior). "
+                               "Armed = rest the bracket at Groww once price nears a level. "
+                               "On fill = rest the bracket the moment the entry fills (most protective, "
+                               "most API calls).")
+            ex_band = st.number_input("Armed: place within (% of the level)", min_value=0.1,
+                                      max_value=5.0, value=float(ex.arm_exit_band_pct), step=0.1,
+                                      format="%.1f", disabled=(em != "armed"),
+                                      help="Only used in Armed mode — how close price must get to the "
+                                           "stop or target before the bracket is placed.")
+            fallback_pct = st.number_input(
+                "Fallback stop for unprotected positions (% from entry)", min_value=0.0,
+                max_value=10.0, value=float(ex.adopt_fallback_stop_pct), step=0.1,
+                format="%.1f",
+                help="Applied to any OPEN position that still has no stop after the engine's "
+                     "read — an adopted manual position, or a read that returned WAIT. The "
+                     "engine's structural stop replaces it as soon as it arrives and never "
+                     "widens it. 0 disables the floor.")
+            if em != "db_only":
+                st.warning("Eager modes place REAL Groww orders. LIVE only (paper stays soft). Don't "
+                           "switch this on the live account until the orphaned ledgers are cleaned and "
+                           "cancel is verified in production.")
+            if st.button("Save exit placement", use_container_width=True):
+                _db(lambda s: s.update_config(exit_mode=em, arm_exit_band_pct=ex_band,
+                                              adopt_fallback_stop_pct=fallback_pct))
+                st.success("Saved.")
+                st.rerun()
+
+        with sub_exec:
+            st.caption("Execution breathing space — applied to Claude's levels before the order goes "
+                       "to Groww. Entry is nudged toward price (fills easier); the stop is placed a "
+                       "little WIDER (a long's SL goes lower, so noise doesn't knock it out); the "
+                       "target keeps (100 − shave)% of the move.")
+            m = _db(lambda s: s.get_config())
+            m1, m2, m3 = st.columns(3)
+            entry_tol = m1.number_input("Entry nudge %", min_value=0.0, max_value=5.0,
+                                        value=float(m.entry_tolerance_pct), step=0.05, format="%.2f")
+            stop_tol = m2.number_input("Stop widen %", min_value=0.0, max_value=5.0,
+                                       value=float(m.stop_tolerance_pct), step=0.05, format="%.2f")
+            target_shave = m3.number_input("Target shave %", min_value=0.0, max_value=90.0,
+                                           value=float(m.target_shave_pct), step=1.0, format="%.1f")
+            if st.button("Save execution margins", use_container_width=True):
+                _db(lambda s: s.update_config(entry_tolerance_pct=entry_tol,
+                                              stop_tolerance_pct=stop_tol,
+                                              target_shave_pct=target_shave))
+                st.success("Saved.")
+                st.rerun()
 
     with t_schedule:
         try:
@@ -414,30 +615,40 @@ def _settings_dialog() -> None:
             st.error(str(e))
         else:
             from datetime import time as dtime
+            try:
+                _ph, _pm = (int(x) for x in _db(lambda s: s.get_config()).primer_time.split(":"))
+                primer_default = dtime(_ph, _pm)
+            except Exception:
+                primer_default = dtime(7, 30)
             s1, s2, s3 = st.columns(3)
             first = s1.time_input("First cycle", value=dtime(*sched["start"]), step=300)
             last = s2.time_input("Last cycle", value=dtime(*sched["last"]), step=300)
             interval = s3.number_input("Every (min)", min_value=5, max_value=120,
                                        value=int(sched["interval_min"]) or 20, step=5)
-            st.caption("Square-off stays fixed at 15:18. Applying reloads the scheduler — "
-                       "refused while a cycle is running.")
+            primer_in = st.time_input("Claude primer time (IST)", value=primer_default, step=300,
+                                      help="Throwaway Claude call that starts the 5-hour usage "
+                                           "window early so it resets during trading. Default 07:30.")
+            st.caption("No square-off cycle — Groww auto-flattens intraday at close. Applying "
+                       "reloads the scheduler; refused while a cycle is running.")
             if st.button("Apply schedule", use_container_width=True):
                 try:
                     msg = apply_schedule((first.hour, first.minute), (last.hour, last.minute),
-                                         int(interval))
+                                         int(interval),
+                                         primer_hm=(primer_in.hour, primer_in.minute))
                 except ScheduleError as e:
                     st.error(str(e))
                 else:
+                    _db(lambda s: s.update_config(
+                        primer_time=f"{primer_in.hour:02d}:{primer_in.minute:02d}"))
                     st.success(msg)
                     st.rerun()
 
-            ph, pm = primer_time((first.hour, first.minute))
             primer_on = _db(lambda s: s.get_config().primer_enabled)
-            new_primer = st.toggle(f"Claude primer — prime the window at {ph:02d}:{pm:02d} IST",
-                                   value=primer_on,
-                                   help="A throwaway Claude call 2h before the first cycle starts "
-                                        "the 5-hour usage window early, so it resets during "
-                                        "trading, not after.")
+            new_primer = st.toggle(
+                f"Claude primer — prime the window at {primer_in.hour:02d}:{primer_in.minute:02d} IST",
+                value=primer_on,
+                help="Runs a throwaway Claude call at the primer time above to start the 5-hour "
+                     "usage window early, so it resets during trading, not after.")
             if new_primer != primer_on:
                 _db(lambda s: s.update_config(primer_enabled=new_primer))
                 st.rerun()
@@ -458,10 +669,36 @@ def _settings_dialog() -> None:
                            f"{counts['orders']} orders, {counts['job_runs']} runs).")
 
 
+def _intraday_strategy_view() -> str | None:
+    """The strategy_id to scope the Intraday page to, or None when only one strategy has traded
+    (then the page shows everything, exactly as before). The selector appears only with >1."""
+    from strategies import is_compare_ledger
+    # Only the live/paper (base) ledgers belong on the Intraday page; compare ledgers ("cmp:*")
+    # live on the Compare page.
+    present = [p for p in _db(lambda s: s.strategy_ids_present()) if not is_compare_ledger(p)]
+    if len(present) <= 1:
+        return None
+    reg = _strategy_registry()
+    names = {x.id: x.name for x in reg.all()}
+    cfg = _db(lambda s: s.get_config())
+    default = cfg.paper_strategy if cfg.paper_strategy in present else present[0]
+    return st.radio("Strategy view", present, index=present.index(default),
+                    format_func=lambda i: names.get(i, i), horizontal=True,
+                    key="intraday_strat_view")
+
+
 def _render() -> None:
+    from store import ScopedStore
     st.markdown(_CSS, unsafe_allow_html=True)
 
-    h = _db(header_view)
+    sid = _intraday_strategy_view()
+
+    def _sdb(fn):
+        """Run a view function against the store, scoped to the selected strategy (or the raw
+        store when a single strategy has traded — identical to the pre-multi-strategy behaviour)."""
+        return _db(lambda s: fn(ScopedStore(s, sid))) if sid else _db(fn)
+
+    h = _sdb(header_view)
     left, right = st.columns([3, 1])
     with left:
         st.markdown('<div class="ai-brand">autoIntraday<em>.</em></div>',
@@ -491,10 +728,12 @@ def _render() -> None:
             _db(lambda s: s.update_config(is_paused=paused))
             st.rerun()
     with cB:
-        live = st.toggle("Live mode", value=(h["mode"] == "live"),
-                         help="ON = REAL orders on Groww. OFF = paper (simulated). "
-                              "The next cycle acts on the new mode.")
-        if live != (h["mode"] == "live"):
+        compare_on = _db(lambda s: s.get_config().compare_enabled)
+        live = st.toggle("Live mode", value=(h["mode"] == "live"), disabled=compare_on,
+                         help=("Disabled during Compare Testing (paper-only)." if compare_on else
+                               "ON = REAL orders on Groww. OFF = paper (simulated). "
+                               "The next cycle acts on the new mode."))
+        if not compare_on and live != (h["mode"] == "live"):
             _db(lambda s: s.update_config(mode="live" if live else "paper"))
             st.rerun()
     with cC:
@@ -502,7 +741,7 @@ def _render() -> None:
             _settings_dialog()
 
     today_iso = datetime.now(timezone.utc).date().isoformat()
-    pnl = _db(lambda s: pnl_summary(s, today_iso))
+    pnl = _sdb(lambda s: pnl_summary(s, today_iso))
     primer_on = _db(lambda s: s.get_config().primer_enabled)
     nf = next_fire()
     if nf is None:
@@ -522,8 +761,9 @@ def _render() -> None:
             pwhen = f"in {pmin} min" if pmin < 24 * 60 else f"{pf:%a %d %b}"
             primer_tile = _tile("Claude primer", f"{pf:%H:%M}", pwhen)
     _tiles([
-        _tile("Pool used", f"₹{h['deployed_capital']:,.0f}",
-              f"{h['utilization_pct']}% of ₹{h['total_pool']:,.0f}"),
+        _tile("Margin used", f"₹{h['deployed_capital']:,.0f}",
+              f"{h['utilization_pct']}% of ₹{h['total_pool']:,.0f} pool · "
+              f"₹{h.get('deployed_notional', 0):,.0f} notional"),
         _tile("Open positions", f"{h['open_count']} / {h['max_open_positions']}"),
         _tile("Resting orders", str(h["pending_count"])),
         next_tile,
@@ -534,18 +774,18 @@ def _render() -> None:
               tone=_pnl_tone(pnl["realized_total"])),
     ])
 
-    tab_overview, tab_perf, tab_history = st.tabs(["Overview", "Performance", "History"])
+    section = _url_tabs("tab", ["Overview", "Performance", "History"])
 
-    with tab_overview:
+    if section == "Overview":
         st.subheader("Pending / resting orders")
         st.caption("Placed but not yet filled — each fills when price reaches `rest_at`, then "
                    "arms its target/stop. Cancelled at square-off if never reached.")
-        _md_table(_db(pending_view))
+        _md_table(_sdb(pending_view))
 
         st.subheader("Open positions")
-        _md_table([r for r in _db(positions_view) if r["status"] == "OPEN"])
+        _md_table([r for r in _sdb(positions_view) if r["status"] == "OPEN"])
 
-    with tab_perf:
+    elif section == "Performance":
         st.caption("How the bot's finished trades have actually done. A trade counts here only "
                    "once it's closed.")
         today_bounds = _ist_day_bounds_utc(datetime.now(IST).date())
@@ -555,7 +795,7 @@ def _render() -> None:
         with perf_all:
             _render_performance(None, None)
 
-    with tab_history:
+    elif section == "History":
         today_ist = datetime.now(IST).date()
         # Selected day lives in session so the Prev/Today/Next buttons and the calendar all
         # drive the same value. Never past today.
@@ -584,15 +824,14 @@ def _render() -> None:
         st.session_state["hist_day"] = day        # keep buttons in sync with a calendar pick
         start_iso, end_iso = _ist_day_bounds_utc(day)
         day_label = "today" if day == today_ist else day.strftime("%a %d %b %Y")
-        day_pnl = _db(lambda s: realized_for_day(s, start_iso, end_iso))
+        day_pnl = _sdb(lambda s: realized_for_day(s, start_iso, end_iso))
         with head_l:
             st.markdown(f"#### History — {day_label}")
             st.caption(f"Realized P&L: ₹{day_pnl:,.2f}")
 
-        op_tab, job_tab, dec_tab, pos_tab = st.tabs(
-            ["Operations", "Job runs", "Decisions", "Closed positions"])
+        htab = _url_tabs("htab", ["Operations", "Job runs", "Decisions", "Closed positions"])
 
-        with op_tab:
+        if htab == "Operations":
             act = _db(lambda s: s.activity_summary(start_iso, end_iso))
             _tiles([
                 _tile("Buy orders", str(act["buys"])),
@@ -604,26 +843,37 @@ def _render() -> None:
                 _tile("Cancelled", str(act["cancels"])),
                 _tile("Adopted", str(act["adopted"])),
             ])
-            log = _db(lambda s: activity_log(s, start_iso, end_iso))
+            log = _sdb(lambda s: activity_log(s, start_iso, end_iso))
             f1, f2 = st.columns(2)
             ev = f1.multiselect("Event", _distinct(log, "event"), key="op_ev")
             sym = f2.multiselect("Symbol", _distinct(log, "symbol"), key="op_sym")
             _md_table(_apply_filter(_apply_filter(log, "event", ev), "symbol", sym))
 
-        with job_tab:
-            runs = _db(lambda s: runs_for_day(s, start_iso, end_iso))
+        elif htab == "Job runs":
+            runs = _sdb(lambda s: runs_for_day(s, start_iso, end_iso))
             stt = st.multiselect("Status", _distinct(runs, "status"), key="job_status")
-            _md_table(_apply_filter(runs, "status", stt))
+            filtered = _apply_filter(runs, "status", stt)
+            st.caption("Click 🔎 on a row to view that run's Claude output.")
+            _runs_table(filtered)
+            # A row's 🔎 sets ?vout=<run_id>; open the modal once, then consume the param so a
+            # refresh or dialog-dismiss doesn't reopen it (tab/htab in the URL keep this section).
+            if "vout" in st.query_params:
+                raw = st.query_params.get("vout")
+                del st.query_params["vout"]
+                try:
+                    _run_output_dialog(int(raw))
+                except (TypeError, ValueError):
+                    pass
 
-        with dec_tab:
-            decs = _db(lambda s: decisions_for_day(s, start_iso, end_iso))
+        elif htab == "Decisions":
+            decs = _sdb(lambda s: decisions_for_day(s, start_iso, end_iso))
             d1, d2 = st.columns(2)
             act_f = d1.multiselect("Action", _distinct(decs, "action"), key="dec_act")
             sym_f = d2.multiselect("Symbol", _distinct(decs, "symbol"), key="dec_sym")
             _md_table(_apply_filter(_apply_filter(decs, "action", act_f), "symbol", sym_f))
 
-        with pos_tab:
-            closed = _db(lambda s: closed_positions_for_day(s, start_iso, end_iso))
+        elif htab == "Closed positions":
+            closed = _sdb(lambda s: closed_positions_for_day(s, start_iso, end_iso))
             r1, r2 = st.columns(2)
             side_f = r1.multiselect("Side", _distinct(closed, "side"), key="pos_side")
             reason_f = r2.multiselect("Exit reason", _distinct(closed, "exit_reason"),
@@ -799,10 +1049,21 @@ def _swing_live() -> None:
         # The search box lives in _swing_page (main flow); read it here so the fragment's own
         # auto-refresh keeps filtering to the current query.
         q = st.session_state.get("swing_search", "").strip().lower()
-        shown = [v for v in verdicts if q in v["symbol"].lower()] if q else verdicts
-        new_count = sum(1 for v in verdicts if v.get("status") == "NEW")
+        vfilter = set(st.session_state.get("swing_verdict_filter", []) or [])
+        shown = verdicts
         if q:
-            st.caption(f"Showing {len(shown)} of {len(verdicts)} — filtered by “{q}”.")
+            shown = [v for v in shown if q in v["symbol"].lower()]
+        if vfilter:                            # keep rows whose swing OR short-swing verdict matches
+            shown = [v for v in shown
+                     if v.get("swing_action") in vfilter or v.get("ss_action") in vfilter]
+        new_count = sum(1 for v in verdicts if v.get("status") == "NEW")
+        if q or vfilter:
+            bits = []
+            if q:
+                bits.append(f"“{q}”")
+            if vfilter:
+                bits.append("verdict " + "/".join(sorted(vfilter)))
+            st.caption(f"Showing {len(shown)} of {len(verdicts)} — filtered by {', '.join(bits)}.")
         elif new_count:
             st.caption(f"Click a row for the reasoning · ↻ analyzes in place · {new_count} newly "
                        "held stock(s) not analyzed yet — hit ↻ on those rows.")
@@ -811,7 +1072,7 @@ def _swing_live() -> None:
         if shown:
             _swing_verdicts_table(shown, running)
         else:
-            st.caption("No stock matches your search.")
+            st.caption("No stock matches your filters.")
 
     # Compare vs an earlier successful run.
     if not running and latest["status"] == "SUCCESS":
@@ -899,11 +1160,18 @@ def _swing_page() -> None:
             st.caption("Restart re-analyzes every holding in a fresh run · Resume keeps the "
                        "done ones and continues.")
 
-    # Search — filters both the analysis table (read from session_state inside the fragment) and
-    # the pre-analysis holdings list below.
+    # Search + verdict filter — both read from session_state inside the fragment (and the search
+    # also filters the pre-analysis holdings list below). Verdict options are swing_engine's fixed
+    # vocabulary; a row matches if EITHER its swing or short-swing verdict is selected.
     if holdings:
-        st.text_input("Search stock", key="swing_search", label_visibility="collapsed",
-                      placeholder="🔍  Search a stock by symbol…")
+        fcols = st.columns([2, 1.4], vertical_alignment="center")
+        with fcols[0]:
+            st.text_input("Search stock", key="swing_search", label_visibility="collapsed",
+                          placeholder="🔍  Search a stock by symbol…")
+        with fcols[1]:
+            st.multiselect("Verdict", ["HOLD", "ADD", "REDUCE", "EXIT"],
+                           key="swing_verdict_filter", label_visibility="collapsed",
+                           placeholder="Filter by verdict…")
     query = st.session_state.get("swing_search", "").strip().lower()
 
     if holdings and not (latest and _db(lambda s: s.get_swing_verdicts(latest["id"]))):
@@ -917,12 +1185,229 @@ def _swing_page() -> None:
     _swing_live()
 
 
+@st.cache_resource
+def _strategy_registry():
+    from settings import load_settings
+    from strategies import StrategyRegistry
+    return StrategyRegistry.from_config(load_settings().strategies)
+
+
+_SERIES_COLORS = ["var(--ai-accent)", "#e79008", "#30a46c", "#e5484d"]
+
+
+def _fmt_money(v, pct=False) -> str:
+    if v is None:
+        return "—"
+    if v == float("inf"):
+        return "∞"
+    if pct:
+        return f"{v:.1f}%"
+    return f"₹{v:,.0f}"
+
+
+def _svg_equity_chart(series: dict, names: dict) -> None:
+    """Multi-series cumulative-P&L curve as self-built inline SVG (the app avoids PyArrow, so no
+    st.line_chart). One polyline per strategy over its closed-trade equity, a zero baseline, and
+    a legend showing each strategy's final P&L. Colours come from the CSS accent vars."""
+    import html as _html
+    active = {sid: pts for sid, pts in series.items() if pts}
+    if not active:
+        st.caption("— no closed trades yet to chart")
+        return
+    W, H, P = 640, 200, 26
+    n = max(len(p) for p in active.values())
+    allv = [v for pts in active.values() for v in pts] + [0.0]
+    lo, hi = min(allv), max(allv)
+    if hi == lo:
+        hi = lo + 1.0
+
+    def sx(i):
+        return P + (W - 2 * P) * (i / max(n - 1, 1))
+
+    def sy(v):
+        return P + (H - 2 * P) * (1 - (v - lo) / (hi - lo))
+
+    zero_y = sy(0.0)
+    parts = [f'<svg viewBox="0 0 {W} {H}" class="ai-eqchart" preserveAspectRatio="none">',
+             f'<line x1="{P}" y1="{zero_y:.1f}" x2="{W - P}" y2="{zero_y:.1f}" class="ai-eq-zero"/>']
+    legend = []
+    for k, (sid, pts) in enumerate(active.items()):
+        color = _SERIES_COLORS[k % len(_SERIES_COLORS)]
+        pts_attr = " ".join(f"{sx(i):.1f},{sy(v):.1f}" for i, v in enumerate(pts))
+        parts.append(f'<polyline points="{pts_attr}" fill="none" stroke="{color}" '
+                     f'stroke-width="2" vector-effect="non-scaling-stroke"/>')
+        legend.append(f'<span class="ai-eq-key"><span class="ai-eq-dot" '
+                      f'style="background:{color}"></span>'
+                      f'{_html.escape(names.get(sid, sid))} ({pts[-1]:+,.0f})</span>')
+    parts.append("</svg>")
+    st.markdown(f'<div class="ai-eqwrap">{"".join(parts)}'
+                f'<div class="ai-eq-legend">{"".join(legend)}</div></div>',
+                unsafe_allow_html=True)
+
+
+def _svg_daily_bars(rows: list, strat_ids: list, names: dict) -> None:
+    """Grouped daily-P&L bars (self-built SVG). One bar per strategy per IST day; a zero baseline."""
+    import html as _html
+    if not rows:
+        st.caption("— no daily P&L yet")
+        return
+    W, H, P = 640, 200, 26
+    vals = [r[sid] for r in rows for sid in strat_ids] + [0.0]
+    lo, hi = min(vals), max(vals)
+    if hi == lo:
+        hi = lo + 1.0
+
+    def sy(v):
+        return P + (H - 2 * P) * (1 - (v - lo) / (hi - lo))
+
+    zero_y = sy(0.0)
+    gw = (W - 2 * P) / max(len(rows), 1)
+    bw = gw * 0.72 / max(len(strat_ids), 1)
+    parts = [f'<svg viewBox="0 0 {W} {H}" class="ai-eqchart" preserveAspectRatio="none">',
+             f'<line x1="{P}" y1="{zero_y:.1f}" x2="{W - P}" y2="{zero_y:.1f}" class="ai-eq-zero"/>']
+    for gi, r in enumerate(rows):
+        gx = P + gw * gi + gw * 0.14
+        for si, sid in enumerate(strat_ids):
+            v = r[sid]
+            color = _SERIES_COLORS[si % len(_SERIES_COLORS)]
+            x, top = gx + si * bw, min(sy(v), zero_y)
+            parts.append(f'<rect x="{x:.1f}" y="{top:.1f}" width="{bw * 0.88:.1f}" '
+                         f'height="{abs(sy(v) - zero_y):.1f}" fill="{color}" opacity="0.85"/>')
+    parts.append("</svg>")
+    legend = "".join(f'<span class="ai-eq-key"><span class="ai-eq-dot" '
+                     f'style="background:{_SERIES_COLORS[i % len(_SERIES_COLORS)]}"></span>'
+                     f'{_html.escape(names.get(sid, sid))}</span>'
+                     for i, sid in enumerate(strat_ids))
+    st.markdown(f'<div class="ai-eqwrap">{"".join(parts)}'
+                f'<div class="ai-eq-legend">{legend}</div></div>', unsafe_allow_html=True)
+
+
+def _drawdown_from_equity(equity: list) -> list:
+    peak, out = 0.0, []
+    for e in equity:
+        peak = max(peak, e)
+        out.append(round(e - peak, 2))
+    return out
+
+
+def _compare_page() -> None:
+    import compare_data as cd
+    from orchestrator import LEVERAGE
+    st.markdown(_CSS, unsafe_allow_html=True)
+    st.markdown('<div class="ai-brand">Compare<em>.</em></div>', unsafe_allow_html=True)
+    st.caption("Two strategies, identical market data, isolated paper ledgers. Paper-only — no "
+               "broker orders are ever placed in Compare Testing.")
+
+    from strategies import compare_ledger_id
+    cfg = _db(lambda s: s.get_config())
+    reg = _strategy_registry()
+    base_ids = [i for i in cfg.compare_strategies if i in reg] or reg.ids()
+    # Compare reads the ISOLATED compare ledgers ("cmp:<id>") so P&L is a clean-slate head-to-head,
+    # not contaminated by each strategy's live/paper history. Display uses the readable base name.
+    strat_ids = [compare_ledger_id(i) for i in base_ids]
+    names = {compare_ledger_id(x.id): x.name for x in reg.all()}
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    perfs = _db(lambda s: cd.all_performance(s, strat_ids, cfg.total_pool, today_iso))
+
+    # Leaderboard — best strategy per headline metric.
+    lb = cd.leaderboard(perfs)
+    _tiles([_tile(metric, names.get(sid, sid) if sid else "—", tone="accent")
+            for metric, sid in lb.items()])
+
+    st.subheader("Performance summary")
+    _md_table([{
+        "Strategy": names.get(p["strategy_id"], p["strategy_id"]),
+        "Net P&L": _fmt_money(p["net_profit"]),
+        "Today": _fmt_money(p["today_profit"]),
+        "Trades": p["total_trades"],
+        "Win %": _fmt_money(p["win_pct"], pct=True),
+        "Avg win": _fmt_money(p["avg_profit"]),
+        "Avg loss": _fmt_money(p["avg_loss"]),
+        "Profit factor": ("∞" if p["profit_factor"] == float("inf") else f'{p["profit_factor"]:.2f}'),
+        "R:R": f'{p["risk_reward"]:.2f}',
+        "ROI": _fmt_money(p["roi_pct"], pct=True),
+        "Max DD": _fmt_money(p["max_drawdown"]),
+        "Streak W/L": f'{p["consecutive_wins"]}/{p["consecutive_losses"]}',
+    } for p in perfs])
+
+    ce1, ce2 = st.columns(2)
+    with ce1:
+        st.subheader("Equity curve")
+        _svg_equity_chart({p["strategy_id"]: p["equity"] for p in perfs}, names)
+    with ce2:
+        st.subheader("Drawdown")
+        _svg_equity_chart({p["strategy_id"]: _drawdown_from_equity(p["equity"]) for p in perfs},
+                          names)
+
+    st.subheader("Daily P&L")
+    _svg_daily_bars(_db(lambda s: cd.daily_pnl(s, strat_ids)), strat_ids, names)
+
+    st.subheader("Decision comparison")
+    st.caption("What each strategy decided for the same name at the same time.")
+    dc = _db(lambda s: cd.decision_comparison(s, strat_ids))
+    if dc:
+        _md_table([dict({"Time": _fmt_ist_short(r["time"]) or r["time"], "Symbol": r["symbol"]},
+                        **{names.get(sid, sid): r[sid] for sid in strat_ids}) for r in dc[:40]])
+    else:
+        st.caption("— no decisions recorded yet")
+
+    st.subheader("Trade comparison")
+
+    def _trade_cell(p):
+        if p is None or p.exit_price is None:
+            return "—"
+        return f"{p.entry_price:g}→{p.exit_price:g} ({(p.realized_pnl or 0):+,.0f})"
+
+    tc = _db(lambda s: cd.trade_comparison(s, strat_ids))
+    if tc:
+        _md_table([dict({"Time": _fmt_ist_short(r["time"]) or r["time"], "Symbol": r["symbol"]},
+                        **{names.get(sid, sid): _trade_cell(r["positions"][sid])
+                           for sid in strat_ids}) for r in tc[:40]])
+    else:
+        st.caption("— no closed trades yet")
+
+    st.subheader("Portfolio")
+    ports = [_db(lambda s, sid=sid: cd.portfolio_comparison(s, sid, LEVERAGE)) for sid in strat_ids]
+    _md_table([{
+        "Strategy": names.get(pt["strategy_id"], pt["strategy_id"]),
+        "Open positions": pt["open_positions"],
+        "Deployed notional": _fmt_money(pt["deployed_notional"]),
+        "Used margin": _fmt_money(pt["used_margin"]),
+        "Unrealized": "—",           # no live price feed in the dashboard
+        "Realized": _fmt_money(pt["realized_pnl"]),
+    } for pt in ports])
+
+    st.subheader("Recent compare cycles")
+    st.caption("Each compare cycle runs every strategy on the same data — one row per strategy per "
+               "cycle. A RUNNING row still in progress means the cycle hasn't finished.")
+    runs = []
+    for ledger in strat_ids:
+        for r in _db(lambda s, l=ledger: s.get_recent_runs(15, strategy_id=l)):
+            runs.append({"time": r.started_at, "Strategy": names.get(ledger, ledger),
+                         "Status": r.status, "Candidates": r.num_candidates,
+                         "Summary": r.summary or ("…running" if r.status == "RUNNING" else "")})
+    runs.sort(key=lambda x: x["time"], reverse=True)
+    if runs:
+        _md_table([dict({"Time": _fmt_ist_short(r["time"]) or r["time"]},
+                        **{k: v for k, v in r.items() if k != "time"}) for r in runs[:24]])
+    else:
+        st.caption("— no compare cycles yet")
+
+
 def main() -> None:
     st.set_page_config(page_title="autoIntraday", layout="wide",
                        initial_sidebar_state="collapsed")
     intraday = st.Page(_render, title="Intraday", url_path="intraday", default=True)
     swing = st.Page(_swing_page, title="Swing", url_path="swing")
-    st.navigation([intraday, swing], position="top").run()
+    pages = [intraday, swing]
+    # The Compare tab appears only when Compare Testing is on, so the app looks exactly like today
+    # when it's off (enable it from Settings ▸ Strategies).
+    try:
+        if _db(lambda s: s.get_config().compare_enabled):
+            pages.append(st.Page(_compare_page, title="Compare", url_path="compare"))
+    except Exception:
+        pass
+    st.navigation(pages, position="top").run()
 
 
 if __name__ == "__main__":
