@@ -105,7 +105,29 @@ def _clear_cached_token() -> None:
             log.warning("could not remove token cache %s", path, exc_info=True)
 
 
+def _prefer_ipv4() -> None:
+    """Force outbound connections to use IPv4, so Groww sees the whitelisted static IPv4 rather
+    than the VPS's IPv6 egress. Groww's API is behind Cloudflare (dual-stack); on a dual-stack VPS
+    Python would otherwise reach it over IPv6, and Groww's IP whitelist rejects that as an
+    'unregistered IP address' on order placement. Set GROWW_FORCE_IPV4=0 to disable. Idempotent."""
+    if os.environ.get("GROWW_FORCE_IPV4", "1").strip() in ("0", "false", "no"):
+        return
+    import socket
+    if getattr(socket, "_ai_ipv4_forced", False):
+        return
+    _orig = socket.getaddrinfo
+
+    def _ipv4_only(host, port, family=0, *args, **kwargs):
+        ipv4 = _orig(host, port, socket.AF_INET, *args, **kwargs)
+        return ipv4 or _orig(host, port, family, *args, **kwargs)   # fall back if no IPv4 exists
+
+    socket.getaddrinfo = _ipv4_only
+    socket._ai_ipv4_forced = True
+    log.info("forcing IPv4 for outbound Groww connections (whitelist match)")
+
+
 def _default_sdk_factory(api_key: str, totp: str) -> Any:
+    _prefer_ipv4()                                  # before any Groww connection (token or SDK)
     from growwapi import GrowwAPI
     token = _load_cached_token()
     if token is None:                               # no valid cached token -> mint one and persist
@@ -267,11 +289,18 @@ class GrowwClient:
         # (net_price is the position's net entry price). No ltp in this response.
         raw = _retry(lambda: self._sdk.get_positions_for_user(segment=_SEGMENT_CASH))
         positions = raw["positions"] if isinstance(raw, dict) and "positions" in raw else raw
-        return [
-            {"symbol": p["trading_symbol"], "quantity": int(p["quantity"]),
-             "product": p["product"], "avg_price": float(p["net_price"])}
-            for p in positions
-        ]
+        out = []
+        for p in (positions or []):
+            # Tolerate field-name variation and skip the empty aggregate row Groww can return
+            # (no symbol / zero qty) — defensive so reconcile never crashes on an odd payload.
+            sym = p.get("trading_symbol") or p.get("symbol")
+            qty = p.get("quantity", p.get("net_quantity", 0)) or 0
+            if not sym or int(qty) == 0:
+                continue
+            px = p.get("net_price", p.get("average_price", 0)) or 0
+            out.append({"symbol": sym, "quantity": int(qty), "product": p.get("product", "MIS"),
+                        "avg_price": float(px)})
+        return out
 
     def get_open_orders(self) -> list[dict]:
         """Today's broker order book (ALL statuses — the caller filters terminal ones out).
