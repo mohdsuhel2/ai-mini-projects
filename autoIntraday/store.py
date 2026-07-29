@@ -87,6 +87,19 @@ class Config:
     # position, or a read that returned WAIT. Percent from entry. 0 disables the floor. Replaced
     # by the engine's structural stop as soon as it arrives, and never widened (ratchet rule).
     adopt_fallback_stop_pct: float = 1.0
+    # Scale-into-strength (pyramiding into a persisting winner). OFF by default (opt-in). When the
+    # engine re-affirms a STRONG same-side entry for pyramid_confirm_cycles consecutive cycles, add
+    # pyramid_add_pct% of the per-position capital at market, up to pyramid_max_adds times (a
+    # position may reach 1 + add_pct*max_adds/100 x its base capital). A pyramided position's
+    # full-book rises to pyramid_full_pct (return-on-margin) so the extra capital can chase a bigger
+    # move. The structural stop is never widened by an add. See the 2026-07-29 design spec.
+    pyramid_enabled: bool = False
+    pyramid_add_pct: float = 50.0
+    pyramid_max_adds: int = 2
+    pyramid_full_pct: float = 40.0
+    pyramid_confirm_cycles: int = 2
+    pyramid_min_quality: float = 80.0
+    pyramid_min_confidence: float = 75.0
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -95,7 +108,9 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
                   "rr_gate_pre_margin", "exit_mode", "arm_exit_enabled", "arm_exit_band_pct",
-                  "adopt_fallback_stop_pct")
+                  "adopt_fallback_stop_pct", "pyramid_enabled", "pyramid_add_pct",
+                  "pyramid_max_adds", "pyramid_full_pct", "pyramid_confirm_cycles",
+                  "pyramid_min_quality", "pyramid_min_confidence")
 
 
 @dataclass
@@ -144,6 +159,11 @@ class Position:
     # Consecutive cycles the exit engine has returned a conviction-clearing reverse signal. A
     # SIGNAL exit fires only once this reaches EXIT_CONFIRM_CYCLES (see orchestrator).
     reverse_signal_count: int = 0
+    # Scale-into-strength (pyramiding): pyramid_count = adds performed on this position
+    # (0..pyramid_max_adds); pyramid_signal_count = consecutive cycles the engine re-affirmed a
+    # STRONG same-side entry, reset on any miss and after each add (orchestrator._maybe_pyramid).
+    pyramid_count: int = 0
+    pyramid_signal_count: int = 0
     # Armed broker exit order ids + their limit price (LIVE-only): a resting SELL LIMIT placed at
     # the broker when price neared the partial / full profit level. The price lets a detected fill
     # be booked deterministically (a LIMIT fills at its price or better). Cleared on fill or cancel.
@@ -219,7 +239,14 @@ CREATE TABLE IF NOT EXISTS config (
     arm_exit_enabled INTEGER NOT NULL DEFAULT 0,
     arm_exit_band_pct REAL NOT NULL DEFAULT 1.0,
     exit_mode TEXT NOT NULL DEFAULT 'db_only',
-    adopt_fallback_stop_pct REAL NOT NULL DEFAULT 1.0
+    adopt_fallback_stop_pct REAL NOT NULL DEFAULT 1.0,
+    pyramid_enabled INTEGER NOT NULL DEFAULT 0,
+    pyramid_add_pct REAL NOT NULL DEFAULT 50.0,
+    pyramid_max_adds INTEGER NOT NULL DEFAULT 2,
+    pyramid_full_pct REAL NOT NULL DEFAULT 40.0,
+    pyramid_confirm_cycles INTEGER NOT NULL DEFAULT 2,
+    pyramid_min_quality REAL NOT NULL DEFAULT 80.0,
+    pyramid_min_confidence REAL NOT NULL DEFAULT 75.0
 );
 CREATE TABLE IF NOT EXISTS job_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -256,6 +283,8 @@ CREATE TABLE IF NOT EXISTS positions (
     booked_pnl REAL NOT NULL DEFAULT 0,
     partial_booked INTEGER NOT NULL DEFAULT 0,
     reverse_signal_count INTEGER NOT NULL DEFAULT 0,
+    pyramid_count INTEGER NOT NULL DEFAULT 0,
+    pyramid_signal_count INTEGER NOT NULL DEFAULT 0,
     armed_partial_order_id TEXT,
     armed_full_order_id TEXT,
     armed_partial_price REAL,
@@ -372,6 +401,12 @@ class Store:
         if "reverse_signal_count" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN reverse_signal_count "
                                "INTEGER NOT NULL DEFAULT 0")
+        if "pyramid_count" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN pyramid_count "
+                               "INTEGER NOT NULL DEFAULT 0")
+        if "pyramid_signal_count" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN pyramid_signal_count "
+                               "INTEGER NOT NULL DEFAULT 0")
         if "armed_partial_order_id" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN armed_partial_order_id TEXT")
         if "armed_full_order_id" not in cols:
@@ -454,6 +489,15 @@ class Store:
         if "adopt_fallback_stop_pct" not in ccols:
             self._conn.execute("ALTER TABLE config ADD COLUMN adopt_fallback_stop_pct REAL "
                                "NOT NULL DEFAULT 1.0")
+        for col, ddl in (("pyramid_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                         ("pyramid_add_pct", "REAL NOT NULL DEFAULT 50.0"),
+                         ("pyramid_max_adds", "INTEGER NOT NULL DEFAULT 2"),
+                         ("pyramid_full_pct", "REAL NOT NULL DEFAULT 40.0"),
+                         ("pyramid_confirm_cycles", "INTEGER NOT NULL DEFAULT 2"),
+                         ("pyramid_min_quality", "REAL NOT NULL DEFAULT 80.0"),
+                         ("pyramid_min_confidence", "REAL NOT NULL DEFAULT 75.0")):
+            if col not in ccols:
+                self._conn.execute(f"ALTER TABLE config ADD COLUMN {col} {ddl}")
         vcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(swing_verdicts)")}
         if vcols and "status" not in vcols:
             self._conn.execute(
@@ -496,7 +540,14 @@ class Store:
                       arm_exit_enabled=bool(r["arm_exit_enabled"]),
                       arm_exit_band_pct=r["arm_exit_band_pct"],
                       exit_mode=r["exit_mode"],
-                      adopt_fallback_stop_pct=r["adopt_fallback_stop_pct"])
+                      adopt_fallback_stop_pct=r["adopt_fallback_stop_pct"],
+                      pyramid_enabled=bool(r["pyramid_enabled"]),
+                      pyramid_add_pct=r["pyramid_add_pct"],
+                      pyramid_max_adds=r["pyramid_max_adds"],
+                      pyramid_full_pct=r["pyramid_full_pct"],
+                      pyramid_confirm_cycles=r["pyramid_confirm_cycles"],
+                      pyramid_min_quality=r["pyramid_min_quality"],
+                      pyramid_min_confidence=r["pyramid_min_confidence"])
 
     def update_config(self, **fields) -> Config:
         for key in fields:
@@ -552,6 +603,9 @@ class Store:
             entry_quality=r["entry_quality"], booked_pnl=r["booked_pnl"] or 0.0,
             partial_booked=bool(r["partial_booked"]),
             reverse_signal_count=r["reverse_signal_count"] or 0,
+            pyramid_count=(r["pyramid_count"] or 0) if "pyramid_count" in r.keys() else 0,
+            pyramid_signal_count=(
+                (r["pyramid_signal_count"] or 0) if "pyramid_signal_count" in r.keys() else 0),
             armed_partial_order_id=r["armed_partial_order_id"],
             armed_full_order_id=r["armed_full_order_id"],
             armed_partial_price=r["armed_partial_price"],
@@ -649,6 +703,23 @@ class Store:
         self._conn.execute(
             "UPDATE positions SET reverse_signal_count = ? WHERE id = ? AND status = 'OPEN'",
             (count, position_id))
+        self._conn.commit()
+
+    def set_pyramid_signal_count(self, position_id: int, count: int) -> None:
+        """Track consecutive STRONG same-side re-affirms on an OPEN position, so a pyramid add
+        needs pyramid_confirm_cycles in a row rather than firing on one read (see orchestrator)."""
+        self._conn.execute(
+            "UPDATE positions SET pyramid_signal_count = ? WHERE id = ? AND status = 'OPEN'",
+            (count, position_id))
+        self._conn.commit()
+
+    def record_pyramid_add(self, position_id: int) -> None:
+        """Book one scale-into-strength add: increment pyramid_count and reset the persistence
+        counter so the position must re-persist before it can add again. Quantity/avg entry are
+        blended separately via add_to_position; the structural stop is left untouched."""
+        self._conn.execute(
+            "UPDATE positions SET pyramid_count = pyramid_count + 1, pyramid_signal_count = 0 "
+            "WHERE id = ? AND status = 'OPEN'", (position_id,))
         self._conn.commit()
 
     def set_bracket_leg(self, position_id: int, which: str, order_id: str | None,
