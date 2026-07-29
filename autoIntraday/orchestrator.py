@@ -147,6 +147,9 @@ _REJECTED_STATES = ("REJECTED", "CANCELLED", "CANCELED", "FAILED", "REJECT", "EX
 # Broker order-status strings that mean a resting LIMIT order has executed (Groww may vary these;
 # verify with the live one-share smoke test before trusting live resting fills).
 _FILLED_STATES = ("EXECUTED", "COMPLETE", "COMPLETED", "FILLED")
+# The broker transaction that CLOSES a position of each side — used to tell a user's own resting
+# exit order apart from a pending manual add.
+_EXIT_TXN = {"LONG": "SELL", "SHORT": "BUY"}
 
 
 def _is_rejected(order: dict) -> bool:
@@ -483,6 +486,48 @@ class Orchestrator:
         log.warning("reconciled %s: %s", position.symbol, reason)
         return 1
 
+    def _takeover_foreign_orders(self, run_id: int, orders: list) -> int:
+        """Cancel the user's OWN resting exit orders on symbols the bot manages, so the bot's
+        analysed stop/target is the only protection resting against those shares (their explicit
+        choice: update the SL per the analysis rather than defer to the manual one).
+
+        The position is pinned to eager bracket management so its protection is REPLACED, never
+        merely removed — cancelling a stop while exit_mode is 'db_only' would otherwise leave it
+        barer than it was before we touched it.
+
+        Never touches: CNC orders (the delivery portfolio), orders whose product is unknown (fail
+        safe), entry-side orders (a pending manual add — absorbed next cycle if it fills), or the
+        bot's own bracket / entry / OCO ids."""
+        taken = 0
+        for position in self.store.get_open_positions():
+            own = {position.broker_stop_order_id, position.broker_target_order_id,
+                   position.entry_order_id, position.oco_order_id}
+            exit_txn = _EXIT_TXN[position.side]
+            for o in orders:
+                if o.get("symbol") != position.symbol or o.get("order_id") in own:
+                    continue
+                if str(o.get("product") or "").upper() != "MIS":
+                    continue
+                if str(o.get("transaction_type") or "").upper() != exit_txn:
+                    continue
+                try:
+                    self.client.cancel_order(o["order_id"])
+                except Exception:
+                    self._cycle_errors += 1
+                    log.exception("foreign exit-order cancel FAILED for %s (%s) — a live "
+                                  "resting order may remain; verify at broker!",
+                                  position.symbol, o["order_id"])
+                    continue
+                self.store.set_force_bracket(position.id)
+                self.store.record_decision(
+                    run_id=run_id, symbol=position.symbol, action="ADJUSTED",
+                    reason=f"took over manual {exit_txn} order {o['order_id']} — bot re-places "
+                           f"the exit at its own analysed level", position_id=position.id)
+                log.warning("took over manual %s order %s on %s",
+                            exit_txn, o["order_id"], position.symbol)
+                taken += 1
+        return taken
+
     def _reconcile_broker(self, run_id: int) -> int:
         """LIVE only, first thing every cycle: the BROKER is the source of truth, not the DB —
         the user trades manually between cycles (their explicit request 2026-07-20). It does not
@@ -525,6 +570,8 @@ class Orchestrator:
                 synced += 1
             except Exception:
                 log.exception("broker reconcile: adopting %s failed", symbol)
+        if orders is not None:      # None = the order book read FAILED; never cancel on a guess
+            synced += self._takeover_foreign_orders(run_id, orders)
         return synced
 
     def _square_off_all(self, run_id: int) -> tuple[int, int, int]:
@@ -679,7 +726,11 @@ class Orchestrator:
         """Exit-or-trail a single open position. Returns 1 if it exited, else 0."""
         indicators = self.get_indicators(position.symbol)
         cfg = self.store.get_config()
-        eager = cfg.exit_mode in ("armed", "on_fill") and self.client.mode == "live"
+        # force_bracket pins a position to eager management regardless of the global mode: it is
+        # set when reconcile cancelled the user's own exit order, and the replacement bracket is
+        # the only thing standing in for the protection we removed.
+        eager = ((cfg.exit_mode in ("armed", "on_fill") or position.force_bracket)
+                 and self.client.mode == "live")
         # Broker bracket (eager modes): reflect any FILLED leg first — one fills, the OTHER is
         # cancelled (software OCO). A fill closes the position; a dead leg refreshes our snapshot.
         if eager:
@@ -939,7 +990,8 @@ class Orchestrator:
         if self.client.mode != "live" or _should_square_off(indicators):
             return
         stop_px, target_px = self._bracket_levels(position, cfg)
-        if cfg.exit_mode == "armed" and not self._bracket_live(position):
+        if (cfg.exit_mode == "armed" and not position.force_bracket
+                and not self._bracket_live(position)):
             ltp = _ltp(indicators)
             near = ((stop_px is not None and _near(ltp, stop_px, cfg.arm_exit_band_pct))
                     or (target_px is not None and _near(ltp, target_px, cfg.arm_exit_band_pct)))

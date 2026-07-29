@@ -1935,3 +1935,94 @@ def test_reconcile_matching_size_is_a_noop():
     p = store.get_position(pid)
     assert p.status == "OPEN" and p.quantity == 10
     assert client.cancelled == []                # nothing drifted -> nothing torn down
+
+
+def _held_long(store, symbol="BOT", qty=10):
+    return store.open_position(symbol=symbol, exchange="NSE", side="LONG", quantity=qty,
+                               entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                               mode="live")
+
+
+def test_takeover_cancels_manual_exit_order_and_forces_bracket():
+    # The user's own SL on a symbol the bot manages is cancelled; the bot then rests its OWN
+    # bracket at the analysed level even though exit_mode is db_only.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, exit_mode="db_only")
+    pid = _held_long(store)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 100.0}])
+    client.open_orders = [{"symbol": "BOT", "order_id": "USER-SL", "status": "APPROVED",
+                           "transaction_type": "SELL", "product": "MIS"}]
+    orch = _live_screen_orch(store, client)
+    summary = orch.run_cycle()
+    assert "USER-SL" in client.cancelled
+    p = store.get_position(pid)
+    assert p.force_bracket is True
+    assert p.broker_stop_order_id is not None      # replaced, not merely removed
+    recs = store.get_decisions_for_run(summary["run_id"])
+    assert any(r.action == "ADJUSTED" and "USER-SL" in (r.reason or "") for r in recs)
+
+
+def test_takeover_never_cancels_cnc_orders():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, exit_mode="db_only")
+    pid = _held_long(store)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 100.0}])
+    client.open_orders = [
+        {"symbol": "BOT", "order_id": "CNC-SELL", "status": "APPROVED",
+         "transaction_type": "SELL", "product": "CNC"},
+        {"symbol": "BOT", "order_id": "UNKNOWN-SELL", "status": "APPROVED",
+         "transaction_type": "SELL", "product": None}]
+    orch = _live_screen_orch(store, client)
+    orch._reconcile_broker(store.start_run("live"))
+    assert client.cancelled == []                   # delivery orders are untouchable
+    assert store.get_position(pid).force_bracket is False
+
+
+def test_takeover_leaves_entry_side_orders_resting():
+    # A manual BUY on a LONG is a pending ADD, not an exit — absorbed next cycle if it fills.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, exit_mode="db_only")
+    _held_long(store)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 100.0}])
+    client.open_orders = [{"symbol": "BOT", "order_id": "USER-BUY", "status": "APPROVED",
+                           "transaction_type": "BUY", "product": "MIS"}]
+    orch = _live_screen_orch(store, client)
+    orch._reconcile_broker(store.start_run("live"))
+    assert client.cancelled == []
+
+
+def test_takeover_ignores_the_bots_own_bracket_legs():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, exit_mode="on_fill")
+    pid = _held_long(store)
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 100.0}])
+    client.open_orders = [{"symbol": "BOT", "order_id": "SL-1", "status": "APPROVED",
+                           "transaction_type": "SELL", "product": "MIS"}]
+    orch = _live_screen_orch(store, client)
+    orch._reconcile_broker(store.start_run("live"))
+    assert "SL-1" not in client.cancelled           # our own leg is not "foreign"
+
+
+def test_takeover_disabled_when_order_book_read_fails():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, exit_mode="db_only")
+    pid = _held_long(store)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 100.0}])
+    def boom():
+        raise RuntimeError("gateway 502")
+    client.get_open_orders = boom
+    orch = _live_screen_orch(store, client)
+    orch._reconcile_broker(store.start_run("live"))
+    assert client.cancelled == []                   # unknown order book -> cancel nothing
+    assert store.get_position(pid).force_bracket is False
