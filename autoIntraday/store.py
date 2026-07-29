@@ -69,6 +69,11 @@ class Config:
     entry_tolerance_pct: float = 0.25
     stop_tolerance_pct: float = 0.35
     target_shave_pct: float = 10.0
+    # R:R gate geometry. True (default): judge the entry's reward:risk on the RAW engine levels —
+    # the execution margins above only shape the actual orders and never veto a trade by eroding
+    # its R:R. False: re-gate on the POST-margin geometry (a shaved target / widened stop must
+    # still clear MIN_RISK_REWARD after margins).
+    rr_gate_pre_margin: bool = True
     # Exit placement (LIVE-only). Where the stop+target exit lives:
     #   db_only  — soft levels; the 5-min cycle market-exits when price hits them (default, = today)
     #   armed    — place the stop+target broker bracket when price is within arm_exit_band_pct of a leg
@@ -89,7 +94,7 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "compare_enabled", "live_strategy", "paper_strategy", "compare_strategies",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
-                  "exit_mode", "arm_exit_enabled", "arm_exit_band_pct",
+                  "rr_gate_pre_margin", "exit_mode", "arm_exit_enabled", "arm_exit_band_pct",
                   "adopt_fallback_stop_pct")
 
 
@@ -210,6 +215,7 @@ CREATE TABLE IF NOT EXISTS config (
     entry_tolerance_pct REAL NOT NULL DEFAULT 0.25,
     stop_tolerance_pct REAL NOT NULL DEFAULT 0.35,
     target_shave_pct REAL NOT NULL DEFAULT 10.0,
+    rr_gate_pre_margin INTEGER NOT NULL DEFAULT 1,
     arm_exit_enabled INTEGER NOT NULL DEFAULT 0,
     arm_exit_band_pct REAL NOT NULL DEFAULT 1.0,
     exit_mode TEXT NOT NULL DEFAULT 'db_only',
@@ -430,6 +436,9 @@ class Store:
         if "target_shave_pct" not in ccols:
             self._conn.execute("ALTER TABLE config ADD COLUMN target_shave_pct REAL NOT "
                                "NULL DEFAULT 10.0")
+        if "rr_gate_pre_margin" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN rr_gate_pre_margin INTEGER NOT "
+                               "NULL DEFAULT 1")
         if "arm_exit_enabled" not in ccols:
             self._conn.execute("ALTER TABLE config ADD COLUMN arm_exit_enabled INTEGER NOT "
                                "NULL DEFAULT 0")
@@ -483,6 +492,7 @@ class Store:
                       entry_tolerance_pct=r["entry_tolerance_pct"],
                       stop_tolerance_pct=r["stop_tolerance_pct"],
                       target_shave_pct=r["target_shave_pct"],
+                      rr_gate_pre_margin=bool(r["rr_gate_pre_margin"]),
                       arm_exit_enabled=bool(r["arm_exit_enabled"]),
                       arm_exit_band_pct=r["arm_exit_band_pct"],
                       exit_mode=r["exit_mode"],

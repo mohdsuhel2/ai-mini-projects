@@ -441,9 +441,10 @@ def test_enter_rejects_tight_stop():
     assert any("stop too tight" in r for r in reasons)
 
 
-def test_enter_rejects_when_margins_degrade_rr_below_floor():
-    # The engine self-reports rr=2.0 and the gate passes, but a wide target-to-entry gap plus the
-    # stop widening leave the ACTUAL post-margin geometry below 1.5 — the re-gate rejects it.
+def test_enter_rejects_when_geometric_rr_below_floor():
+    # The engine self-reports rr=2.0 and the first gate passes, but the ACTUAL geometry is ~1.05 —
+    # the geometric re-gate recomputes it and rejects the trade. With the default rr_gate_pre_margin
+    # the gate judges the RAW levels, which are already below 1.5 here regardless of the margins.
     store = Store(":memory:")
     _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
          capital_per_position=10000.0)
@@ -456,7 +457,7 @@ def test_enter_rejects_when_margins_degrade_rr_below_floor():
     _, entries = orch._screen_and_enter(run_id)
     assert entries == 0 and store.get_open_positions() == []
     reasons = [d.reason for d in store.get_decisions_for_run(run_id) if d.reason]
-    assert any("post-margin R:R" in r for r in reasons)
+    assert any("R:R" in r and "< 1.5" in r for r in reasons)
 
 
 def test_enter_rejects_failing_gate_but_records_decision():
@@ -949,6 +950,35 @@ def test_live_pending_fill_armed_before_refresh_churn():
     assert fills == 1 and pid in filled_ids
     assert p.status == "OPEN" and p.entry_price == pytest.approx(100.0)
     assert "ENT-1" not in client.cancelled   # the filled order was never churned away
+
+
+def test_rr_gate_pre_margin_passes_trade_and_orders_use_margined_levels():
+    # Default (rr_gate_pre_margin=True): the R:R gate judges the RAW skill geometry; the execution
+    # margins only shape the actual orders and must NOT veto an otherwise-good trade. Raw RR here is
+    # 8/5 = 1.6 (passes 1.5); post-margin it is ~1.35 (would have been rejected).
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0)
+    d = _decision(action="BUY_NOW", tq=80, rr=1.6, conf=75, entry=100.0, stop=95.0, target1=108.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is True
+    p = store.get_open_positions()[0]
+    # the trade was taken on raw R:R, but the order/position carries the MARGINED levels
+    assert p.stop_loss == pytest.approx(95.0 * (1 - 0.35 / 100))          # widened stop
+    assert p.target_price == pytest.approx(100.0 + (108.0 - 100.0) * (1 - 10 / 100))  # shaved target
+
+
+def test_rr_gate_post_margin_rejects_when_flag_disabled():
+    # Flag off restores the stricter behaviour: the shaved target / widened stop must still clear
+    # 1.5:1 AFTER margins — the same setup is now rejected on its ~1.35 post-margin R:R.
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0, rr_gate_pre_margin=False)
+    d = _decision(action="BUY_NOW", tq=80, rr=1.6, conf=75, entry=100.0, stop=95.0, target1=108.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is False and store.get_open_positions() == []
 
 
 # ---- safety layer: OCO cancel, circuit breaker, reconciliation, two-direction screen ---------

@@ -1204,16 +1204,22 @@ class Orchestrator:
                                               f"(< {MIN_STOP_DISTANCE_PCT}% from entry)",
                                        raw_json=decision.raw_response)
             return False
+        raw = decision                                                      # pre-margin levels
         decision = _with_level_margins(decision, **_margins_from_cfg(cfg))   # config breathing space
-        # P0 guard #2 — re-gate on the ACTUAL geometry after margins moved the levels. The entry
-        # gate trusted the engine's self-reported risk_reward; here we recompute it from
-        # entry/stop/target so a shaved target or widened stop can't open a sub-1.5 trade.
-        actual_rr = _geometric_rr(decision.entry, decision.stop_loss, decision.target1, side)
+        # P0 guard #2 — re-gate on the ACTUAL geometry (recomputed from entry/stop/target, not the
+        # engine's self-reported number). By default (cfg.rr_gate_pre_margin) the gate judges the
+        # RAW levels: the execution margins exist to shape the orders and shouldn't veto a good
+        # setup by eroding its R:R — a shaved target still books (100 - shave)% of the move, the
+        # trade just isn't rejected for it. Flag OFF re-gates on the post-margin geometry, so a
+        # shaved target / widened stop must still clear MIN_RISK_REWARD after margins.
+        rr_levels = raw if cfg.rr_gate_pre_margin else decision
+        actual_rr = _geometric_rr(rr_levels.entry, rr_levels.stop_loss, rr_levels.target1, side)
         if actual_rr is None or actual_rr < MIN_RISK_REWARD:
             self.store.record_decision(run_id=run_id, symbol=symbol, action=decision.action,
                                        score=decision.trade_quality,
-                                       reason=f"rejected: post-margin R:R "
-                                              f"{actual_rr and round(actual_rr, 2)} "
+                                       reason=f"rejected: "
+                                              f"{'pre' if cfg.rr_gate_pre_margin else 'post'}-margin "
+                                              f"R:R {actual_rr and round(actual_rr, 2)} "
                                               f"< {MIN_RISK_REWARD}",
                                        raw_json=decision.raw_response)
             return False

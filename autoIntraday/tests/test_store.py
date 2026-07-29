@@ -60,6 +60,13 @@ def test_update_config_partial():
     assert cfg.mode == "paper"  # untouched
 
 
+def test_rr_gate_pre_margin_defaults_true_and_toggles():
+    store = Store(":memory:")
+    assert store.get_config().rr_gate_pre_margin is True   # default: gate on raw levels
+    store.update_config(rr_gate_pre_margin=False)
+    assert store.get_config().rr_gate_pre_margin is False  # persisted as a real bool
+
+
 def test_update_config_unknown_field_raises():
     store = Store(":memory:")
     with pytest.raises(StoreError, match="unknown config field"):
