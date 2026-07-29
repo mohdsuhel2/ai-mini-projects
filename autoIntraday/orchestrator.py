@@ -423,16 +423,77 @@ class Orchestrator:
             return mis, None
         return mis, orders
 
+    def _adopt(self, run_id: int, symbol: str, net: int, avg: float | None) -> int:
+        """Take an unknown broker MIS position into the book and return its id. Levels are left
+        None ON PURPOSE: _manage_positions runs later in THIS same cycle, analyses the symbol
+        with the full strategy skill and writes the real structural stop/target, with
+        _ensure_protective_stop as the floor if that read returns none."""
+        side = "LONG" if net > 0 else "SHORT"
+        entry = avg or _ltp(self.get_indicators(symbol))
+        pid = self.store.open_position(
+            symbol=symbol, exchange="NSE", side=side, quantity=abs(net),
+            entry_price=entry, target_price=None, stop_loss=None, mode="live")
+        self.store.record_decision(
+            run_id=run_id, symbol=symbol, action="ADOPTED",
+            reason=f"manual {side} x{abs(net)} @ ~{entry} found at broker — "
+                   f"adopted; bot manages it from this cycle", position_id=pid)
+        log.warning("adopted manual %s position: %s x%d @ ~%.2f",
+                    side, symbol, abs(net), entry)
+        return pid
+
+    def _sync_known(self, run_id: int, position, mis: dict) -> int:
+        """Repair ONE DB-open position against broker MIS reality. Exactly one outcome:
+          net 0            -> the user flattened it: cancel our orders, book it
+          opposite sign    -> the user reversed it: book the old trade, adopt the new side fresh
+          same size        -> nothing to do
+          smaller          -> manual partial exit: shrink (that slice's P&L is not booked)
+          larger           -> manual add: absorb at the broker's blended average
+        Any size change tears the bracket down — its legs rest at the OLD quantity and would
+        over- or under-sell. _manage_one rebuilds them later this cycle at the corrected size.
+        Returns 1 if anything changed, else 0."""
+        row = mis.get(position.symbol) or {}
+        net = int(row.get("net", 0))
+        avg = row.get("avg")
+        if net == 0:
+            self._close_broker_synced(
+                run_id, position,
+                "broker sync: no net qty at broker (manual exit / OCO fired?)")
+            return 1
+        if (net > 0) != (position.side == "LONG"):
+            flipped = "LONG" if net > 0 else "SHORT"
+            self._close_broker_synced(
+                run_id, position,
+                f"broker sync: side flipped to {flipped} x{abs(net)} (manual reversal)")
+            self._adopt(run_id, position.symbol, net, avg)
+            return 1
+        if abs(net) == position.quantity:
+            return 0
+        self._cancel_stale_orders(position)
+        if abs(net) < position.quantity:
+            self.store.update_position_quantity(position.id, abs(net))
+            reason = (f"broker sync: qty {position.quantity} -> {abs(net)} "
+                      f"(manual partial exit)")
+        else:
+            entry = avg or position.entry_price
+            self.store.update_position_size(position.id, abs(net), entry)
+            reason = (f"broker sync: qty {position.quantity} -> {abs(net)} @ blended {entry} "
+                      f"(manual add)")
+        self.store.record_decision(run_id=run_id, symbol=position.symbol, action="ADJUSTED",
+                                   reason=reason, position_id=position.id)
+        log.warning("reconciled %s: %s", position.symbol, reason)
+        return 1
+
     def _reconcile_broker(self, run_id: int) -> int:
         """LIVE only, first thing every cycle: the BROKER is the source of truth, not the DB —
-        the user trades manually between cycles (their explicit request 2026-07-20). Syncs:
-        1. DB-OPEN position flat at the broker -> close (BROKER_SYNC, ~LTP exit).
-        2. DB-OPEN position larger than the broker's net -> shrink to broker qty (manual
-           partial exit; that slice's P&L is not booked — its fill price is unknown).
-        3. Broker MIS position unknown to the DB -> ADOPT into the book and manage like our
-           own from this cycle on (engine exits, square-off included — user chose
-           adopt-and-manage). CNC/delivery rows are NEVER adopted: flattening the long-term
-           portfolio would be catastrophic.
+        the user trades manually between cycles (their explicit request 2026-07-20). It does not
+        merely RECORD the drift, it REPAIRS both sides — every DB-open position is put through
+        _sync_known (flat / shrink / absorb / flip), every unknown broker MIS position is
+        _adopt-ed, and the user's own resting exit orders are taken over so the bot's analysed
+        levels are the only protection left standing.
+
+        CNC/delivery rows are NEVER adopted and CNC orders are never cancelled: flattening the
+        long-term portfolio would be catastrophic.
+
         Broker state (positions + the order book) is read once by _broker_state; non-terminal
         order symbols land in _external_order_symbols so the entry screen can't double-commit a
         symbol that already has a live order.
@@ -448,24 +509,11 @@ class Orchestrator:
         self._external_order_symbols = {o["symbol"] for o in orders} if orders else set()
         synced = 0
         for position in self.store.get_open_positions():
-            net = int((mis.get(position.symbol) or {}).get("net", 0))
             try:
-                if net == 0:
-                    self._close_broker_synced(
-                        run_id, position,
-                        "broker sync: no net qty at broker (manual exit / OCO fired?)")
-                    synced += 1
-                elif abs(net) < position.quantity:
-                    self.store.update_position_quantity(position.id, abs(net))
-                    self.store.record_decision(
-                        run_id=run_id, symbol=position.symbol, action="ADJUSTED",
-                        reason=f"broker sync: qty {position.quantity} -> {abs(net)} "
-                               f"(manual partial exit)", position_id=position.id)
-                    log.warning("reconciled %s: qty %d -> %d (manual partial exit)",
-                                position.symbol, position.quantity, abs(net))
-                    synced += 1
+                synced += self._sync_known(run_id, position, mis)
             except Exception:
                 log.exception("broker reconcile failed for %s", position.symbol)
+        # Rebuilt AFTER _sync_known so a symbol adopted by the side-flip branch isn't adopted twice.
         known = ({p.symbol for p in self.store.get_open_positions()}
                  | {p.symbol for p in self.store.get_pending_positions()})
         for symbol, row in mis.items():
@@ -473,19 +521,7 @@ class Orchestrator:
             if net == 0 or symbol in known:
                 continue
             try:
-                side = "LONG" if net > 0 else "SHORT"
-                entry = row["avg"]
-                if not entry:
-                    entry = _ltp(self.get_indicators(symbol))
-                pid = self.store.open_position(
-                    symbol=symbol, exchange="NSE", side=side, quantity=abs(net),
-                    entry_price=entry, target_price=None, stop_loss=None, mode="live")
-                self.store.record_decision(
-                    run_id=run_id, symbol=symbol, action="ADOPTED",
-                    reason=f"manual {side} x{abs(net)} @ ~{entry} found at broker — "
-                           f"adopted; bot manages it from this cycle", position_id=pid)
-                log.warning("adopted manual %s position: %s x%d @ ~%.2f",
-                            side, symbol, abs(net), entry)
+                self._adopt(run_id, symbol, net, row["avg"])
                 synced += 1
             except Exception:
                 log.exception("broker reconcile: adopting %s failed", symbol)

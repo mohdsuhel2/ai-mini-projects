@@ -1853,3 +1853,85 @@ def test_reconcile_manual_exit_cancels_bracket_and_oco():
     assert client.cancelled_ocos == ["OCO-1"]
     p = store.get_position(pid)
     assert p.status == "CLOSED" and p.exit_reason == "BROKER_SYNC"
+
+
+def test_reconcile_absorbs_manual_add_at_blended_entry():
+    # Bot holds 10, user manually buys 15 more -> the bot manages all 25 at the broker's
+    # blended average, and the existing stop is NOT loosened.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 25, "product": "MIS", "avg_price": 102.0}])
+    orch = _live_screen_orch(store, client)
+    orch._reconcile_broker(store.start_run("live"))     # reconcile in isolation
+    p = store.get_position(pid)
+    assert p.quantity == 25
+    assert p.entry_price == pytest.approx(102.0)     # true blended cost basis
+    assert p.stop_loss == 95.0                       # never loosened
+    assert "SL-1" in client.cancelled                # stale-size leg torn down
+
+
+def test_reconcile_partial_exit_cancels_stale_size_legs():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    store.set_bracket_leg(pid, "target", "TG-1", 110.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 4, "product": "MIS", "avg_price": 100.0}])
+    orch = _live_screen_orch(store, client)
+    # reconcile in ISOLATION: a full cycle would also tear the bracket down via _manage_one's
+    # db_only cleanup, which would mask whether reconcile itself did its job.
+    orch._reconcile_broker(store.start_run("live"))
+    assert store.get_position(pid).quantity == 4
+    assert set(client.cancelled) == {"SL-1", "TG-1"}   # legs for the OLD size are gone
+
+
+def test_reconcile_side_flip_closes_old_and_adopts_new():
+    # Bot LONG 10; user sells 20 -> broker is SHORT 10. Old trade booked, new side adopted.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": -10, "product": "MIS", "avg_price": 104.0}])
+    orch = _live_screen_orch(store, client)
+    # reconcile in isolation — a full cycle would go on to manage (and here profit-book) the
+    # freshly adopted short, which is correct but hides what this test is about.
+    run_id = store.start_run("live")
+    orch._reconcile_broker(run_id)
+    old = store.get_position(pid)
+    assert old.status == "CLOSED" and old.exit_reason == "BROKER_SYNC"
+    fresh = store.get_open_positions()
+    assert len(fresh) == 1
+    assert (fresh[0].symbol, fresh[0].side, fresh[0].quantity) == ("BOT", "SHORT", 10)
+    assert fresh[0].entry_price == pytest.approx(104.0)
+    recs = store.get_decisions_for_run(run_id)
+    assert any(r.symbol == "BOT" and r.action == "ADOPTED" for r in recs)
+
+
+def test_reconcile_matching_size_is_a_noop():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    store.set_bracket_leg(pid, "stop", "SL-1", 95.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 100.0}])
+    orch = _live_screen_orch(store, client)
+    orch._reconcile_broker(store.start_run("live"))     # reconcile in isolation
+    p = store.get_position(pid)
+    assert p.status == "OPEN" and p.quantity == 10
+    assert client.cancelled == []                # nothing drifted -> nothing torn down
