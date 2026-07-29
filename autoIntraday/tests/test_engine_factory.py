@@ -25,6 +25,14 @@ def test_claude_cli_backend(monkeypatch):
     assert eng.use_web_search is False
 
 
+def test_skill_backend(monkeypatch):
+    from skill_decision_engine import SkillDecisionEngine
+    monkeypatch.setenv("DECISION_BACKEND", "skill")
+    eng = make_decision_engine(use_web_search=False)
+    assert isinstance(eng, SkillDecisionEngine)
+    assert eng.use_web_search is False
+
+
 def test_unknown_backend_raises(monkeypatch):
     monkeypatch.setenv("DECISION_BACKEND", "bogus")
     with pytest.raises(DecisionEngineError, match="DECISION_BACKEND"):

@@ -58,12 +58,18 @@ DIRECTION GATE — map intraday_structure.directional_bias:
 "long" -> BUY_NOW or BUY_ON_PULLBACK; "long-on-pullback" -> BUY_ON_PULLBACK (a dip in a strong
 uptrend is a buy, not a short); "short" -> SHORT_NOW [but NEVER short a bounce rising back toward
 VWAP while SuperTrend is still up / MACD line positive — that needs a confirmed lower low below
-VWAP first]; "short-on-breakdown" -> WAIT unless the trigger (VWAP loss / OR-low break) has
-already fired; "neutral" -> WAIT or NO_TRADE — BUT FIRST check bars_today: with bars_today < ~6
-the structure detector has too few bars to classify (you will see structure "range / mixed" with
-recent_highs "n/a" / recent_lows "flat"), so "neutral" there means UNCLASSIFIED, not chop. In that
-case decide off ADX + DI spread + ema_alignment + SuperTrend + higher_timeframe.overall_bias +
-RVOL + news instead, and only return WAIT if those ALSO disagree. If the caller holds a position,
+VWAP first. A VETO IS NOT PERMISSION: when that check kills the short, the only outputs are WAIT
+or short-on-breakdown at the swing low — never BUY, and never HOLD an existing long on the strength
+of it. A/B-tested 2026-07-23: longs taken where bias=="short" but SuperTrend is up AND MACD line>0
+returned n=637, 33.9% win, -106.5% total, vs +52.1% for longs on a real long label (n=1645). The
+veto only says the DOWN-move is unconfirmed; it says nothing about upside]; "short-on-breakdown" -> WAIT unless the trigger (VWAP loss / OR-low break) has
+already fired; "neutral" -> WAIT or NO_TRADE, ALWAYS — never override it. [A rule that overrode
+early "neutral" using ADX/DI/EMA/SuperTrend/HTF was A/B-tested 2026-07-23 and LOSES: n=197,
+21% win, -37.9% total, vs +0.14%/trade for the engine's own labels at the same hour. The gradient
+runs backwards to the intuition — ADX 45-60 lost -27.6%, ADX 60+ lost -15.4%. At <6 bars the
+indicators are dominated by PRIOR days while directional_bias is the only field about TODAY, so a
+high ADX next to "neutral" is a WARNING, not permission. Wait for bars_today >= ~6 and a real
+label.] If the caller holds a position,
 decide HOLD vs exit (SELL_NOW for longs / BUY_NOW to cover shorts) and re-quote stop_loss/target1
 (stops ratchet toward profit).
 
@@ -78,6 +84,22 @@ price, ask whether that limit can realistically fill: if price is already >~1% f
 ADX >~40, extreme RVOL and no red bar (bars_since_day_high <= ~2), the dip probably will not print.
 Prefer the entry that is actually reachable this bar (the level price is AT, or the breakout/retest)
 over a deeper limit that momentum will not give. Do not over-correct into chasing an extended move.
+
+SHORT SELECTION — fade the topper, not the corpse (A/B-tested 2026-07-24). The best short is a name
+still UP on the day just rolling over, NOT one already crashed. By day-change at entry: UP +0.5-3%
+(just losing VWAP) +0.206%/trade (best); UP >+3% climax +0.100% (do not short the still-ripping
+climax); DOWN <-3% already-crashed -0.044% (LOSES). Short a green name +0.152%/trade vs a red name
++0.044%. So: rank topping/rolling-over shorts (name ~flat-to-+3%, just lost VWAP / lower high) ABOVE
+confirmed-downtrend shorts; a name already down >~3% is a reject/last-resort (short only a rally back
+to VWAP, never the low).
+
+VIX REGIME TILT (book-tilt/sizing, NOT a per-name filter) — the side edge rotates with
+market_context.india_vix.level. A/B-tested 2026-07-24: LONGS by VIX 12-13 +25.2%, 13-14 +30.1%,
+14-16 +13.7%, 16+ -26.5%; SHORTS 13-14 +12.9%, 14-16 +27.8%, 16+ +143.7%. So: VIX<~14 not spiking ->
+longs are the primary edge; VIX ~14-16 or rising >~5% on the day -> half-size longs and prefer shorts;
+VIX 16+ -> longs actively lose, shorts are the trade (long only on an A+ label + fresh catalyst, min
+size). Read india_vix.level + change_pct before deciding; a red rising-VIX tape is a short day. This
+tilts SIZE and SIDE only, never which name the label picks.
 
 TIMING — respect bars_remaining: no fresh entry late in the session (~after 15:05 IST); late
 session -> shrink targets toward the ATR projection cap.

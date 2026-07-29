@@ -27,13 +27,14 @@ class ScheduleError(Exception):
 
 def build_entries(start: tuple[int, int], last: tuple[int, int],
                   interval_min: int) -> list[dict]:
+    # No dedicated end-of-day square-off fire — Groww auto-squares MIS intraday positions near
+    # close, so the bot just runs regular cycles and leaves any leftover to the broker.
     times = []
     t = start[0] * 60 + start[1]
     last_min = last[0] * 60 + last[1]
     while t <= last_min:
         times.append((t // 60, t % 60))
         t += interval_min
-    times.append(SQUAREOFF)
     return [{"Weekday": wd, "Hour": h, "Minute": m}
             for wd in WEEKDAYS for h, m in times]
 
@@ -97,7 +98,7 @@ def validate(start: tuple[int, int], last: tuple[int, int],
     if start < (9, 15):
         return "first cycle cannot be before 09:15 (market open)"
     if last > (15, 0):
-        return "last regular cycle cannot be after 15:00 (square-off runs at 15:18)"
+        return "last regular cycle cannot be after 15:00 (leave room before Groww's auto square-off)"
     if (start[0] * 60 + start[1]) > (last[0] * 60 + last[1]):
         return "first cycle must be before the last cycle"
     return None
@@ -127,13 +128,13 @@ _primer_launchctl = _launchctl_for(PRIMER_LABEL)
 
 
 def primer_time(start: tuple[int, int]) -> tuple[int, int]:
-    """The Claude-window primer fires PRIMER_OFFSET_MIN before the first trading cycle."""
+    """Fallback primer time when none is configured: PRIMER_OFFSET_MIN before the first cycle."""
     total = max(0, start[0] * 60 + start[1] - PRIMER_OFFSET_MIN)
     return (total // 60, total % 60)
 
 
-def build_primer_entries(start: tuple[int, int]) -> list[dict]:
-    h, m = primer_time(start)
+def build_primer_entries(primer_hm: tuple[int, int]) -> list[dict]:
+    h, m = primer_hm
     return [{"Weekday": wd, "Hour": h, "Minute": m} for wd in WEEKDAYS]
 
 
@@ -143,16 +144,16 @@ def next_primer_fire(path: str = PRIMER_PLIST,
     return next_fire(path, now)
 
 
-def apply_primer_schedule(start: tuple[int, int], path: str = PRIMER_PLIST,
+def apply_primer_schedule(primer_hm: tuple[int, int], path: str = PRIMER_PLIST,
                           launchctl: Callable[[list[str]], tuple[int, str, str]]
                           = _primer_launchctl) -> bool:
-    """Move the primer to fire 2h before `start` and reload it. No-op (returns False) if the
+    """Set the primer to fire at `primer_hm` (IST) and reload it. No-op (returns False) if the
     primer agent isn't installed. EnvironmentVariables are preserved."""
     if not os.path.exists(path):
         return False
     with open(path, "rb") as f:
         d = plistlib.load(f)
-    d["StartCalendarInterval"] = build_primer_entries(start)
+    d["StartCalendarInterval"] = build_primer_entries(primer_hm)
     with open(path, "wb") as f:
         plistlib.dump(d, f)
     launchctl(["bootout"])
@@ -161,9 +162,12 @@ def apply_primer_schedule(start: tuple[int, int], path: str = PRIMER_PLIST,
 
 
 def apply_schedule(start: tuple[int, int], last: tuple[int, int], interval_min: int,
+                   primer_hm: Optional[tuple[int, int]] = None,
                    path: str = INSTALLED_PLIST,
                    launchctl: Callable[[list[str]], tuple[int, str, str]] = _launchctl,
                    is_cycle_running: Callable[[], bool] = cycle_running) -> str:
+    if primer_hm is None:
+        primer_hm = primer_time(start)              # fallback: 2h before the first cycle
     err = validate(start, last, interval_min)
     if err:
         raise ScheduleError(err)
@@ -192,11 +196,11 @@ def apply_schedule(start: tuple[int, int], last: tuple[int, int], interval_min: 
     primed = False
     if path == INSTALLED_PLIST:
         try:
-            primed = apply_primer_schedule(start)
+            primed = apply_primer_schedule(primer_hm)
         except Exception:
             pass
-    n = len(build_entries(start, last, interval_min)) // len(WEEKDAYS) - 1
-    ph, pm = primer_time(start)
+    n = len(build_entries(start, last, interval_min)) // len(WEEKDAYS)
+    ph, pm = primer_hm
     return (f"applied: {n} cycles/day, {start[0]:02d}:{start[1]:02d} to "
-            f"{last[0]:02d}:{last[1]:02d} every {interval_min} min + 15:18 square-off"
-            + (f"; primer moved to {ph:02d}:{pm:02d}" if primed else ""))
+            f"{last[0]:02d}:{last[1]:02d} every {interval_min} min (no square-off — Groww auto-flattens)"
+            + (f"; primer at {ph:02d}:{pm:02d}" if primed else ""))

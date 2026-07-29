@@ -1,5 +1,7 @@
 """Selects the decision backend from the DECISION_BACKEND env var: 'api' (default, raw
-Anthropic API) or 'claude_cli' (headless `claude -p`, on the Claude subscription). See
+Anthropic API), 'claude_cli' (headless `claude -p` on the subscription, condensed engine prompt),
+or 'skill' (headless `claude -p` running the FULL intraday-analyst SKILL.md — one methodology
+shared with the screen, for entries and open-position management). See
 docs/superpowers/specs/2026-07-10-claude-cli-backend-design.md."""
 from __future__ import annotations
 
@@ -15,8 +17,11 @@ def make_decision_engine(use_web_search: bool = True, model: str = MODEL):
     if backend == "claude_cli":
         from claude_cli_engine import ClaudeCliEngine
         return ClaudeCliEngine(use_web_search=use_web_search, model=model)
+    if backend == "skill":
+        from skill_decision_engine import SkillDecisionEngine
+        return SkillDecisionEngine(use_web_search=use_web_search, model=model)
     raise DecisionEngineError(
-        f"unknown DECISION_BACKEND {backend!r}; use 'api' or 'claude_cli'")
+        f"unknown DECISION_BACKEND {backend!r}; use 'api', 'claude_cli', or 'skill'")
 
 
 def make_screen_engine(use_web_search: bool = True, model: str = MODEL):

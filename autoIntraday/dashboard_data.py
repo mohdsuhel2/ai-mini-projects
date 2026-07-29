@@ -5,12 +5,17 @@ from __future__ import annotations
 
 
 def header_view(store) -> dict:
+    from orchestrator import LEVERAGE
     cfg = store.get_config()
-    deployed = store.deployed_capital()
-    util = round(deployed / cfg.total_pool * 100, 1) if cfg.total_pool else 0.0
+    notional = store.deployed_capital()          # position VALUE (qty*entry) across open positions
+    margin_used = notional / LEVERAGE            # the actual pool consumption (MARGIN), not notional
+    util = round(margin_used / cfg.total_pool * 100, 1) if cfg.total_pool else 0.0
     return {
         "mode": cfg.mode, "is_paused": cfg.is_paused, "total_pool": cfg.total_pool,
-        "deployed_capital": deployed, "utilization_pct": util,
+        # "deployed_capital" is MARGIN used (the real pool draw); deployed_notional is the leveraged
+        # exposure. The pool is a MARGIN budget, so utilisation is margin/pool — this is why it can
+        # never exceed ~ max_open_positions * capital_per_position / total_pool.
+        "deployed_capital": margin_used, "deployed_notional": notional, "utilization_pct": util,
         "open_count": store.count_open_positions(),
         "pending_count": len(store.get_pending_positions()),
         "max_open_positions": cfg.max_open_positions,

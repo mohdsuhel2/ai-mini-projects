@@ -10,21 +10,14 @@ import logging
 import os
 import subprocess
 import sys
-from datetime import datetime, time
+from datetime import datetime
 from typing import Any, Callable, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from trading_calendar import IST, is_trading_time, load_holidays
 
-# Cycles at/after this IST time run in square-off-only mode: flatten everything, no new entries.
-SQUAREOFF_AFTER = time(15, 15)
 LOCK_PATH = os.path.expanduser("~/.autointraday/cycle.lock")
-
-
-def is_squareoff_time(now: datetime) -> bool:
-    t = now.timetz().replace(tzinfo=None) if now.tzinfo else now.time()
-    return t >= SQUAREOFF_AFTER
 
 
 def acquire_lock(path: str = LOCK_PATH):
@@ -76,10 +69,7 @@ def run_once(now: datetime,
         return None
     store = store_factory()
     orch = orchestrator_factory(store)
-    squareoff_only = is_squareoff_time(now)
-    if squareoff_only:
-        log.info("square-off cycle at %s IST — flattening, no new entries", now.isoformat())
-    summary = orch.run_cycle(squareoff_only=squareoff_only)
+    summary = orch.run_cycle()
     log.info("cycle done: %s", summary)
     return summary
 
@@ -90,17 +80,55 @@ def _build_store(db_path: str):
     return Store(db_path)
 
 
-def _build_orchestrator(store):
+def _registry(settings):
+    from strategies import StrategyRegistry
+    return StrategyRegistry.from_config(settings.strategies, model=settings.model,
+                                        web_search=settings.web_search)
+
+
+def _build_compare_orchestrator(store, settings, cfg):
+    """Compare mode: run every configured compare strategy on identical market data as isolated
+    paper ledgers. Paper-only, no broker — enforced by the CompareOrchestrator's paper clients."""
+    from compare_orchestrator import CompareOrchestrator
+    from indicators import get_indicators
+    from screener import get_candidates
+    registry = _registry(settings)
+    strategies = [registry.get(sid) for sid in cfg.compare_strategies]
+    if cfg.mode == "live":
+        log.warning("compare mode is ON but config mode is 'live' — compare is PAPER-ONLY; no "
+                    "broker orders will be placed regardless")
+    log.info("COMPARE mode: %s (paper-only, no broker)", [s.id for s in strategies])
+    return CompareOrchestrator(store=store, strategies=strategies,
+                               get_indicators=get_indicators, get_candidates=get_candidates)
+
+
+def _build_orchestrator(store, settings):
+    """Build the orchestrator for one cycle. The runtime selection (compare on/off, which strategy
+    for live/paper) is read from the DB config — the dashboard's control surface — while the
+    strategy ROSTER (available skills) comes from config.yaml. Compare -> CompareOrchestrator;
+    otherwise a single ScopedStore-isolated strategy."""
+    cfg = store.get_config()
+    if cfg.compare_enabled:
+        return _build_compare_orchestrator(store, settings, cfg)
     from groww_client import GrowwClient
     from indicators import get_indicators
     from orchestrator import Orchestrator
     from screener import get_candidates
-    from engine_factory import make_decision_engine, make_screen_engine
-    cfg = store.get_config()
-    return Orchestrator(store=store, client=GrowwClient(mode=cfg.mode),
-                        engine=make_decision_engine(use_web_search=True),
+    from store import ScopedStore
+    strategy_id = cfg.live_strategy if cfg.mode == "live" else cfg.paper_strategy
+    scoped = ScopedStore(store, strategy_id)
+    if settings.decision_backend == "skill":
+        strat = _registry(settings).get(strategy_id)
+        engine = strat.make_decision_engine()
+        screen_engine = strat.make_screen_engine() if settings.screen_mode == "skill" else None
+        log.info("strategy %s (%s) active for %s mode", strat.id, strat.name, cfg.mode)
+    else:
+        from engine_factory import make_decision_engine, make_screen_engine
+        engine = make_decision_engine(use_web_search=settings.web_search)
+        screen_engine = make_screen_engine(use_web_search=settings.web_search)
+    return Orchestrator(store=scoped, client=GrowwClient(mode=cfg.mode), engine=engine,
                         get_indicators=get_indicators, get_candidates=get_candidates,
-                        screen_engine=make_screen_engine(use_web_search=True))
+                        screen_engine=screen_engine)
 
 
 def main() -> int:
@@ -116,11 +144,12 @@ def main() -> int:
     now = datetime.now(IST)
     holidays = load_holidays(HOLIDAYS_PATH)
     try:
-        summary = run_once(now, lambda: _build_store(settings.db_path), _build_orchestrator,
-                           holidays)
+        summary = run_once(now, lambda: _build_store(settings.db_path),
+                           lambda store: _build_orchestrator(store, settings), holidays)
         if summary and summary.get("errors"):
-            notify("autoIntraday: square-off ERRORS",
-                   f"{summary['errors']} position(s)/order(s) failed to flatten — check broker!")
+            notify("autoIntraday: broker errors",
+                   f"{summary['errors']} broker error(s) this cycle (entry/exit/cancel or OCO) "
+                   f"— verify at broker.")
         return 0
     except Exception as e:
         log.exception("cycle failed")

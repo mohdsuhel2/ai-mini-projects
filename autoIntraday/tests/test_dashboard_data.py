@@ -18,8 +18,10 @@ def test_header_view_math():
     assert h["mode"] == "paper"
     assert h["is_paused"] is False
     assert h["total_pool"] == 100000.0
-    assert h["deployed_capital"] == 10000.0
-    assert h["utilization_pct"] == 10.0     # 10000 / 100000
+    # deployed_capital is now MARGIN used (notional / 5x leverage); notional reported separately
+    assert h["deployed_notional"] == 10000.0
+    assert h["deployed_capital"] == 2000.0            # 10000 / 5
+    assert h["utilization_pct"] == 2.0               # margin 2000 / pool 100000
     assert h["open_count"] == 1
     assert h["max_open_positions"] == 5
 

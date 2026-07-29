@@ -22,13 +22,13 @@ def _write_plist(path, entries, env=None):
     return str(path)
 
 
-def test_build_entries_grid_and_squareoff():
+def test_build_entries_grid_no_squareoff():
     entries = build_entries((9, 45), (12, 45), 20)
-    # 10 regular fires + square-off, x5 weekdays
-    assert len(entries) == 55
+    # 10 regular fires x5 weekdays, and NO dedicated square-off fire (Groww auto-flattens)
+    assert len(entries) == 50
     keys = _entries_dict(entries)
     assert (1, 9, 45) in keys and (5, 12, 45) in keys
-    assert (3, 15, 18) in keys                     # square-off always present
+    assert (3, 15, 18) not in keys                 # square-off job removed
     assert (1, 13, 5) not in keys                  # nothing past `last`
 
 
@@ -50,11 +50,11 @@ def test_next_fire_mid_day(tmp_path):
     assert (nf.hour, nf.minute) == (11, 45)
 
 
-def test_next_fire_after_last_regular_is_squareoff(tmp_path):
+def test_next_fire_after_last_regular_rolls_to_next_day(tmp_path):
     p = _write_plist(tmp_path / "a.plist", build_entries((9, 45), (12, 45), 20))
-    now = datetime(2026, 7, 20, 13, 0, tzinfo=IST)
+    now = datetime(2026, 7, 20, 13, 0, tzinfo=IST)              # Monday, past the last fire
     nf = next_fire(p, now)
-    assert (nf.hour, nf.minute) == (15, 18)
+    assert nf.date().isoformat() == "2026-07-21" and (nf.hour, nf.minute) == (9, 45)
 
 
 def test_next_fire_friday_evening_rolls_to_monday(tmp_path):
@@ -91,7 +91,7 @@ def test_apply_schedule_rewrites_only_calendar(tmp_path):
     keys = _entries_dict(d["StartCalendarInterval"])
     assert (1, 10, 0) in keys and (1, 11, 0) in keys and (1, 12, 0) in keys
     assert (1, 9, 45) not in keys
-    assert (1, 15, 18) in keys                                # square-off kept
+    assert (1, 15, 18) not in keys                            # square-off job removed
     assert [a[0] for a in calls] == ["bootout", "bootstrap"]
     assert "5 cycles/day" in msg                              # 10:00,10:30,11:00,11:30,12:00
 
@@ -131,37 +131,37 @@ def test_primer_time_is_two_hours_before_start():
     assert primer_time((10, 30)) == (8, 30)
 
 
-def test_build_primer_entries_weekdays_only():
-    entries = build_primer_entries((9, 45))
+def test_build_primer_entries_uses_the_given_time():
+    entries = build_primer_entries((7, 30))                 # arg is the primer FIRE time now
     assert len(entries) == 5
-    assert all((e["Hour"], e["Minute"]) == (7, 45) for e in entries)
+    assert all((e["Hour"], e["Minute"]) == (7, 30) for e in entries)
     assert {e["Weekday"] for e in entries} == {1, 2, 3, 4, 5}
 
 
-def _write_primer_plist(path, start=(9, 45), env=None):
+def _write_primer_plist(path, fire=(7, 30), env=None):
     d = {"Label": "com.autointraday.primer",
          "ProgramArguments": ["/usr/bin/true"],
          "EnvironmentVariables": env or {"CLAUDE_BIN": "/x/claude"},
-         "StartCalendarInterval": build_primer_entries(start)}
+         "StartCalendarInterval": build_primer_entries(fire)}
     with open(path, "wb") as f:
         plistlib.dump(d, f)
     return str(path)
 
 
 def test_next_primer_fire_monday_morning(tmp_path):
-    p = _write_primer_plist(tmp_path / "primer.plist", start=(9, 45))
-    now = datetime(2026, 7, 20, 6, 0, tzinfo=IST)          # Monday 06:00, before 07:45
+    p = _write_primer_plist(tmp_path / "primer.plist", fire=(7, 30))
+    now = datetime(2026, 7, 20, 6, 0, tzinfo=IST)          # Monday 06:00, before 07:30
     nf = next_primer_fire(p, now)
-    assert (nf.hour, nf.minute) == (7, 45) and nf.weekday() == 0
+    assert (nf.hour, nf.minute) == (7, 30) and nf.weekday() == 0
 
 
-def test_apply_primer_schedule_rewrites_and_preserves_env(tmp_path):
-    p = _write_primer_plist(tmp_path / "primer.plist", start=(9, 45),
+def test_apply_primer_schedule_sets_time_and_preserves_env(tmp_path):
+    p = _write_primer_plist(tmp_path / "primer.plist", fire=(7, 30),
                             env={"CLAUDE_BIN": "/x/claude", "HOME": "/h"})
     calls = []
-    apply_primer_schedule((10, 0), path=p, launchctl=lambda a: calls.append(a) or (0, "", ""))
+    apply_primer_schedule((7, 30), path=p, launchctl=lambda a: calls.append(a) or (0, "", ""))
     with open(p, "rb") as f:
         d = plistlib.load(f)
-    assert {(e["Hour"], e["Minute"]) for e in d["StartCalendarInterval"]} == {(8, 0)}   # 2h before 10:00
+    assert {(e["Hour"], e["Minute"]) for e in d["StartCalendarInterval"]} == {(7, 30)}
     assert d["EnvironmentVariables"] == {"CLAUDE_BIN": "/x/claude", "HOME": "/h"}
     assert [a[0] for a in calls] == ["bootout", "bootstrap"]

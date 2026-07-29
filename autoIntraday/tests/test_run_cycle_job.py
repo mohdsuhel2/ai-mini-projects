@@ -65,18 +65,15 @@ def test_acquire_lock_prevents_concurrent_cycles(tmp_path):
     third.close()
 
 
-def test_run_once_squareoff_after_1515():
-    from run_cycle_job import is_squareoff_time
-    assert is_squareoff_time(_ist(2026, 7, 10, 15, 18)) is True
-    assert is_squareoff_time(_ist(2026, 7, 10, 14, 15)) is False
-
+def test_run_once_runs_a_normal_cycle_near_close():
+    # No dedicated square-off cycle anymore — every fire is a normal cycle; Groww auto-flattens.
     captured = {}
 
     class FakeOrch:
-        def run_cycle(self, squareoff_only=False):
-            captured["squareoff_only"] = squareoff_only
-            return {"run_id": 1, "status": "SUCCESS", "exits": 2, "entries": 0, "cancels": 1,
+        def run_cycle(self):
+            captured["ran"] = True
+            return {"run_id": 1, "status": "SUCCESS", "exits": 0, "entries": 0, "cancels": 0,
                     "candidates": 0}
 
     run_once(_ist(2026, 7, 10, 15, 18), lambda: object(), lambda store: FakeOrch(), set())
-    assert captured["squareoff_only"] is True
+    assert captured.get("ran") is True
