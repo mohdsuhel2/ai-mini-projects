@@ -650,3 +650,11 @@ def test_force_bracket_defaults_false_and_is_settable():
     assert store.get_position(pid).force_bracket is False
     store.set_force_bracket(pid)
     assert store.get_position(pid).force_bracket is True
+
+
+def test_adopt_fallback_stop_pct_defaults_and_updates():
+    store = Store(":memory:")
+    assert store.get_config().adopt_fallback_stop_pct == pytest.approx(1.0)
+    cfg = store.update_config(adopt_fallback_stop_pct=0.75)
+    assert cfg.adopt_fallback_stop_pct == pytest.approx(0.75)
+    assert store.get_config().adopt_fallback_stop_pct == pytest.approx(0.75)

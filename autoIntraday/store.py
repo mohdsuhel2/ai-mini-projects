@@ -78,6 +78,10 @@ class Config:
     exit_mode: str = "db_only"
     arm_exit_enabled: bool = False
     arm_exit_band_pct: float = 1.0
+    # Last-resort stop for any OPEN position the engine has not given one — an adopted manual
+    # position, or a read that returned WAIT. Percent from entry. 0 disables the floor. Replaced
+    # by the engine's structural stop as soon as it arrives, and never widened (ratchet rule).
+    adopt_fallback_stop_pct: float = 1.0
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -85,7 +89,8 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "compare_enabled", "live_strategy", "paper_strategy", "compare_strategies",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
-                  "exit_mode", "arm_exit_enabled", "arm_exit_band_pct")
+                  "exit_mode", "arm_exit_enabled", "arm_exit_band_pct",
+                  "adopt_fallback_stop_pct")
 
 
 @dataclass
@@ -207,7 +212,8 @@ CREATE TABLE IF NOT EXISTS config (
     target_shave_pct REAL NOT NULL DEFAULT 10.0,
     arm_exit_enabled INTEGER NOT NULL DEFAULT 0,
     arm_exit_band_pct REAL NOT NULL DEFAULT 1.0,
-    exit_mode TEXT NOT NULL DEFAULT 'db_only'
+    exit_mode TEXT NOT NULL DEFAULT 'db_only',
+    adopt_fallback_stop_pct REAL NOT NULL DEFAULT 1.0
 );
 CREATE TABLE IF NOT EXISTS job_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -436,6 +442,9 @@ class Store:
             # one-time carry-over: a previously-enabled armed exit becomes the 'armed' mode
             if "arm_exit_enabled" in ccols:
                 self._conn.execute("UPDATE config SET exit_mode='armed' WHERE arm_exit_enabled=1")
+        if "adopt_fallback_stop_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN adopt_fallback_stop_pct REAL "
+                               "NOT NULL DEFAULT 1.0")
         vcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(swing_verdicts)")}
         if vcols and "status" not in vcols:
             self._conn.execute(
@@ -476,7 +485,8 @@ class Store:
                       target_shave_pct=r["target_shave_pct"],
                       arm_exit_enabled=bool(r["arm_exit_enabled"]),
                       arm_exit_band_pct=r["arm_exit_band_pct"],
-                      exit_mode=r["exit_mode"])
+                      exit_mode=r["exit_mode"],
+                      adopt_fallback_stop_pct=r["adopt_fallback_stop_pct"])
 
     def update_config(self, **fields) -> Config:
         for key in fields:
