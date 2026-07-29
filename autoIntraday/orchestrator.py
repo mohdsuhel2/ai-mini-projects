@@ -802,8 +802,14 @@ class Orchestrator:
         # Engine re-affirmed the trade while it's underwater -> consider a disciplined scale-in.
         if self._maybe_scale_in(run_id, position, decision, indicators):
             return 0                       # added this cycle; don't also trail off the same read
-        # Position stays open — trail its stop/target to the engine's latest read.
+        # Position stays open — trail its stop/target to the engine's latest read, guarantee it
+        # has SOME stop, then re-sync the broker bracket so a level that just moved is resting at
+        # the broker now rather than a cycle from now (_ensure_leg is a no-op when it already is).
         self._maybe_trail(run_id, position, decision)
+        position = self.store.get_position(position.id)
+        self._ensure_protective_stop(run_id, position, indicators)
+        if eager:
+            self._ensure_bracket(run_id, self.store.get_position(position.id), indicators, cfg)
         return 0
 
     def _maybe_take_profit(self, run_id: int, position, indicators):
@@ -1116,6 +1122,29 @@ class Orchestrator:
             log.info("trailed %s: stop %s->%s target %s->%s (broker OCO %s)", position.symbol,
                      position.stop_loss, new_stop, position.target_price, new_target,
                      "synced" if position.oco_order_id else "n/a")
+
+    def _ensure_protective_stop(self, run_id: int, position, indicators) -> None:
+        """Last-resort floor: no OPEN position may sit without a stop. An adopted position starts
+        with none by design, and an engine read that returns WAIT supplies none — so a fallback
+        is placed adopt_fallback_stop_pct away from entry. _maybe_trail only ratchets toward
+        profit, so the engine's real structural stop replaces this the moment it arrives and can
+        never widen it. 0 pct disables the floor."""
+        if position.stop_loss is not None:
+            return
+        pct = self.store.get_config().adopt_fallback_stop_pct
+        if pct <= 0 or position.entry_price <= 0:
+            return
+        raw = (position.entry_price * (1 - pct / 100) if position.side == "LONG"
+               else position.entry_price * (1 + pct / 100))
+        stop = _tick(raw)
+        self.store.update_position_levels(position.id, stop_loss=stop,
+                                          target_price=position.target_price)
+        self.store.record_decision(
+            run_id=run_id, symbol=position.symbol, action="ADJUSTED",
+            reason=f"protective fallback stop {stop} ({pct}% from entry) — no engine stop yet",
+            stop_loss=stop, target_price=position.target_price, position_id=position.id)
+        log.warning("fallback stop %.2f set on %s (engine returned no stop)",
+                    stop, position.symbol)
 
     def _oco_legs(self, txn: str, qty: int, target: float, stop: float) -> dict:
         return dict(

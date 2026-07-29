@@ -2026,3 +2026,57 @@ def test_takeover_disabled_when_order_book_read_fails():
     orch._reconcile_broker(store.start_run("live"))
     assert client.cancelled == []                   # unknown order book -> cancel nothing
     assert store.get_position(pid).force_bracket is False
+
+
+def _stopless_orch(store, client):
+    # WAIT with no levels — exactly the read that used to leave an adopted position naked.
+    return Orchestrator(store, client, _FakeEngine(_decision(action="WAIT", stop=None,
+                                                             target1=None)),
+                        get_indicators=lambda s: _indic(s, last=200),
+                        get_candidates=lambda **kw: [],
+                        screen_engine=_FakeScreenEngine(results=[]))
+
+
+def test_adopted_position_gets_fallback_stop_when_engine_gives_none():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, adopt_fallback_stop_pct=1.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "MANUAL", "quantity": 5, "product": "MIS", "avg_price": 200.0}])
+    _stopless_orch(store, client).run_cycle()
+    p = store.get_open_positions()[0]
+    assert p.stop_loss == pytest.approx(198.0)     # 1% below a 200.0 entry
+
+
+def test_fallback_stop_is_never_widened_by_a_later_read():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, adopt_fallback_stop_pct=1.0)
+    pid = store.open_position(symbol="BOT", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=200.0, target_price=None, stop_loss=199.0,
+                              mode="live")
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "BOT", "quantity": 10, "product": "MIS", "avg_price": 200.0}])
+    _stopless_orch(store, client).run_cycle()
+    assert store.get_position(pid).stop_loss == 199.0   # a real stop is left alone
+
+
+def test_fallback_stop_disabled_at_zero_pct():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, adopt_fallback_stop_pct=0.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "MANUAL", "quantity": 5, "product": "MIS", "avg_price": 200.0}])
+    _stopless_orch(store, client).run_cycle()
+    assert store.get_open_positions()[0].stop_loss is None
+
+
+def test_fallback_stop_is_above_entry_for_a_short():
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, adopt_fallback_stop_pct=1.0)
+    client = _FakeClient(mode="live", broker_positions=[
+        {"symbol": "MANUAL", "quantity": -5, "product": "MIS", "avg_price": 200.0}])
+    _stopless_orch(store, client).run_cycle()
+    p = store.get_open_positions()[0]
+    assert p.side == "SHORT" and p.stop_loss == pytest.approx(202.0)
