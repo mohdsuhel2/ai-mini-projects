@@ -7,10 +7,16 @@ docs/superpowers/specs/2026-07-09-data-store-design.md.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 SCHEMA_VERSION = 1
+
+# Every strategy-scoped row (job_runs/positions/decisions/orders) carries a strategy_id. Legacy
+# rows and the single-strategy default resolve to this id (the pre-existing V1 strategy), so a DB
+# written before multi-strategy support behaves byte-identically. MUST match
+# strategies.DEFAULT_STRATEGY_ID and the DDL DEFAULTs above.
+DEFAULT_STRATEGY_ID = "intraday-v1"
 
 
 class StoreError(Exception):
@@ -19,6 +25,17 @@ class StoreError(Exception):
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _sid_where(strategy_id):
+    """WHERE fragment + args for an optional strategy filter on a query that has no other WHERE.
+    strategy_id=None -> no filter (all strategies), preserving the pre-multi-strategy behaviour."""
+    return ("WHERE strategy_id = ?", [strategy_id]) if strategy_id else ("", [])
+
+
+def _sid_and(strategy_id):
+    """AND fragment + args for an optional strategy filter appended to an EXISTING WHERE clause."""
+    return (" AND strategy_id = ?", [strategy_id]) if strategy_id else ("", [])
 
 
 @dataclass
@@ -30,10 +47,45 @@ class Config:
     is_paused: bool
     updated_at: str
     primer_enabled: bool = False
+    # Claude-window primer fire time (IST "HH:MM") — a throwaway call that starts the 5-hour usage
+    # window early so it resets during trading. Configurable from Settings ▸ Schedule.
+    primer_time: str = "07:30"
+    # Multi-strategy runtime selection (the UI control surface). compare_strategies is a parsed
+    # list here; it is persisted as a comma-separated TEXT column.
+    compare_enabled: bool = False
+    live_strategy: str = "intraday-v1"
+    paper_strategy: str = "intraday-v1"
+    compare_strategies: list = field(default_factory=lambda: ["intraday-v1", "intraday-v2"])
+    # Early profit-taking (stop before the far target). Percentages are RETURN ON DEPLOYED MARGIN
+    # (at LEVERAGE x, e.g. 7% return == a ~1.4% price move): book half at _partial_pct, exit the
+    # whole position at _full_pct. Toggled off => let winners ride to the structural target.
+    profit_book_enabled: bool = True
+    profit_book_partial_pct: float = 7.0
+    profit_book_full_pct: float = 15.0
+    # Execution "breathing space" applied to Claude's levels before an order is placed: entry is
+    # nudged toward price (fills easier), the stop is widened AWAY from entry (fewer noise
+    # stop-outs; rupee risk unchanged since sizing uses the widened stop), and the target keeps
+    # (100 - shave)% of the projected move. All as percentages.
+    entry_tolerance_pct: float = 0.25
+    stop_tolerance_pct: float = 0.35
+    target_shave_pct: float = 10.0
+    # Exit placement (LIVE-only). Where the stop+target exit lives:
+    #   db_only  — soft levels; the 5-min cycle market-exits when price hits them (default, = today)
+    #   armed    — place the stop+target broker bracket when price is within arm_exit_band_pct of a leg
+    #   on_fill  — place the broker bracket immediately when the entry fills, kept in sync as it trails
+    # See docs/superpowers/specs/2026-07-28-exit-placement-modes-design.md. arm_exit_band_pct is the
+    # 'armed' proximity band. arm_exit_enabled is retired (kept for back-compat; migrated to exit_mode).
+    exit_mode: str = "db_only"
+    arm_exit_enabled: bool = False
+    arm_exit_band_pct: float = 1.0
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
-                  "capital_per_position", "is_paused", "primer_enabled")
+                  "capital_per_position", "is_paused", "primer_enabled", "primer_time",
+                  "compare_enabled", "live_strategy", "paper_strategy", "compare_strategies",
+                  "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
+                  "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
+                  "exit_mode", "arm_exit_enabled", "arm_exit_band_pct")
 
 
 @dataclass
@@ -82,6 +134,24 @@ class Position:
     # Consecutive cycles the exit engine has returned a conviction-clearing reverse signal. A
     # SIGNAL exit fires only once this reaches EXIT_CONFIRM_CYCLES (see orchestrator).
     reverse_signal_count: int = 0
+    # Armed broker exit order ids + their limit price (LIVE-only): a resting SELL LIMIT placed at
+    # the broker when price neared the partial / full profit level. The price lets a detected fill
+    # be booked deterministically (a LIMIT fills at its price or better). Cleared on fill or cancel.
+    armed_partial_order_id: str | None = None
+    armed_full_order_id: str | None = None
+    armed_partial_price: float | None = None
+    armed_full_price: float | None = None
+    # Broker exit bracket (LIVE eager modes): the resting stop (SL_M) + target (LIMIT) order ids and
+    # their prices at Groww. Software OCO — one leg filling cancels the other. Cleared on fill/cancel.
+    broker_stop_order_id: str | None = None
+    broker_stop_price: float | None = None
+    broker_target_order_id: str | None = None
+    broker_target_price: float | None = None
+    # Pinned to eager bracket management regardless of the global exit_mode. Set when reconcile
+    # cancels a user's own resting exit order: the bot must REPLACE that protection with its own
+    # broker bracket, never merely remove it.
+    force_bracket: bool = False
+    strategy_id: str = DEFAULT_STRATEGY_ID
 
 
 @dataclass
@@ -124,7 +194,20 @@ CREATE TABLE IF NOT EXISTS config (
     max_open_positions INTEGER NOT NULL,
     capital_per_position REAL NOT NULL,
     is_paused INTEGER NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    compare_enabled INTEGER NOT NULL DEFAULT 0,
+    live_strategy TEXT NOT NULL DEFAULT 'intraday-v1',
+    paper_strategy TEXT NOT NULL DEFAULT 'intraday-v1',
+    compare_strategies TEXT NOT NULL DEFAULT 'intraday-v1,intraday-v2',
+    profit_book_enabled INTEGER NOT NULL DEFAULT 1,
+    profit_book_partial_pct REAL NOT NULL DEFAULT 7.0,
+    profit_book_full_pct REAL NOT NULL DEFAULT 15.0,
+    entry_tolerance_pct REAL NOT NULL DEFAULT 0.25,
+    stop_tolerance_pct REAL NOT NULL DEFAULT 0.35,
+    target_shave_pct REAL NOT NULL DEFAULT 10.0,
+    arm_exit_enabled INTEGER NOT NULL DEFAULT 0,
+    arm_exit_band_pct REAL NOT NULL DEFAULT 1.0,
+    exit_mode TEXT NOT NULL DEFAULT 'db_only'
 );
 CREATE TABLE IF NOT EXISTS job_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,7 +218,8 @@ CREATE TABLE IF NOT EXISTS job_runs (
     num_candidates INTEGER,
     num_actions INTEGER,
     error TEXT,
-    summary TEXT
+    summary TEXT,
+    strategy_id TEXT NOT NULL DEFAULT 'intraday-v1'
 );
 CREATE TABLE IF NOT EXISTS positions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -159,7 +243,17 @@ CREATE TABLE IF NOT EXISTS positions (
     entry_quality REAL,
     booked_pnl REAL NOT NULL DEFAULT 0,
     partial_booked INTEGER NOT NULL DEFAULT 0,
-    reverse_signal_count INTEGER NOT NULL DEFAULT 0
+    reverse_signal_count INTEGER NOT NULL DEFAULT 0,
+    armed_partial_order_id TEXT,
+    armed_full_order_id TEXT,
+    armed_partial_price REAL,
+    armed_full_price REAL,
+    broker_stop_order_id TEXT,
+    broker_stop_price REAL,
+    broker_target_order_id TEXT,
+    broker_target_price REAL,
+    force_bracket INTEGER NOT NULL DEFAULT 0,
+    strategy_id TEXT NOT NULL DEFAULT 'intraday-v1'
 );
 CREATE TABLE IF NOT EXISTS decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -173,7 +267,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     stop_loss REAL,
     position_id INTEGER REFERENCES positions(id),
     created_at TEXT NOT NULL,
-    raw_json TEXT
+    raw_json TEXT,
+    strategy_id TEXT NOT NULL DEFAULT 'intraday-v1'
 );
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,7 +282,8 @@ CREATE TABLE IF NOT EXISTS orders (
     status TEXT NOT NULL,
     mode TEXT NOT NULL,
     placed_at TEXT NOT NULL,
-    raw_json TEXT
+    raw_json TEXT,
+    strategy_id TEXT NOT NULL DEFAULT 'intraday-v1'
 );
 CREATE TABLE IF NOT EXISTS holdings (
     symbol TEXT PRIMARY KEY,
@@ -264,10 +360,82 @@ class Store:
         if "reverse_signal_count" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN reverse_signal_count "
                                "INTEGER NOT NULL DEFAULT 0")
+        if "armed_partial_order_id" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN armed_partial_order_id TEXT")
+        if "armed_full_order_id" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN armed_full_order_id TEXT")
+        if "armed_partial_price" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN armed_partial_price REAL")
+        if "armed_full_price" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN armed_full_price REAL")
+        if "broker_stop_order_id" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN broker_stop_order_id TEXT")
+        if "broker_stop_price" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN broker_stop_price REAL")
+        if "broker_target_order_id" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN broker_target_order_id TEXT")
+        if "broker_target_price" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN broker_target_price REAL")
+        if "force_bracket" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN force_bracket INTEGER "
+                               "NOT NULL DEFAULT 0")
+        # Multi-strategy isolation: legacy rows in the four strategy-scoped tables backfill to the
+        # pre-existing V1 strategy so a pre-multi-strategy DB is unchanged in behaviour.
+        for table in ("job_runs", "positions", "decisions", "orders"):
+            tcols = {r["name"] for r in self._conn.execute(f"PRAGMA table_info({table})")}
+            if tcols and "strategy_id" not in tcols:
+                self._conn.execute(
+                    f"ALTER TABLE {table} ADD COLUMN strategy_id TEXT NOT NULL "
+                    f"DEFAULT '{DEFAULT_STRATEGY_ID}'")
         ccols = {r["name"] for r in self._conn.execute("PRAGMA table_info(config)")}
         if "primer_enabled" not in ccols:
             self._conn.execute(
                 "ALTER TABLE config ADD COLUMN primer_enabled INTEGER NOT NULL DEFAULT 0")
+        if "primer_time" not in ccols:
+            self._conn.execute(
+                "ALTER TABLE config ADD COLUMN primer_time TEXT NOT NULL DEFAULT '07:30'")
+        if "compare_enabled" not in ccols:
+            self._conn.execute(
+                "ALTER TABLE config ADD COLUMN compare_enabled INTEGER NOT NULL DEFAULT 0")
+        if "live_strategy" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN live_strategy TEXT NOT NULL "
+                               "DEFAULT 'intraday-v1'")
+        if "paper_strategy" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN paper_strategy TEXT NOT NULL "
+                               "DEFAULT 'intraday-v1'")
+        if "compare_strategies" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN compare_strategies TEXT NOT NULL "
+                               "DEFAULT 'intraday-v1,intraday-v2'")
+        if "profit_book_enabled" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN profit_book_enabled INTEGER NOT "
+                               "NULL DEFAULT 1")
+        if "profit_book_partial_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN profit_book_partial_pct REAL NOT "
+                               "NULL DEFAULT 7.0")
+        if "profit_book_full_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN profit_book_full_pct REAL NOT "
+                               "NULL DEFAULT 15.0")
+        if "entry_tolerance_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN entry_tolerance_pct REAL NOT "
+                               "NULL DEFAULT 0.25")
+        if "stop_tolerance_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN stop_tolerance_pct REAL NOT "
+                               "NULL DEFAULT 0.35")
+        if "target_shave_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN target_shave_pct REAL NOT "
+                               "NULL DEFAULT 10.0")
+        if "arm_exit_enabled" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN arm_exit_enabled INTEGER NOT "
+                               "NULL DEFAULT 0")
+        if "arm_exit_band_pct" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN arm_exit_band_pct REAL NOT "
+                               "NULL DEFAULT 1.0")
+        if "exit_mode" not in ccols:
+            self._conn.execute("ALTER TABLE config ADD COLUMN exit_mode TEXT NOT NULL "
+                               "DEFAULT 'db_only'")
+            # one-time carry-over: a previously-enabled armed exit becomes the 'armed' mode
+            if "arm_exit_enabled" in ccols:
+                self._conn.execute("UPDATE config SET exit_mode='armed' WHERE arm_exit_enabled=1")
         vcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(swing_verdicts)")}
         if vcols and "status" not in vcols:
             self._conn.execute(
@@ -289,16 +457,33 @@ class Store:
 
     def get_config(self) -> Config:
         r = self._conn.execute("SELECT * FROM config WHERE id = 1").fetchone()
+        raw = (r["compare_strategies"] or "").strip()
+        compare_strategies = [s.strip() for s in raw.split(",") if s.strip()]
         return Config(mode=r["mode"], total_pool=r["total_pool"],
                       max_open_positions=r["max_open_positions"],
                       capital_per_position=r["capital_per_position"],
                       is_paused=bool(r["is_paused"]), updated_at=r["updated_at"],
-                      primer_enabled=bool(r["primer_enabled"]))
+                      primer_enabled=bool(r["primer_enabled"]),
+                      primer_time=(r["primer_time"] if "primer_time" in r.keys() else "07:30"),
+                      compare_enabled=bool(r["compare_enabled"]),
+                      live_strategy=r["live_strategy"], paper_strategy=r["paper_strategy"],
+                      compare_strategies=compare_strategies,
+                      profit_book_enabled=bool(r["profit_book_enabled"]),
+                      profit_book_partial_pct=r["profit_book_partial_pct"],
+                      profit_book_full_pct=r["profit_book_full_pct"],
+                      entry_tolerance_pct=r["entry_tolerance_pct"],
+                      stop_tolerance_pct=r["stop_tolerance_pct"],
+                      target_shave_pct=r["target_shave_pct"],
+                      arm_exit_enabled=bool(r["arm_exit_enabled"]),
+                      arm_exit_band_pct=r["arm_exit_band_pct"],
+                      exit_mode=r["exit_mode"])
 
     def update_config(self, **fields) -> Config:
         for key in fields:
             if key not in _CONFIG_FIELDS:
                 raise StoreError(f"unknown config field: {key}")
+        if "compare_strategies" in fields and isinstance(fields["compare_strategies"], (list, tuple)):
+            fields["compare_strategies"] = ",".join(fields["compare_strategies"])
         if fields:
             sets = ", ".join(f"{k} = ?" for k in fields)
             values = [int(v) if isinstance(v, bool) else v for v in fields.values()]
@@ -307,10 +492,10 @@ class Store:
             self._conn.commit()
         return self.get_config()
 
-    def start_run(self, mode: str) -> int:
+    def start_run(self, mode: str, strategy_id: str = DEFAULT_STRATEGY_ID) -> int:
         cur = self._conn.execute(
-            "INSERT INTO job_runs (started_at, status, mode) VALUES (?, 'RUNNING', ?)",
-            (_utc_now(), mode))
+            "INSERT INTO job_runs (started_at, status, mode, strategy_id) "
+            "VALUES (?, 'RUNNING', ?, ?)", (_utc_now(), mode, strategy_id))
         self._conn.commit()
         return cur.lastrowid
 
@@ -346,24 +531,36 @@ class Store:
             closed_at=r["closed_at"], trigger_kind=r["trigger_kind"],
             entry_quality=r["entry_quality"], booked_pnl=r["booked_pnl"] or 0.0,
             partial_booked=bool(r["partial_booked"]),
-            reverse_signal_count=r["reverse_signal_count"] or 0)
+            reverse_signal_count=r["reverse_signal_count"] or 0,
+            armed_partial_order_id=r["armed_partial_order_id"],
+            armed_full_order_id=r["armed_full_order_id"],
+            armed_partial_price=r["armed_partial_price"],
+            armed_full_price=r["armed_full_price"],
+            broker_stop_order_id=r["broker_stop_order_id"],
+            broker_stop_price=r["broker_stop_price"],
+            broker_target_order_id=r["broker_target_order_id"],
+            broker_target_price=r["broker_target_price"],
+            force_bracket=bool(r["force_bracket"]),
+            strategy_id=(r["strategy_id"] if "strategy_id" in r.keys() else DEFAULT_STRATEGY_ID))
 
     def open_position(self, symbol: str, exchange: str, side: str, quantity: int,
                       entry_price: float, target_price: float | None = None,
                       stop_loss: float | None = None, entry_order_id: str | None = None,
                       oco_order_id: str | None = None, mode: str = "paper",
                       status: str = "OPEN", trigger_kind: str | None = None,
-                      entry_quality: float | None = None) -> int:
+                      entry_quality: float | None = None,
+                      strategy_id: str = DEFAULT_STRATEGY_ID) -> int:
         """Create a position. status='OPEN' fills immediately (market entry); status='PENDING'
         is a resting order that occupies a slot + capital but is not yet in the market — a later
         cycle activates it (fill) or cancels it (see activate_position/cancel_position)."""
         cur = self._conn.execute(
             "INSERT INTO positions (symbol, exchange, side, quantity, entry_price, "
             "target_price, stop_loss, status, entry_order_id, oco_order_id, mode, opened_at, "
-            "trigger_kind, entry_quality) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "trigger_kind, entry_quality, strategy_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (symbol, exchange, side, quantity, entry_price, target_price, stop_loss,
              status, entry_order_id, oco_order_id, mode, _utc_now(), trigger_kind,
-             entry_quality))
+             entry_quality, strategy_id))
         self._conn.commit()
         return cur.lastrowid
 
@@ -434,6 +631,17 @@ class Store:
             (count, position_id))
         self._conn.commit()
 
+    def set_bracket_leg(self, position_id: int, which: str, order_id: str | None,
+                        price: float | None = None) -> None:
+        """Record (order_id + price) or clear (both None) a broker bracket leg on an OPEN position.
+        which is 'stop' or 'target'. Cleared on fill/cancel so the next cycle can (re)place it."""
+        id_col, px_col = {"stop": ("broker_stop_order_id", "broker_stop_price"),
+                          "target": ("broker_target_order_id", "broker_target_price")}[which]
+        self._conn.execute(
+            f"UPDATE positions SET {id_col} = ?, {px_col} = ? WHERE id = ? AND status = 'OPEN'",
+            (order_id, price, position_id))
+        self._conn.commit()
+
     def update_pending_order(self, position_id: int, entry_price: float,
                              stop_loss: float | None, target_price: float | None,
                              quantity: int, entry_order_id: str | None) -> None:
@@ -472,6 +680,27 @@ class Store:
                            (quantity, position_id))
         self._conn.commit()
 
+    def update_position_size(self, position_id: int, quantity: int, entry_price: float) -> None:
+        """Sync an OPEN position's size AND blended cost basis to broker reality (a manual ADD
+        detected by reconcile). entry_price is the broker's reported average — the true cost
+        basis — so booked P&L stays honest. Protective levels are deliberately untouched: the
+        ratchet rule in the orchestrator owns them."""
+        cur = self._conn.execute(
+            "UPDATE positions SET quantity = ?, entry_price = ? WHERE id = ? AND status = 'OPEN'",
+            (quantity, entry_price, position_id))
+        self._conn.commit()
+        if cur.rowcount == 0:
+            raise StoreError(f"unknown open position id (or not open): {position_id}")
+
+    def set_force_bracket(self, position_id: int) -> None:
+        """Pin an OPEN position to eager bracket management regardless of the global exit_mode.
+        Set when reconcile takes over a user's own resting exit order — cancelling their stop
+        while exit_mode is 'db_only' would otherwise leave the position barer than before."""
+        self._conn.execute(
+            "UPDATE positions SET force_bracket = 1 WHERE id = ? AND status = 'OPEN'",
+            (position_id,))
+        self._conn.commit()
+
     def close_position(self, position_id: int, exit_price: float, exit_reason: str,
                        realized_pnl: float) -> None:
         """Close an OPEN position. `realized_pnl` is the P&L of the FINAL slice (the remaining
@@ -493,38 +722,42 @@ class Store:
             raise StoreError(f"unknown position id: {position_id}")
         return self._row_to_position(r)
 
-    def get_open_positions(self) -> list["Position"]:
+    def get_open_positions(self, strategy_id: str = DEFAULT_STRATEGY_ID) -> list["Position"]:
         rows = self._conn.execute(
-            "SELECT * FROM positions WHERE status = 'OPEN' ORDER BY id").fetchall()
+            "SELECT * FROM positions WHERE status = 'OPEN' AND strategy_id = ? ORDER BY id",
+            (strategy_id,)).fetchall()
         return [self._row_to_position(r) for r in rows]
 
-    def get_pending_positions(self) -> list["Position"]:
+    def get_pending_positions(self, strategy_id: str = DEFAULT_STRATEGY_ID) -> list["Position"]:
         rows = self._conn.execute(
-            "SELECT * FROM positions WHERE status = 'PENDING' ORDER BY id").fetchall()
+            "SELECT * FROM positions WHERE status = 'PENDING' AND strategy_id = ? ORDER BY id",
+            (strategy_id,)).fetchall()
         return [self._row_to_position(r) for r in rows]
 
-    def count_open_positions(self) -> int:
+    def count_open_positions(self, strategy_id: str = DEFAULT_STRATEGY_ID) -> int:
         return self._conn.execute(
-            "SELECT COUNT(*) AS n FROM positions WHERE status = 'OPEN'").fetchone()["n"]
+            "SELECT COUNT(*) AS n FROM positions WHERE status = 'OPEN' AND strategy_id = ?",
+            (strategy_id,)).fetchone()["n"]
 
-    def deployed_capital(self) -> float:
+    def deployed_capital(self, strategy_id: str = DEFAULT_STRATEGY_ID) -> float:
         r = self._conn.execute(
             "SELECT COALESCE(SUM(quantity * entry_price), 0) AS c "
-            "FROM positions WHERE status = 'OPEN'").fetchone()
+            "FROM positions WHERE status = 'OPEN' AND strategy_id = ?", (strategy_id,)).fetchone()
         return float(r["c"])
 
-    def count_committed_positions(self) -> int:
+    def count_committed_positions(self, strategy_id: str = DEFAULT_STRATEGY_ID) -> int:
         """OPEN + PENDING — every slot currently spoken for (a resting order reserves a slot)."""
         return self._conn.execute(
-            "SELECT COUNT(*) AS n FROM positions WHERE status IN ('OPEN', 'PENDING')"
-        ).fetchone()["n"]
+            "SELECT COUNT(*) AS n FROM positions WHERE status IN ('OPEN', 'PENDING') "
+            "AND strategy_id = ?", (strategy_id,)).fetchone()["n"]
 
-    def committed_capital(self) -> float:
+    def committed_capital(self, strategy_id: str = DEFAULT_STRATEGY_ID) -> float:
         """Capital tied up in OPEN + PENDING positions — reserved so resting orders can't
         over-commit the pool."""
         r = self._conn.execute(
             "SELECT COALESCE(SUM(quantity * entry_price), 0) AS c "
-            "FROM positions WHERE status IN ('OPEN', 'PENDING')").fetchone()
+            "FROM positions WHERE status IN ('OPEN', 'PENDING') AND strategy_id = ?",
+            (strategy_id,)).fetchone()
         return float(r["c"])
 
     @staticmethod
@@ -539,14 +772,15 @@ class Store:
                         score: float | None = None, reason: str | None = None,
                         entry_price: float | None = None, target_price: float | None = None,
                         stop_loss: float | None = None, position_id: int | None = None,
-                        raw_json: str | None = None) -> int:
+                        raw_json: str | None = None,
+                        strategy_id: str = DEFAULT_STRATEGY_ID) -> int:
         try:
             cur = self._conn.execute(
                 "INSERT INTO decisions (run_id, symbol, action, score, reason, entry_price, "
-                "target_price, stop_loss, position_id, created_at, raw_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "target_price, stop_loss, position_id, created_at, raw_json, strategy_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (run_id, symbol, action, score, reason, entry_price, target_price,
-                 stop_loss, position_id, _utc_now(), raw_json))
+                 stop_loss, position_id, _utc_now(), raw_json, strategy_id))
             self._conn.commit()
         except sqlite3.IntegrityError as e:
             raise StoreError(f"foreign key / integrity error recording decision: {e}") from e
@@ -569,14 +803,15 @@ class Store:
     def record_order(self, broker_order_id: str, symbol: str, transaction_type: str,
                      quantity: int, order_type: str, price: float | None = None,
                      status: str = "PENDING", mode: str = "paper",
-                     position_id: int | None = None, raw_json: str | None = None) -> int:
+                     position_id: int | None = None, raw_json: str | None = None,
+                     strategy_id: str = DEFAULT_STRATEGY_ID) -> int:
         try:
             cur = self._conn.execute(
                 "INSERT INTO orders (broker_order_id, position_id, symbol, transaction_type, "
-                "quantity, order_type, price, status, mode, placed_at, raw_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "quantity, order_type, price, status, mode, placed_at, raw_json, strategy_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (broker_order_id, position_id, symbol, transaction_type, quantity,
-                 order_type, price, status, mode, _utc_now(), raw_json))
+                 order_type, price, status, mode, _utc_now(), raw_json, strategy_id))
             self._conn.commit()
         except sqlite3.IntegrityError as e:
             raise StoreError(f"foreign key / integrity error recording order: {e}") from e
@@ -607,59 +842,102 @@ class Store:
                       status=r["status"], mode=r["mode"], num_candidates=r["num_candidates"],
                       num_actions=r["num_actions"], error=r["error"], summary=r["summary"])
 
-    def get_recent_runs(self, limit: int = 20) -> list["JobRun"]:
+    def get_recent_runs(self, limit: int = 20,
+                        strategy_id: str | None = None) -> list["JobRun"]:
+        where, args = _sid_where(strategy_id)
         rows = self._conn.execute(
-            "SELECT * FROM job_runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            f"SELECT * FROM job_runs {where} ORDER BY id DESC LIMIT ?", (*args, limit)).fetchall()
         return [self._row_to_run(r) for r in rows]
 
-    def get_recent_decisions(self, limit: int = 50) -> list["Decision"]:
+    def get_recent_decisions(self, limit: int = 50,
+                             strategy_id: str | None = None) -> list["Decision"]:
+        where, args = _sid_where(strategy_id)
         rows = self._conn.execute(
-            "SELECT * FROM decisions ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            f"SELECT * FROM decisions {where} ORDER BY id DESC LIMIT ?", (*args, limit)).fetchall()
         return [self._row_to_decision(r) for r in rows]
 
-    def get_recent_positions(self, limit: int = 50) -> list["Position"]:
+    def get_recent_positions(self, limit: int = 50,
+                             strategy_id: str | None = None) -> list["Position"]:
+        where, args = _sid_where(strategy_id)
         rows = self._conn.execute(
-            "SELECT * FROM positions ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            f"SELECT * FROM positions {where} ORDER BY id DESC LIMIT ?", (*args, limit)).fetchall()
         return [self._row_to_position(r) for r in rows]
 
-    def realized_pnl_total(self) -> float:
-        r = self._conn.execute(
-            "SELECT COALESCE(SUM(realized_pnl), 0) AS p FROM positions "
-            "WHERE status = 'CLOSED'").fetchone()
-        return float(r["p"])
-
-    def realized_pnl_since(self, iso_date: str) -> float:
-        r = self._conn.execute(
-            "SELECT COALESCE(SUM(realized_pnl), 0) AS p FROM positions "
-            "WHERE status = 'CLOSED' AND closed_at >= ?", (iso_date,)).fetchone()
-        return float(r["p"])
-
-    def get_runs_between(self, start_iso: str, end_iso: str, limit: int = 100) -> list["JobRun"]:
+    def strategy_ids_present(self) -> list[str]:
+        """Distinct strategy_ids that actually have positions — lets the dashboard show a strategy
+        selector only when more than one strategy has traded (so single-strategy stays unchanged)."""
         rows = self._conn.execute(
-            "SELECT * FROM job_runs WHERE started_at >= ? AND started_at < ? "
-            "ORDER BY id DESC LIMIT ?", (start_iso, end_iso, limit)).fetchall()
-        return [self._row_to_run(r) for r in rows]
+            "SELECT DISTINCT strategy_id FROM positions ORDER BY strategy_id").fetchall()
+        return [r["strategy_id"] for r in rows]
 
-    def get_decisions_between(self, start_iso: str, end_iso: str,
-                              limit: int = 200) -> list["Decision"]:
+    def positions_for_strategy(self, strategy_id: str, status: str | None = None,
+                               limit: int | None = None) -> list["Position"]:
+        """All of one strategy's positions, optionally filtered by status, oldest first (so a
+        closed list forms a natural equity curve). Used by the compare analytics."""
+        sql = "SELECT * FROM positions WHERE strategy_id = ?"
+        args: list = [strategy_id]
+        if status is not None:
+            sql += " AND status = ?"
+            args.append(status)
+        sql += " ORDER BY id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            args.append(limit)
+        return [self._row_to_position(r) for r in self._conn.execute(sql, args).fetchall()]
+
+    def decisions_for_strategy(self, strategy_id: str, limit: int = 300) -> list["Decision"]:
         rows = self._conn.execute(
-            "SELECT * FROM decisions WHERE created_at >= ? AND created_at < ? "
-            "ORDER BY id DESC LIMIT ?", (start_iso, end_iso, limit)).fetchall()
+            "SELECT * FROM decisions WHERE strategy_id = ? ORDER BY id DESC LIMIT ?",
+            (strategy_id, limit)).fetchall()
         return [self._row_to_decision(r) for r in rows]
 
-    def get_closed_positions_between(self, start_iso: str, end_iso: str,
-                                     limit: int = 100) -> list["Position"]:
+    def realized_pnl_total(self, strategy_id: str | None = None) -> float:
+        sid, a = _sid_and(strategy_id)
+        r = self._conn.execute(
+            "SELECT COALESCE(SUM(realized_pnl), 0) AS p FROM positions "
+            "WHERE status = 'CLOSED'" + sid, a).fetchone()
+        return float(r["p"])
+
+    def realized_pnl_since(self, iso_date: str,
+                           strategy_id: str = DEFAULT_STRATEGY_ID) -> float:
+        r = self._conn.execute(
+            "SELECT COALESCE(SUM(realized_pnl), 0) AS p FROM positions "
+            "WHERE status = 'CLOSED' AND closed_at >= ? AND strategy_id = ?",
+            (iso_date, strategy_id)).fetchone()
+        return float(r["p"])
+
+    def get_runs_between(self, start_iso: str, end_iso: str, limit: int = 100,
+                         strategy_id: str | None = None) -> list["JobRun"]:
+        sid, a = _sid_and(strategy_id)
+        rows = self._conn.execute(
+            "SELECT * FROM job_runs WHERE started_at >= ? AND started_at < ?" + sid +
+            " ORDER BY id DESC LIMIT ?", (start_iso, end_iso, *a, limit)).fetchall()
+        return [self._row_to_run(r) for r in rows]
+
+    def get_decisions_between(self, start_iso: str, end_iso: str, limit: int = 200,
+                              strategy_id: str | None = None) -> list["Decision"]:
+        sid, a = _sid_and(strategy_id)
+        rows = self._conn.execute(
+            "SELECT * FROM decisions WHERE created_at >= ? AND created_at < ?" + sid +
+            " ORDER BY id DESC LIMIT ?", (start_iso, end_iso, *a, limit)).fetchall()
+        return [self._row_to_decision(r) for r in rows]
+
+    def get_closed_positions_between(self, start_iso: str, end_iso: str, limit: int = 100,
+                                     strategy_id: str | None = None) -> list["Position"]:
+        sid, a = _sid_and(strategy_id)
         rows = self._conn.execute(
             "SELECT * FROM positions WHERE status = 'CLOSED' AND closed_at >= ? "
-            "AND closed_at < ? ORDER BY id DESC LIMIT ?",
-            (start_iso, end_iso, limit)).fetchall()
+            "AND closed_at < ?" + sid + " ORDER BY id DESC LIMIT ?",
+            (start_iso, end_iso, *a, limit)).fetchall()
         return [self._row_to_position(r) for r in rows]
 
-    def realized_pnl_between(self, start_iso: str, end_iso: str) -> float:
+    def realized_pnl_between(self, start_iso: str, end_iso: str,
+                             strategy_id: str | None = None) -> float:
+        sid, a = _sid_and(strategy_id)
         r = self._conn.execute(
             "SELECT COALESCE(SUM(realized_pnl), 0) AS p FROM positions "
-            "WHERE status = 'CLOSED' AND closed_at >= ? AND closed_at < ?",
-            (start_iso, end_iso)).fetchone()
+            "WHERE status = 'CLOSED' AND closed_at >= ? AND closed_at < ?" + sid,
+            (start_iso, end_iso, *a)).fetchone()
         return float(r["p"])
 
     def activity_summary(self, start_iso: str, end_iso: str) -> dict:
@@ -699,11 +977,14 @@ class Store:
         return ("", ())
 
     def performance_summary(self, start_iso: str | None = None,
-                            end_iso: str | None = None) -> dict:
+                            end_iso: str | None = None,
+                            strategy_id: str | None = None) -> dict:
         """Aggregate stats over CLOSED positions: the numbers that say whether the strategy
         works (win rate, average win/loss, expectancy per trade). All-time by default; pass a
         closed_at window for a single day."""
         clause, params = self._closed_window(start_iso, end_iso)
+        sid, a = _sid_and(strategy_id)
+        clause, params = clause + sid, params + tuple(a)
         r = self._conn.execute(
             "SELECT COUNT(*) AS n, "
             "       COALESCE(SUM(realized_pnl > 0), 0) AS wins, "
@@ -721,8 +1002,11 @@ class Store:
                 "expectancy_per_trade": expectancy, "total_pnl": round(float(r["total"]), 2)}
 
     def exit_reason_breakdown(self, start_iso: str | None = None,
-                              end_iso: str | None = None) -> list[dict]:
+                              end_iso: str | None = None,
+                              strategy_id: str | None = None) -> list[dict]:
         clause, params = self._closed_window(start_iso, end_iso)
+        sid, a = _sid_and(strategy_id)
+        clause, params = clause + sid, params + tuple(a)
         rows = self._conn.execute(
             "SELECT exit_reason, COUNT(*) AS n, COALESCE(SUM(realized_pnl), 0) AS pnl "
             "FROM positions WHERE status = 'CLOSED'" + clause +
@@ -886,3 +1170,37 @@ class Store:
 
     def close(self) -> None:
         self._conn.close()
+
+
+# Store methods that are scoped to a single strategy's ledger — ScopedStore injects strategy_id
+# into these (both the inserts that TAG a row and the aggregates/lists that FILTER by it).
+_SCOPED_METHODS = frozenset({
+    "start_run", "record_decision", "record_order", "open_position",
+    "get_open_positions", "get_pending_positions", "count_open_positions",
+    "count_committed_positions", "committed_capital", "deployed_capital", "realized_pnl_since",
+    # dashboard/history readers — scoped so a ScopedStore view shows one strategy's ledger
+    "get_recent_positions", "get_recent_decisions", "get_recent_runs", "realized_pnl_total",
+    "get_runs_between", "get_decisions_between", "get_closed_positions_between",
+    "realized_pnl_between", "performance_summary", "exit_reason_breakdown",
+})
+
+
+class ScopedStore:
+    """A Store view bound to one strategy_id. It injects that id into the strategy-scoped methods
+    (so an Orchestrator's existing `self.store.*` calls operate on one strategy's isolated ledger)
+    and delegates every other method to the underlying Store unchanged. This is how the trading
+    engine stays strategy-agnostic with near-zero churn: hand it a ScopedStore instead of a Store.
+    Two ScopedStores over the same DB with different ids share nothing at the ledger level."""
+
+    def __init__(self, store: Store, strategy_id: str = DEFAULT_STRATEGY_ID):
+        self._store = store
+        self.strategy_id = strategy_id
+
+    def __getattr__(self, name):
+        attr = getattr(self._store, name)
+        if name in _SCOPED_METHODS and callable(attr):
+            def scoped(*args, **kwargs):
+                kwargs.setdefault("strategy_id", self.strategy_id)
+                return attr(*args, **kwargs)
+            return scoped
+        return attr

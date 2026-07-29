@@ -620,3 +620,33 @@ def test_replace_and_get_holdings():
     # replacing swaps the snapshot entirely
     store.replace_holdings([{"symbol": "C", "quantity": 1, "avg_price": 50.0}])
     assert [h["symbol"] for h in store.get_holdings()] == ["C"]
+
+
+def test_update_position_size_syncs_qty_and_blended_entry():
+    store = Store(":memory:")
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    store.update_position_size(pid, 25, 102.4)
+    p = store.get_position(pid)
+    assert p.quantity == 25
+    assert p.entry_price == pytest.approx(102.4)
+    assert p.stop_loss == 95.0          # levels untouched — the ratchet rule owns them
+
+
+def test_update_position_size_rejects_closed_position():
+    store = Store(":memory:")
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, mode="live")
+    store.close_position(pid, exit_price=101.0, exit_reason="TARGET", realized_pnl=10.0)
+    with pytest.raises(StoreError):
+        store.update_position_size(pid, 25, 102.4)
+
+
+def test_force_bracket_defaults_false_and_is_settable():
+    store = Store(":memory:")
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, mode="live")
+    assert store.get_position(pid).force_bracket is False
+    store.set_force_bracket(pid)
+    assert store.get_position(pid).force_bracket is True
