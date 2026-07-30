@@ -21,13 +21,6 @@ _GATEWAY_TOKEN = os.environ.get("GROWW_GATEWAY_TOKEN", "").strip()
 _client_lock = threading.Lock()
 _client: Optional[GrowwClient] = None
 
-# Markers of a token Groww REJECTED mid-day (expired/invalid) — as opposed to a rate-limit or a
-# transient data error. On these we drop the cached token + client so the next request mints a
-# fresh token. A rate-limit must NEVER match here: the token is still valid, and re-minting would
-# make the limit worse (the cooldown in the client handles rate-limits instead).
-_TOKEN_INVALID_MARKERS = ("unauthorized", "invalid token", "access token", "token expired",
-                          "session expired", "401")
-
 
 def _require_gateway_token(authorization: Optional[str] = Header(default=None)) -> None:
     if not _GATEWAY_TOKEN:
@@ -70,8 +63,7 @@ async def _groww_error_handler(_request: Request, exc: GrowwClientError) -> JSON
     of an opaque 500. The transport reads {"detail": ...} from the body, so cancel/margin/ltp
     failures now surface their actual cause to the client and the orchestrator's logs."""
     msg = str(exc)
-    low = msg.lower()
-    if "rate limit" not in low and any(marker in low for marker in _TOKEN_INVALID_MARKERS):
+    if groww_client.is_token_invalid_error(msg):    # Groww rejected the token (not a rate-limit)
         groww_client._clear_cached_token()          # stale token -> mint a fresh one next request
         global _client
         with _client_lock:
