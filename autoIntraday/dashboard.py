@@ -21,8 +21,8 @@ import streamlit as st
 from dashboard_data import (activity_log, closed_positions_for_day, decisions_for_day,
                             header_view, pending_view, pnl_summary, positions_view,
                             realized_for_day, runs_for_day)
-from schedule_manager import (ScheduleError, apply_schedule, next_fire, next_primer_fire,
-                              primer_time, read_schedule)
+from schedule_manager import (ScheduleError, apply_schedule, bar_close_aligned, next_fire,
+                              next_primer_fire, primer_time, read_schedule)
 from settings import load_settings
 from store import Store
 from trading_calendar import IST
@@ -638,10 +638,24 @@ def _settings_dialog() -> None:
             except Exception:
                 primer_default = dtime(7, 30)
             s1, s2, s3 = st.columns(3)
-            first = s1.time_input("First cycle", value=dtime(*sched["start"]), step=300)
-            last = s2.time_input("Last cycle", value=dtime(*sched["last"]), step=300)
+            # step=60 (not 300): the bar-close-aligned fires land on :01/:16/:31/:46, which a
+            # 5-minute picker cannot express.
+            first = s1.time_input("First cycle", value=dtime(*sched["start"]), step=60,
+                                  help="Best at one minute past a 15m bar close — 09:31 or 09:36.")
+            last = s2.time_input("Last cycle", value=dtime(*sched["last"]), step=60)
             interval = s3.number_input("Every (min)", min_value=5, max_value=120,
                                        value=int(sched["interval_min"]) or 20, step=5)
+            if bar_close_aligned((first.hour, first.minute), (last.hour, last.minute),
+                                 int(interval)):
+                st.caption("✅ Bar-close aligned — every cycle fires 1 min after a 15m candle "
+                           "closes, so the engine never races the data feed.")
+            else:
+                st.warning(
+                    "⚠️ Not bar-close aligned. The engine decides on COMPLETED 15m candles "
+                    "(Yahoo buckets NSE from 09:15, so they close at 09:30 / 09:45 / 10:00 …). "
+                    "Firing on the close itself can read a bar the feed hasn't finished writing "
+                    "— stale price, understated volume/RVOL. Pick a first cycle whose minute is "
+                    "one past a close (09:31, 09:36 …) with an interval that divides 15.")
             primer_in = st.time_input("Claude primer time (IST)", value=primer_default, step=300,
                                       help="Throwaway Claude call that starts the 5-hour usage "
                                            "window early so it resets during trading. Default 07:30.")

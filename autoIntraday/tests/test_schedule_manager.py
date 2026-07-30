@@ -70,8 +70,14 @@ def test_validate_bounds():
     assert validate((9, 45), (12, 45), 3) is not None        # interval too small
     assert validate((9, 45), (12, 45), 180) is not None      # interval too big
     assert validate((9, 0), (12, 45), 20) is not None        # before 09:15
-    assert validate((9, 45), (15, 30), 20) is not None       # after 15:00
+    assert validate((9, 45), (15, 30), 20) is not None       # after the last-cycle cap
     assert validate((12, 45), (9, 45), 20) is not None       # start > last
+
+
+def test_validate_allows_the_bar_close_aligned_last_cycle():
+    # 15:01 is the bar-close+1 fire nearest the old 15:00 cap — it must be selectable.
+    assert validate((9, 36), (15, 1), 5) is None
+    assert validate((9, 36), (15, 6), 5) is not None         # past the cap
 
 
 def test_apply_schedule_rewrites_only_calendar(tmp_path):
@@ -122,7 +128,28 @@ def test_apply_schedule_bootstrap_failure_raises(tmp_path):
 
 
 from schedule_manager import (PRIMER_OFFSET_MIN, primer_time, build_primer_entries,
-                              next_primer_fire, apply_primer_schedule)
+                              next_primer_fire, apply_primer_schedule,
+                              BAR_MINUTES, SETTLE_MIN, bar_close_aligned, bar_close_fires)
+
+
+def test_bar_close_fires_are_one_minute_after_each_15m_close():
+    # Yahoo buckets NSE intraday from 09:15, so 15m bars close at 09:30/09:45/10:00...
+    assert BAR_MINUTES == 15 and SETTLE_MIN == 1
+    assert bar_close_fires((9, 36), (10, 20)) == [(9, 46), (10, 1), (10, 16)]
+    # closes before `start` are not wanted — the 09:31 fire is outside the window
+    assert (9, 31) not in bar_close_fires((9, 36), (10, 20))
+
+
+def test_bar_close_aligned_accepts_the_offset_grid():
+    assert bar_close_aligned((9, 36), (15, 1), 5) is True    # :36,:41,:46... covers every close+1
+    assert bar_close_aligned((9, 31), (15, 1), 5) is True    # same residue, one fire earlier
+    assert bar_close_aligned((9, 31), (15, 1), 15) is True   # one fire per bar, exactly on close+1
+
+
+def test_bar_close_aligned_rejects_grids_that_miss_the_close():
+    assert bar_close_aligned((9, 30), (15, 0), 5) is False   # fires land ON the close — the race
+    assert bar_close_aligned((9, 32), (15, 2), 5) is False   # :32/:37/:42 never hits :31/:46/:01
+    assert bar_close_aligned((9, 31), (15, 1), 20) is False  # 20 min doesn't divide the 15m grid
 
 
 def test_primer_time_is_two_hours_before_start():

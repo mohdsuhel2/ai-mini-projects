@@ -20,23 +20,64 @@ SQUAREOFF = (15, 18)          # always scheduled, not editable from the UI
 WEEKDAYS = (1, 2, 3, 4, 5)    # launchd: 1=Mon .. 5=Fri
 PRIMER_OFFSET_MIN = 120       # the Claude-window primer fires this long before the first cycle
 
+# --- Bar-close alignment -----------------------------------------------------------------
+# The decision engine runs on 15m bars and DROPS the still-forming candle, so a cycle only sees
+# new information once a 15m bar has closed. Yahoo buckets NSE intraday from the 09:15 open, so
+# bars close at 09:30 / 09:45 / 10:00 ... Firing exactly ON a close races the provider: the bucket
+# may not be published yet (the cycle then decides on a bar up to 15 min stale) or may still be
+# settling its last prints and volume (understated RVOL). Fire SETTLE_MIN after the close instead.
+SESSION_OPEN = (9, 15)
+BAR_MINUTES = 15
+SETTLE_MIN = 1
+LAST_CYCLE_MAX = (15, 5)      # leaves room before Groww's auto square-off; admits the 15:01 fire
+
 
 class ScheduleError(Exception):
     """Schedule read/validation/apply failed — message is user-presentable."""
+
+
+def _mins(hm: tuple[int, int]) -> int:
+    return hm[0] * 60 + hm[1]
+
+
+def _grid(start: tuple[int, int], last: tuple[int, int],
+          interval_min: int) -> list[tuple[int, int]]:
+    times = []
+    t, last_min = _mins(start), _mins(last)
+    while t <= last_min:
+        times.append((t // 60, t % 60))
+        t += interval_min
+    return times
+
+
+def bar_close_fires(start: tuple[int, int], last: tuple[int, int]) -> list[tuple[int, int]]:
+    """The fire times that sit SETTLE_MIN after each 15m bar close, inside [start, last]."""
+    lo, hi = _mins(start), _mins(last)
+    out = []
+    close = _mins(SESSION_OPEN) + BAR_MINUTES
+    while close + SETTLE_MIN <= hi:
+        t = close + SETTLE_MIN
+        if t >= lo:
+            out.append((t // 60, t % 60))
+        close += BAR_MINUTES
+    return out
+
+
+def bar_close_aligned(start: tuple[int, int], last: tuple[int, int],
+                      interval_min: int) -> bool:
+    """True when every 15m bar close in the window is followed by a cycle SETTLE_MIN later, so no
+    closed bar goes un-decided and no cycle races the provider's aggregation."""
+    fires = set(_grid(start, last, interval_min))
+    wanted = bar_close_fires(start, last)
+    return bool(wanted) and all(w in fires for w in wanted)
 
 
 def build_entries(start: tuple[int, int], last: tuple[int, int],
                   interval_min: int) -> list[dict]:
     # No dedicated end-of-day square-off fire — Groww auto-squares MIS intraday positions near
     # close, so the bot just runs regular cycles and leaves any leftover to the broker.
-    times = []
-    t = start[0] * 60 + start[1]
-    last_min = last[0] * 60 + last[1]
-    while t <= last_min:
-        times.append((t // 60, t % 60))
-        t += interval_min
     return [{"Weekday": wd, "Hour": h, "Minute": m}
-            for wd in WEEKDAYS for h, m in times]
+            for wd in WEEKDAYS for h, m in _grid(start, last, interval_min)]
 
 
 def _regular_times(entries: list[dict]) -> list[tuple[int, int]]:
@@ -95,10 +136,12 @@ def validate(start: tuple[int, int], last: tuple[int, int],
              interval_min: int) -> Optional[str]:
     if not 5 <= interval_min <= 120:
         return "interval must be between 5 and 120 minutes"
-    if start < (9, 15):
+    if start < SESSION_OPEN:
         return "first cycle cannot be before 09:15 (market open)"
-    if last > (15, 0):
-        return "last regular cycle cannot be after 15:00 (leave room before Groww's auto square-off)"
+    if last > LAST_CYCLE_MAX:
+        return (f"last regular cycle cannot be after "
+                f"{LAST_CYCLE_MAX[0]:02d}:{LAST_CYCLE_MAX[1]:02d} "
+                "(leave room before Groww's auto square-off)")
     if (start[0] * 60 + start[1]) > (last[0] * 60 + last[1]):
         return "first cycle must be before the last cycle"
     return None
