@@ -105,6 +105,33 @@ def _clear_cached_token() -> None:
             log.warning("could not remove token cache %s", path, exc_info=True)
 
 
+# Substrings (lower-cased) of a broker error that mean Groww REJECTED the access token — it is
+# expired or invalid — so the cached token must be dropped and a fresh one minted. A RATE-LIMIT
+# must NEVER match: the token is still valid and re-minting only makes the limit worse (the auth
+# cooldown handles rate-limits instead). Kept in sync with the phrasings Groww's API actually
+# returns — e.g. "Authentication failed. Your API token has either expired or is invalid." The
+# gateway's self-heal missed exactly that message before, so a stale token stuck all session
+# (2026-07-30 post-mortem).
+_TOKEN_INVALID_MARKERS = (
+    "authentication failed",          # Groww's actual auth-rejection prefix
+    "expired or is invalid",          # "... token has either expired or is invalid"
+    "token expired", "token has expired", "session expired",
+    "invalid token", "invalid access token", "access token",
+    "unauthorized", "401",
+)
+
+
+def is_token_invalid_error(msg: str) -> bool:
+    """True when a broker error means Groww rejected the ACCESS TOKEN (expired/invalid), so it
+    must be dropped and re-minted — but never for a rate-limit (the token is still valid; the auth
+    cooldown handles that). Central so the gateway self-heal and any client-side reauth agree on
+    what counts as a token rejection."""
+    low = (msg or "").lower()
+    if "rate limit" in low:
+        return False
+    return any(marker in low for marker in _TOKEN_INVALID_MARKERS)
+
+
 def _prefer_ipv4() -> None:
     """Force outbound connections to use IPv4, so Groww sees the whitelisted static IPv4 rather
     than the VPS's IPv6 egress. Groww's API is behind Cloudflare (dual-stack); on a dual-stack VPS

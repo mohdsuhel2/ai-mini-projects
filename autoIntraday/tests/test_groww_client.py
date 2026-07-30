@@ -594,3 +594,31 @@ def test_prefer_ipv4_can_be_disabled(monkeypatch):
     before = socket.getaddrinfo
     gc._prefer_ipv4()
     assert socket.getaddrinfo is before              # no patch applied when disabled
+
+
+# --- token-rejection detection (gateway self-heal) -------------------------------------------
+
+def test_is_token_invalid_error_matches_real_groww_messages():
+    from groww_client import is_token_invalid_error
+    # the exact message Groww returned on 2026-07-30 that the gateway used to MISS
+    raw = "Authentication failed. Your API token has either expired or is invalid."
+    assert is_token_invalid_error(raw)
+    # wrapped by the client's read-retry and by a write failure -> still detected
+    assert is_token_invalid_error(f"failed after 3 attempts: {raw}")
+    assert is_token_invalid_error(f"order placement failed: {raw}")
+    # other genuine token-rejection phrasings
+    assert is_token_invalid_error("401 Unauthorized")
+    assert is_token_invalid_error("Session expired, please log in again")
+    assert is_token_invalid_error("Invalid access token")
+
+
+def test_is_token_invalid_error_ignores_rate_limit_and_unrelated():
+    from groww_client import is_token_invalid_error
+    # a rate-limit must NEVER count as a token rejection (token is still valid; re-minting hurts)
+    assert not is_token_invalid_error("Rate limit exceeded, please retry later")
+    assert not is_token_invalid_error("Too many requests — rate limit; authentication failed")
+    # unrelated errors
+    assert not is_token_invalid_error("gateway unreachable")
+    assert not is_token_invalid_error("insufficient funds")
+    assert not is_token_invalid_error("")
+    assert not is_token_invalid_error(None)
