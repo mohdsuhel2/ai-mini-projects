@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-StockAnalayze intraday — 15-minute intraday facts for a FULL-DAY intraday trade (Indian market).
+StockAnalayze intraday v2 — 15-minute intraday facts + INSTITUTIONAL DESK layer (Indian market).
 
-Companion to stock_analyze.py (swing/Yahoo) and stock_analyze_av.py (swing/Alpha Vantage). This
-one fetches INTRADAY 15-min bars and computes the reference points an intraday day-trader actually
-uses to judge "does this go up or down for the rest of today, where's my stop, how much to expect":
-session VWAP, opening range, prior-day levels + floor pivots, gap, RVOL, 15-min RSI/MACD/ATR, and
-time-of-day / session-progress. It only FETCHES + COMPUTES and prints clean JSON — the reasoning
-(UP / DOWN / NO-TRADE, stop, target) lives in the `intraday-analyst` skill.
+This is the ISOLATED engine for the `intraday-analyst-2` skill. It is a byte-for-byte descendant of
+stock_analyze_intraday.py (v1, used by `intraday-analyst`) with one addition: after computing every
+existing indicator, it appends an `institutional_desk` block of DETERMINISTIC computed analytics so
+the v2 skill interprets structured numbers instead of inferring them — market regime, relative
+strength vs NIFTY, sector, a 0-100 trade-quality score + A+/A/B/C/F grade + confidence band,
+time-of-day regime, liquidity, institutional-flow estimate, a suggested ATR/structure stop, position
+size (from --capital / --risk), the failed no-trade filters, and an execution checklist. All existing
+fields are preserved verbatim; the new block is additive. Editing THIS file never touches v1.
+
+Companion to stock_analyze.py (swing/Yahoo) and stock_analyze_av.py (swing/Alpha Vantage). It fetches
+INTRADAY 15-min bars and computes the reference points an intraday day-trader uses: session VWAP,
+opening range, prior-day levels + floor pivots, gap, RVOL, 15-min RSI/MACD/ATR, multi-timeframe trend,
+India-VIX/NIFTY context, and time-of-day / session-progress. It only FETCHES + COMPUTES and prints
+clean JSON — the final decision (BUY/SHORT/WAIT/NO-TRADE, stop, target) lives in `intraday-analyst-2`.
 
 Data source (default `auto`):
   1) Alpha Vantage TIME_SERIES_INTRADAY (1 call; same 25/day free-tier budget + counter as v2).
@@ -781,7 +789,6 @@ def candlestick_pattern(bars: List[OHLCVBar], day_high: Optional[float] = None,
             pattern, direction = "shooting_star", "bearish"
         elif body <= 0.1 * rng:
             pattern, direction = "doji", "neutral"
-    # two-bar engulfing overrides a weak single-bar read
     green, pgreen = c > o, pc > po
     if green and not pgreen and c >= po and o <= pc and body > pbody:
         pattern, direction = "bullish_engulfing", "bullish"
@@ -790,17 +797,14 @@ def candlestick_pattern(bars: List[OHLCVBar], day_high: Optional[float] = None,
 
     if pattern is None:
         return out
-    # location within the day range (a hammer means most at a LOW; a star at a HIGH)
     if day_high is not None and day_low is not None and day_high > day_low:
         pos = (c - day_low) / (day_high - day_low) * 100
         out["location"] = ("near_day_high" if pos >= 70 else
                            "near_day_low" if pos <= 30 else "mid_range")
-    # preceding 3-bar move (context: hammer wants a preceding DROP, star a preceding RISE)
     if len(bars) >= 4:
         ref = bars[-4].close
         out["preceding_3bar"] = ("up" if pc > ref else "down" if pc < ref else "flat")
     out["pattern"], out["direction"] = pattern, direction
-    # is the context confirming? (hammer after a drop / at a low; star after a rise / at a high)
     conf = None
     if direction == "bullish":
         conf = out["preceding_3bar"] == "down" or out["location"] == "near_day_low"
@@ -904,7 +908,6 @@ def build_report(
 
     rev = reversal_watch(struct, rsi, vwap, last, inst)
 
-    # Candlestick reversal patterns on completed bars — 15m (primary) + 5m (from the HTF fetch).
     cndl_15 = candlestick_pattern(today_bars, today_high, today_low)
     cndl_5 = (candlestick_pattern(m5_bars) if m5_bars else {"note": "not_fetched (use full mode)"})
     candlestick = {
@@ -960,6 +963,10 @@ def build_report(
         "volume": {
             "rvol_vs_prior_days": rvol_val,
             "last_bar_volume": today_bars[-1].volume,
+            "today_volume": sum(b.volume for b in today_bars if b.volume) or None,
+            "today_turnover_cr": _round(
+                last * sum(b.volume for b in today_bars if b.volume) / 1e7, 1
+            ) if sum(b.volume for b in today_bars if b.volume) else None,
         },
         "intraday_structure": struct,
         "breakout": brk,
@@ -1077,8 +1084,452 @@ def analyze_intraday(
         return _yahoo(f"AV intraday unavailable ({e}) — fell back to Yahoo intraday")
 
 
+# --------------------------------------------------------------------------------------
+# INSTITUTIONAL DESK LAYER (v2 only) — deterministic analytics over the assembled report.
+# Pure, None-safe post-processing that appends report["institutional_desk"]. Wrapped so a
+# missing field degrades a sub-score, never crashes the JSON. The SKILL still makes the final
+# call and the validated gates OVERRIDE this soft score.
+# --------------------------------------------------------------------------------------
+
+SECTOR_MAP = {  # compact best-effort NSE map; unknown -> classify via sector index in the skill
+    "HDFCBANK": "Bank", "ICICIBANK": "Bank", "SBIN": "Bank", "AXISBANK": "Bank", "KOTAKBANK": "Bank",
+    "INDUSINDBK": "Bank", "BANDHANBNK": "Bank", "CSBBANK": "Bank", "FEDERALBNK": "Bank", "SURYODAY": "Bank",
+    "TCS": "IT", "INFY": "IT", "WIPRO": "IT", "HCLTECH": "IT", "TECHM": "IT", "LTIM": "IT", "OFSS": "IT",
+    "TANLA": "IT", "MPSLTD": "IT", "RAMCOSYS": "IT",
+    "SUNPHARMA": "Pharma", "DRREDDY": "Pharma", "CIPLA": "Pharma", "DIVISLAB": "Pharma", "LUPIN": "Pharma",
+    "THYROCARE": "Pharma", "ACUTAAS": "Pharma", "CUPID": "Healthcare",
+    "MOTILALOFS": "Financials", "NUVAMA": "Financials", "BAJFINANCE": "Financials", "CHOLAFIN": "Financials",
+    "M&MFIN": "Financials", "PFC": "Financials", "RECLTD": "Financials",
+    "HINDUNILVR": "FMCG", "ITC": "FMCG", "NESTLEIND": "FMCG", "BRITANNIA": "FMCG", "DABUR": "FMCG",
+    "UNITDSPR": "FMCG", "WAKEFIT": "FMCG", "BLUESTONE": "FMCG",
+    "MARUTI": "Auto", "TATAMOTORS": "Auto", "EICHERMOT": "Auto", "HEROMOTOCO": "Auto", "ATHERENERG": "Auto",
+    "ORIENTELEC": "Auto", "CIEINDIA": "Auto", "SOTL": "Auto",
+    "RELIANCE": "Energy", "ONGC": "Energy", "IOC": "Energy", "BPCL": "Energy", "HINDPETRO": "Energy",
+    "GAIL": "Energy", "ADANIGREEN": "Energy", "NTPCGREEN": "Energy", "WAAREERTL": "Energy", "MRPL": "Energy",
+    "CHENNPETRO": "Energy", "ATGL": "Energy", "ADANIENSOL": "Energy", "AEGISLOG": "Energy",
+    "TATASTEEL": "Metal", "JSWSTEEL": "Metal", "HINDALCO": "Metal", "VEDL": "Metal", "SAIL": "Metal",
+    "JKPAPER": "Metal", "HEG": "Metal", "GRAPHITE": "Metal",
+    "SRF": "Chemicals", "CHEMPLASTS": "Chemicals", "UFLEX": "Chemicals", "GANDHAR": "Chemicals",
+    "NACLIND": "Chemicals", "HUHTAMAKI": "Chemicals", "SPECTRUM": "Chemicals",
+    "BHARTIARTL": "Telecom", "ROUTE": "Telecom", "TIPSMUSIC": "Media", "PVRINOX": "Media",
+    "SWIGGY": "Consumer-Tech", "ETERNAL": "Consumer-Tech", "MEESHO": "Consumer-Tech",
+    "SHADOWFAX": "Consumer-Tech", "MAPMYINDIA": "Consumer-Tech",
+    "LOTUSDEV": "Realty", "SUNTECK": "Realty", "TARC": "Realty", "ASIANTILES": "Realty",
+    "DATAPATTNS": "Defence", "AZAD": "Defence", "PARAS": "Defence", "THANGAMAYL": "Jewellery",
+}
+
+
+def _num(x: Any) -> Optional[float]:
+    return x if isinstance(x, (int, float)) and not isinstance(x, bool) else None
+
+
+def _side_of(bias: Optional[str]) -> Optional[str]:
+    if bias in ("long", "long-on-pullback"):
+        return "long"
+    if bias in ("short", "short-on-breakdown"):
+        return "short"
+    return None
+
+
+def _tod_regime(hhmm: Optional[str]) -> Dict[str, Any]:
+    try:
+        t = int(hhmm[:2]) * 60 + int(hhmm[3:5])
+    except Exception:
+        return {"window": "unknown", "quality": None, "score": 2}
+    if t < 9 * 60 + 35:
+        return {"window": "opening-volatility 09:15-09:35", "quality": "A+ only", "score": 2}
+    if t < 11 * 60:
+        return {"window": "primary-trend 09:35-11:00", "quality": "prime", "score": 5}
+    if t < 13 * 60:
+        return {"window": "lunch-lull 11:00-13:00", "quality": "avoid unless exceptional", "score": 2}
+    if t < 14 * 60 + 30:
+        return {"window": "trend-continuation 13:00-14:30", "quality": "good", "score": 5}
+    if t < 15 * 60 + 15:
+        return {"window": "momentum-continuation 14:30-15:15", "quality": "momentum only", "score": 3}
+    return {"window": "wind-down >15:15", "quality": "no fresh trades", "score": 0}
+
+
+def _vix_tilt(mkt: Dict[str, Any]) -> Dict[str, Any]:
+    vix = (mkt or {}).get("india_vix") or {}
+    lvl, chg = _num(vix.get("level")), _num(vix.get("change_pct"))
+    if lvl is None:
+        return {"tilt": "unknown", "side": None, "long_size": "full", "note": "VIX not fetched (fast mode?)"}
+    rising = chg is not None and chg > 5
+    if lvl >= 16:
+        return {"tilt": "shorts favored — longs LOSE at VIX 16+", "side": "short", "long_size": "min"}
+    if lvl >= 14 or rising:
+        return {"tilt": "half-size longs, prefer shorts", "side": "short-lean", "long_size": "half"}
+    return {"tilt": "longs primary", "side": "long", "long_size": "full"}
+
+
+def _market_regime(report: Dict[str, Any]) -> Dict[str, Any]:
+    struct = report.get("intraday_structure") or {}
+    inst = report.get("institutional") or {}
+    obias = (report.get("higher_timeframe") or {}).get("overall_bias") or ""
+    mkt = report.get("market_context") or {}
+    vix = mkt.get("india_vix") or {}
+    ors = report.get("opening_range_state") or {}
+    vwapd = _num((report.get("vwap") or {}).get("distance_pct"))
+    adx = _num((inst.get("adx") or {}).get("adx"))
+    bias = struct.get("directional_bias")
+    flags = struct.get("exhaustion_flags") or []
+    s = struct.get("structure", "") or ""
+    rvol = _num((report.get("volume") or {}).get("rvol_vs_prior_days"))
+    gp = _num((report.get("gap") or {}).get("gap_pct"))
+    vixchg, vixreg = _num(vix.get("change_pct")), vix.get("regime")
+
+    if struct.get("blowoff_top") or "climax_reversal" in flags or (s.startswith("uptrend") and flags):
+        reg = "Trend Exhaustion"
+    elif rvol is not None and rvol >= 10:
+        reg = "Event-Driven"
+    elif (vixchg is not None and vixchg > 5) or vixreg in ("elevated", "high"):
+        reg = "Volatility Expansion"
+    elif gp is not None and abs(gp) >= 1 and vwapd is not None and ((gp > 0 and vwapd > 0) or (gp < 0 and vwapd < 0)):
+        reg = "Gap & Trend"
+    elif gp is not None and abs(gp) >= 0.5 and vwapd is not None and ((gp > 0 and vwapd < 0) or (gp < 0 and vwapd > 0)):
+        reg = "Gap Fill"
+    elif adx is not None and adx >= 25 and "bullish" in obias and s.startswith("uptrend"):
+        reg = "Trend Day Up"
+    elif adx is not None and adx >= 25 and "bearish" in obias and s.startswith("downtrend"):
+        reg = "Trend Day Down"
+    elif adx is not None and adx < 20 and (vwapd is None or abs(vwapd) < 0.6):
+        reg = "Range Day"
+    elif adx is not None and adx < 18:
+        reg = "Mean-Reversion Day"
+    else:
+        reg = "Range Day"
+
+    agree = 0
+    if adx is not None and adx >= 25:
+        agree += 1
+    if ("bullish" in obias and s.startswith("uptrend")) or ("bearish" in obias and s.startswith("downtrend")):
+        agree += 1
+    if bias in ("long", "short", "long-on-pullback", "short-on-breakdown"):
+        agree += 1
+    return {"regime": reg, "confidence": "High" if agree >= 3 else "Medium" if agree == 2 else "Low"}
+
+
+def _relative_strength(report: Dict[str, Any]) -> Dict[str, Any]:
+    price = report.get("price") or {}
+    nifty = (report.get("market_context") or {}).get("nifty") or {}
+    last, dopen = _num(price.get("last")), _num(price.get("day_open"))
+    nchg = _num(nifty.get("day_change_pct"))
+    if not last or not dopen:
+        return {"vs_nifty": "unknown", "note": "insufficient data"}
+    schg = (last / dopen - 1) * 100
+    if nchg is None:
+        return {"vs_nifty": "unknown", "stock_day_pct": _round(schg, 2), "note": "NIFTY not fetched"}
+    rs = schg - nchg
+    return {"vs_nifty": "Strong" if rs > 0.5 else "Weak" if rs < -0.5 else "Neutral",
+            "stock_day_pct": _round(schg, 2), "nifty_day_pct": _round(nchg, 2),
+            "outperformance_pct_est": _round(rs, 2), "vs_sector": "est. — WebSearch sector index (Layer 4)"}
+
+
+def _flow_est(report: Dict[str, Any]) -> Dict[str, Any]:
+    struct = report.get("intraday_structure") or {}
+    flags = struct.get("exhaustion_flags") or []
+    s = struct.get("structure", "") or ""
+    bias = struct.get("directional_bias")
+    dist = struct.get("blowoff_top") or "climax_reversal" in flags or "faded_from_high" in flags
+    accu = s.startswith("uptrend") or struct.get("recent_lows") == "rising" or bias in ("long", "long-on-pullback")
+    if dist and not s.startswith("uptrend"):
+        est, sig = "Likely Distribution", [f for f in (["blowoff_top"] if struct.get("blowoff_top") else []) + list(flags)]
+    elif accu and not dist:
+        est, sig = "Likely Accumulation", [x for x in [s, "rising lows" if struct.get("recent_lows") == "rising" else None] if x]
+    else:
+        est, sig = "Neutral", list(flags)
+    return {"estimate": est, "evidence": sig, "note": "est. from tape — not true order-flow data"}
+
+
+def _liquidity(report: Dict[str, Any]) -> Dict[str, Any]:
+    vol = report.get("volume") or {}
+    tv, rv = _num(vol.get("today_turnover_cr")), _num(vol.get("rvol_vs_prior_days"))
+    if tv is None:
+        return {"rating": "unknown", "tradeable": True, "note": "no cumulative volume"}
+    rating = ("High" if tv >= 50 and (rv is None or rv >= 1.0) else "Adequate" if tv >= 10
+              else "Thin" if tv >= 2 else "Illiquid — NO TRADE")
+    return {"rating": rating, "today_turnover_cr": tv, "rvol": rv, "tradeable": rating != "Illiquid — NO TRADE"}
+
+
+def _stop_target_rr(report: Dict[str, Any], side: Optional[str]) -> Dict[str, Any]:
+    price = report.get("price") or {}
+    last = _num(price.get("last"))
+    atr = _num((report.get("indicators") or {}).get("atr14_intraday"))
+    st = (report.get("institutional") or {}).get("supertrend") or {}
+    vw = _num((report.get("vwap") or {}).get("vwap"))
+    pdl = report.get("prior_day_levels") or {}
+    proj = _num((report.get("projection") or {}).get("atr_projected_remaining_move_pts"))
+    dh, dl = _num(price.get("day_high")), _num(price.get("day_low"))
+    if last is None or atr is None or side is None:
+        return {"note": "no directional stop (bias not tradeable)"}
+    stl, stdir = _num(st.get("level")), st.get("direction")
+    if side == "long":
+        cands = [last - 1.2 * atr]
+        if stdir == "up" and stl and stl < last:
+            cands.append(stl)
+        if vw and last > vw:
+            cands.append(vw * 0.998)
+        stop = min(cands)
+        ups = sorted(v for v in [pdl.get("R1"), pdl.get("R2"), pdl.get("PDH"), dh] if _num(v) and v > last)
+        spent = len(ups) <= 1
+        t1 = ups[0] if ups else last + (proj or 2 * atr)
+        t3 = last + (proj or 3 * atr)
+        targets = [_round(t1), _round(min(t1 + atr, t3) if ups else t1), _round(t3)]
+    else:
+        cands = [last + 1.2 * atr]
+        if stdir == "down" and stl and stl > last:
+            cands.append(stl)
+        if vw and last < vw:
+            cands.append(vw * 1.002)
+        stop = max(cands)
+        dns = sorted((v for v in [pdl.get("S1"), pdl.get("S2"), pdl.get("PDL"), dl] if _num(v) and v < last), reverse=True)
+        spent = len(dns) <= 1
+        t1 = dns[0] if dns else last - (proj or 2 * atr)
+        t3 = last - (proj or 3 * atr)
+        targets = [_round(t1), _round(max(t1 - atr, t3) if dns else t1), _round(t3)]
+    # de-dup while preserving order/direction
+    seen, ordered = set(), []
+    for t in targets:
+        if t is not None and t not in seen:
+            seen.add(t)
+            ordered.append(t)
+    risk = abs(last - stop)
+    reward_t1 = abs(ordered[0] - last) if ordered else 0.0
+    reward_final = abs(ordered[-1] - last) if ordered else 0.0  # to the ATR-ceiling T3 (Gate F)
+    rr_t1 = _round(reward_t1 / risk, 2) if risk else None
+    rr_final = _round(reward_final / risk, 2) if risk else None  # best achievable within the cap
+    return {"suggested_stop": _round(stop), "targets": ordered, "risk_per_share": _round(risk),
+            "rr_to_t1_est": rr_t1, "rr_to_final_est": rr_final, "ladder_spent_blue_sky": spent,
+            "note": "ATR/VWAP/SuperTrend structural stop; T3 = ATR-projection ceiling (Gate F). "
+                    "rr_to_final = best achievable R:R to the T3 ceiling; the no-trade filter gates on it."}
+
+
+def _trade_quality(report: Dict[str, Any], side: Optional[str], regime: Dict[str, Any],
+                   rs: Dict[str, Any], stop_rr: Dict[str, Any], tod: Dict[str, Any],
+                   vixtilt: Dict[str, Any]) -> Dict[str, Any]:
+    if side is None:
+        return {"score": 0, "grade": "F", "confidence_band": "Avoid",
+                "note": "directional_bias neutral → WAIT (Gate E)", "breakdown": {}}
+    obias = (report.get("higher_timeframe") or {}).get("overall_bias") or ""
+    vwd = _num((report.get("vwap") or {}).get("distance_pct"))
+    above = (report.get("vwap") or {}).get("above_vwap")
+    rvol = _num((report.get("volume") or {}).get("rvol_vs_prior_days"))
+    struct = report.get("intraday_structure") or {}
+    s = struct.get("structure", "") or ""
+    brk = report.get("breakout") or {}
+    nchg = _num(((report.get("market_context") or {}).get("nifty") or {}).get("day_change_pct"))
+    b: Dict[str, int] = {}
+
+    reg, vt = regime.get("regime", ""), vixtilt.get("side")
+    ma = 8 if ((side == "long" and reg in ("Trend Day Up", "Gap & Trend"))
+               or (side == "short" and reg in ("Trend Day Down", "Volatility Expansion"))) else \
+        3 if reg in ("Range Day", "Mean-Reversion Day") else 5
+    ma += 6 if (nchg is not None and ((side == "long" and nchg > 0) or (side == "short" and nchg < 0))) \
+        else 3 if (nchg is None or abs(nchg) < 0.1) else 0
+    ma += 6 if ((side == "short" and vt in ("short", "short-lean")) or (side == "long" and vt == "long")) \
+        else 1 if (side == "long" and vt in ("short", "short-lean")) else 3
+    b["market_alignment"] = min(20, ma)
+
+    if ("bullish" in obias and side == "long") or ("bearish" in obias and side == "short"):
+        b["higher_timeframe"] = 15 if obias.startswith("strong") else 11
+    else:
+        b["higher_timeframe"] = 7 if obias in ("neutral", "", None) else 0
+
+    if side == "long":
+        v = 15 if (above and (vwd or 0) >= 0) else 4
+    else:
+        v = 15 if (above is False and (vwd or 0) <= 0) else 4
+    if vwd is not None and abs(vwd) > 2.5:
+        v = max(4, v - 4)
+    b["vwap"] = v
+
+    vo = 15 if (rvol and rvol >= 2) else 10 if (rvol and rvol >= 1.2) else 5 if (rvol and rvol >= 0.8) else 0
+    if struct.get("blowoff_top") and side == "long":
+        vo = min(vo, 4)
+    b["volume"] = vo
+
+    b["structure"] = 10 if ((side == "long" and s.startswith("uptrend")) or (side == "short" and s.startswith("downtrend"))) \
+        else 5 if ("range" in s or "mixed" in s) else 3
+
+    bd, fresh, ext = brk.get("direction"), brk.get("fresh"), brk.get("extended_past_level")
+    b["breakout"] = 10 if (fresh and not ext and ((side == "long" and bd == "up") or (side == "short" and bd == "down"))) \
+        else 8 if (fresh and ext) else 5 if bd in (None, "none") else 3
+
+    r = rs.get("vs_nifty")
+    b["relative_strength"] = 5 if ((side == "long" and r == "Strong") or (side == "short" and r == "Weak")) \
+        else 2 if r == "Neutral" else 0
+    b["sector"] = 2  # unverified → neutral est. credit
+    rr = _num(stop_rr.get("rr_to_final_est"))
+    b["risk_reward"] = 5 if (rr and rr >= 2) else 3 if (rr and rr >= 1.5) else 0
+    b["time_of_day"] = tod.get("score", 2)
+
+    score = sum(b.values())
+    grade = "A+" if score >= 90 else "A" if score >= 80 else "B" if score >= 70 else "C" if score >= 60 else "F"
+    band = ("Exceptional" if score >= 95 else "Very High" if score >= 90 else "High" if score >= 80
+            else "Moderate" if score >= 70 else "Avoid")
+    return {"score": score, "grade": grade, "confidence_band": band, "breakdown": b}
+
+
+def _no_trade_filters(report: Dict[str, Any], side: Optional[str], stop_rr: Dict[str, Any],
+                      tod: Dict[str, Any], liq: Dict[str, Any]) -> List[str]:
+    fails: List[str] = []
+    struct = report.get("intraday_structure") or {}
+    bias = struct.get("directional_bias")
+    rvol = _num((report.get("volume") or {}).get("rvol_vs_prior_days"))
+    adx = _num(((report.get("institutional") or {}).get("adx") or {}).get("adx"))
+    vwd = _num((report.get("vwap") or {}).get("distance_pct"))
+    obias = (report.get("higher_timeframe") or {}).get("overall_bias") or ""
+    if bias == "neutral":
+        fails.append("directional_bias neutral → WAIT (Gate E)")
+    if rvol is not None and rvol < 0.8:
+        fails.append(f"RVOL {rvol} < 0.8 (no participation)")
+    # NOTE: R:R is deliberately NOT a hard no-trade filter. A/B-DISPROVEN 2026-07-24 — a hard R:R>=2 gate
+    # is net HARMFUL: high-R:R (far-target) trades are LOWER probability, so filtering on R:R selects the
+    # WORSE trades (kept win 40-43% vs dropped 43%). R:R stays as risk_model info + a small score input only.
+    if adx is not None and adx < 18 and vwd is not None and abs(vwd) < 0.4:
+        fails.append(f"ADX {adx} < 18 and pinned at VWAP (chop)")
+    if side == "long" and "bearish" in obias and bias != "long-on-pullback":
+        fails.append("long vs bearish HTF")
+    if side == "short" and "bullish" in obias:
+        fails.append("short vs bullish HTF")
+    if not liq.get("tradeable", True):
+        fails.append("liquidity: " + str(liq.get("rating", "")))
+    if tod.get("score") == 0:
+        fails.append("after 15:15 — no fresh entry")
+    return fails
+
+
+def _position_size(report: Dict[str, Any], stop_rr: Dict[str, Any],
+                   capital: Optional[float], risk_pct: Optional[float], half: bool) -> Dict[str, Any]:
+    last = _num((report.get("price") or {}).get("last"))
+    stop = _num(stop_rr.get("suggested_stop"))
+    cap = capital if capital else 500000.0
+    rp = (risk_pct if risk_pct else 1.0)
+    if half:
+        rp = rp / 2.0
+    if last is None or stop is None or last == stop:
+        return {"note": "no stop → no size", "capital": cap, "risk_pct": rp}
+    risk_amt = cap * rp / 100.0
+    per = abs(last - stop)
+    return {"capital": cap, "risk_pct": rp, "risk_amount": _round(risk_amt), "per_share_risk": _round(per),
+            "shares": int(risk_amt / per) if per else 0, "notional": _round(int(risk_amt / per) * last) if per else 0,
+            "illustrative_default": capital is None, "sizing_note": "halved (VIX/half-size tilt)" if half else "full size",
+            "formula": "shares = (capital × risk%) ÷ |entry − stop|"}
+
+
+def _checklist(report: Dict[str, Any], side: Optional[str], tqs: Dict[str, Any],
+               filters: List[str], liq: Dict[str, Any]) -> Dict[str, bool]:
+    bd = tqs.get("breakdown", {})
+    struct = report.get("intraday_structure") or {}
+    rvol = _num((report.get("volume") or {}).get("rvol_vs_prior_days"))
+    above = (report.get("vwap") or {}).get("above_vwap")
+    return {
+        "with_regime_and_vix_tilt": bool(side) and bd.get("market_alignment", 0) >= 12,
+        "htf_aligned": bool(side) and bd.get("higher_timeframe", 0) >= 11,
+        "vwap_right_side": bool(side) and ((above and side == "long") or (above is False and side == "short")),
+        "rvol_ok_no_blowoff": bool(rvol and rvol >= 1.2) and not struct.get("blowoff_top"),
+        "structure_matches_bias": bool(side) and bd.get("structure", 0) >= 10,
+        "rr_ge_2": bool(side) and bd.get("risk_reward", 0) == 5,
+        "prime_time_window": bool(side) and bd.get("time_of_day", 0) >= 5,
+        "liquid": bool(liq.get("tradeable", False)),
+        "no_gate_veto": len(filters) == 0,
+        "all_clear": side is not None and len(filters) == 0,
+    }
+
+
+def _validated_gates(report: Dict[str, Any], side: Optional[str]) -> Dict[str, Any]:
+    """Deterministic application of the A/B-validated HARD gates — these OVERRIDE the soft score."""
+    out: Dict[str, Any] = {"finopb_veto": False, "corpse_reject": False, "topper_preferred": False, "notes": []}
+    struct = report.get("intraday_structure") or {}
+    bias = struct.get("directional_bias")
+    stdir = ((report.get("institutional") or {}).get("supertrend") or {}).get("direction")
+    macd = _num((report.get("indicators") or {}).get("macd_line"))
+    price = report.get("price") or {}
+    last, dopen = _num(price.get("last")), _num(price.get("day_open"))
+    daychg = ((last / dopen - 1) * 100) if (last and dopen) else None
+    # Gate B/C — FINOPB veto: a short label but SuperTrend still up AND MACD line > 0 → not tradeable short, NOT a long
+    if bias in ("short", "short-on-breakdown") and stdir == "up" and macd is not None and macd > 0:
+        out["finopb_veto"] = True
+        out["notes"].append("Gate B/C: FINOPB veto (short label but SuperTrend up & MACD>0) → WAIT or "
+                            "short-on-breakdown at the swing low; NOT a long.")
+    # Gate I — fade the topper, not the corpse (by day-change)
+    if side == "short" and daychg is not None:
+        if daychg < -3:
+            out["corpse_reject"] = True
+            out["notes"].append(f"Gate I: already DOWN {round(daychg, 1)}% (corpse, −0.044%/tr LOSES) → short "
+                                "the BOUNCE only, not SHORT NOW; do not headline.")
+        elif -0.5 <= daychg <= 3:
+            out["topper_preferred"] = True
+            out["notes"].append(f"Gate I: green/flat ({round(daychg, 1)}%) rolling over → PREFERRED topper short.")
+    out["day_change_pct"] = _round(daychg, 2) if daychg is not None else None
+    return out
+
+
+def institutional_desk_block(report: Dict[str, Any], capital: Optional[float] = None,
+                             risk_pct: Optional[float] = None) -> Dict[str, Any]:
+    """Deterministic desk analytics appended to the base report. None-safe; never raises."""
+    try:
+        bias = (report.get("intraday_structure") or {}).get("directional_bias")
+        side = _side_of(bias)
+        mkt = report.get("market_context") or {}
+        vixtilt = _vix_tilt(mkt)
+        regime = _market_regime(report)
+        rs = _relative_strength(report)
+        tod = _tod_regime((report.get("session") or {}).get("last_bar_time_ist"))
+        liq = _liquidity(report)
+        stop_rr = _stop_target_rr(report, side)
+        tqs = _trade_quality(report, side, regime, rs, stop_rr, tod, vixtilt)
+        filters = _no_trade_filters(report, side, stop_rr, tod, liq)
+        half = vixtilt.get("long_size") == "half" and side == "long"
+        possize = _position_size(report, stop_rr, capital, risk_pct, half)
+        checklist = _checklist(report, side, tqs, filters, liq)
+        gates = _validated_gates(report, side)
+        sym = (report.get("symbol") or "").upper()
+        sector = SECTOR_MAP.get(sym, "Unknown — classify via sector index (WebSearch)")
+
+        # Verdict — VALIDATED GATES bind BEFORE the soft score (their order mirrors the skill governance).
+        if bias == "neutral" or side is None:
+            verdict = "WAIT (neutral bias — Gate E)"
+        elif gates["finopb_veto"]:
+            verdict = "WAIT / SHORT-ON-BREAKDOWN only — FINOPB veto (Gate B/C); NOT a long"
+        elif filters:
+            verdict = "NO TRADE — " + filters[0]
+        elif gates["corpse_reject"]:
+            verdict = "SHORT THE BOUNCE ONLY — corpse (Gate I), not SHORT NOW"
+        elif tqs["grade"] in ("A+", "A"):
+            verdict = ("BUY NOW" if side == "long" else "SHORT NOW") + f" (grade {tqs['grade']})"
+            if gates["topper_preferred"]:
+                verdict += " · preferred topper (Gate I)"
+        elif tqs["grade"] == "B":
+            verdict = ("BUY ON PULLBACK" if side == "long" else "SHORT ON BREAKDOWN") + " (grade B, conditional)"
+        else:
+            verdict = f"WAIT (grade {tqs['grade']})"
+
+        return {
+            "trade_side": side or "none",
+            "market_regime": regime,
+            "vix_tilt": vixtilt,
+            "relative_strength": rs,
+            "sector": {"name": sector, "strength": "est. — WebSearch sector index (Layer 4)"},
+            "time_of_day": tod,
+            "liquidity": liq,
+            "institutional_flow_est": _flow_est(report),
+            "risk_model": stop_rr,
+            "trade_quality": tqs,
+            "validated_gates": gates,
+            "no_trade_filters_failed": filters,
+            "position_sizing": possize,
+            "execution_checklist": checklist,
+            "computed_verdict_hint": verdict,
+            "disclaimer": ("Deterministic desk analytics (est. where marked). The skill makes the final "
+                           "call; VALIDATED GATES override this soft score. Educational, not advice."),
+        }
+    except Exception as e:  # never break the JSON contract
+        return {"error": f"institutional_desk computation failed: {e}"}
+
+
 def main() -> None:
-    p = argparse.ArgumentParser(description="Intraday 15-min facts (Indian market). AV first, Yahoo fallback.")
+    p = argparse.ArgumentParser(description="Intraday 15-min facts + institutional desk (v2). AV first, Yahoo fallback.")
     p.add_argument("-s", "--symbol", required=True, help="e.g. RELIANCE, NSE:TCS, TATAMOTORS")
     p.add_argument("--source", choices=("auto", "av", "yahoo"), default="auto",
                    help="auto (AV then Yahoo on exhaustion/empty; default) | av | yahoo")
@@ -1090,6 +1541,10 @@ def main() -> None:
                    help=f"seconds between AV calls (default {DEFAULT_MIN_INTERVAL}; free tier 5/min)")
     p.add_argument("--fast", action="store_true",
                    help="skip the institutional multi-timeframe + market-context fetches (base 15m only)")
+    p.add_argument("--capital", type=float, default=None,
+                   help="account size (INR) for position sizing; default illustrative ₹5,00,000")
+    p.add_argument("--risk", type=float, default=None,
+                   help="risk %% per trade for position sizing; default 1.0 (halved on VIX half-size tilt)")
     p.add_argument("--log-level", default=os.environ.get("LOG_LEVEL", "INFO"),
                    choices=("DEBUG", "INFO", "WARNING", "ERROR"))
     args = p.parse_args()
@@ -1113,6 +1568,9 @@ def main() -> None:
         args.symbol, source=args.source, interval=args.interval, apikey=apikey,
         min_interval=args.min_interval, outputsize=args.outputsize, full=not args.fast,
     )
+    # v2 addition: append the deterministic institutional-desk analytics (skill interprets these).
+    if "error" not in report:
+        report["institutional_desk"] = institutional_desk_block(report, args.capital, args.risk)
     print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
     sys.exit(0 if "error" not in report else 1)
 

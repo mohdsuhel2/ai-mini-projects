@@ -153,18 +153,6 @@ institutional decision-engine style — squared off by ~3:20 PM IST. Installed a
 .venv/bin/python groww_intraday_screener.py --direction down --top 12 --min-mcap-cr 1000 --min-price 50 2>/dev/null  # losers  → shorts
 ```
 
-**`intraday-analyst-v2`** is the **classic price-action sibling** — same intraday horizon, but reasoned
-with **candlestick patterns at support/resistance, Fibonacci retracements, moving-average retracements
-(Pristine buy/sell setup), and Dow-theory multi-timeframe trend**, per Zerodha Varsity Module 2 and
-Greg Capra's *Intra-Day Trading Techniques*. It computes candlestick detection (Marubozu/Doji/Hammer/
-Engulfing/Harami/Piercing/Dark-Cloud/Morning-Evening-Star), swing S/R, Fibonacci levels, SMA20/40 + the
-"MA test", and the Pristine setup — and outputs a Varsity **trade summary** (entry / stop = signal-candle
-low-high / target / R:R / holding). Use v1 for the quant engine, v2 for classic TA, or both for confluence.
-
-```bash
-.venv/bin/python stock_analyze_intraday_classic.py -s RELIANCE 2>/dev/null   # candlesticks / S-R / Fib / MA / Pristine
-```
-
 ```bash
 # Structured intraday JSON for one symbol (AV first, Yahoo fallback)
 .venv/bin/python stock_analyze_intraday.py -s RELIANCE 2>/dev/null
