@@ -601,17 +601,26 @@ def _settings_dialog() -> None:
                                        value=float(m.stop_tolerance_pct), step=0.05, format="%.2f")
             target_shave = m3.number_input("Target shave %", min_value=0.0, max_value=90.0,
                                            value=float(m.target_shave_pct), step=1.0, format="%.1f")
+            rr_enabled = st.checkbox(
+                "Enable the R:R gate", value=bool(m.rr_gate_enabled),
+                help="ON (default): a trade must clear the reward:risk floor (1.5:1) — both the "
+                     "skill's self-reported R:R and the recomputed geometric R:R. OFF: skip the "
+                     "R:R floor entirely and take entries on quality + confidence alone (still "
+                     "needs valid levels, a real stop distance, sizing room, no trend veto, and a "
+                     "trade with actual upside). Looser — takes more trades, including poor-R:R ones.")
             rr_pre_margin = st.checkbox(
                 "Gate R:R on raw levels (before margins)", value=bool(m.rr_gate_pre_margin),
-                help="ON (default): the reward:risk gate judges Claude's RAW entry/stop/target — "
-                     "the margins above only shape the actual orders, so a wide target-shave books "
-                     "less profit but never rejects the trade for 'low R:R'. OFF: the shaved "
-                     "target / widened stop must still clear the R:R floor AFTER margins (stricter, "
-                     "fewer trades).")
+                disabled=not rr_enabled,
+                help="Only matters when the R:R gate is ON. ON (default): the gate judges Claude's "
+                     "RAW entry/stop/target — the margins above only shape the actual orders, so a "
+                     "wide target-shave books less profit but never rejects the trade for 'low "
+                     "R:R'. OFF: the shaved target / widened stop must still clear the R:R floor "
+                     "AFTER margins (stricter, fewer trades).")
             if st.button("Save execution margins", use_container_width=True):
                 _db(lambda s: s.update_config(entry_tolerance_pct=entry_tol,
                                               stop_tolerance_pct=stop_tol,
                                               target_shave_pct=target_shave,
+                                              rr_gate_enabled=rr_enabled,
                                               rr_gate_pre_margin=rr_pre_margin))
                 st.success("Saved.")
                 st.rerun()

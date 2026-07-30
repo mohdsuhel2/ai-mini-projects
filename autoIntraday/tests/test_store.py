@@ -94,6 +94,13 @@ def test_position_pyramid_counters_and_helpers():
     assert p.pyramid_count == 1 and p.pyramid_signal_count == 0
 
 
+def test_rr_gate_enabled_defaults_true_and_toggles():
+    store = Store(":memory:")
+    assert store.get_config().rr_gate_enabled is True      # default: R:R gate on
+    store.update_config(rr_gate_enabled=False)
+    assert store.get_config().rr_gate_enabled is False     # persisted as a real bool
+
+
 def test_update_config_unknown_field_raises():
     store = Store(":memory:")
     with pytest.raises(StoreError, match="unknown config field"):
