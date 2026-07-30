@@ -198,8 +198,11 @@ class _FakeEngine:
         return self.decision
 
 
-def _indic(symbol="RELIANCE", last=100.0, high=100.0, low=100.0, bars=5, mins=120):
-    return {"symbol": symbol, "price": {"last": last, "day_high": high, "day_low": low},
+def _indic(symbol="RELIANCE", last=100.0, high=100.0, low=100.0, bars=5, mins=120, live=None):
+    price = {"last": last, "day_high": high, "day_low": low}
+    if live is not None:
+        price["live"] = live
+    return {"symbol": symbol, "price": price,
             "session": {"bars_remaining": bars, "minutes_to_squareoff": mins}}
 
 
@@ -318,6 +321,60 @@ def test_manage_closes_long_on_stop_at_ltp():
     orch._manage_positions(run_id)
     p = store.get_position(pid)
     assert p.exit_reason == "STOP" and p.exit_price == 94.0   # fills at LTP, not the wished stop
+
+
+# --- LTP source: the live tick, not the last closed bar --------------------------------------
+# The engine LABELS on completed 15m bars, but positions must be managed against the tape NOW.
+# `price.last` can be a full bar old, which made every soft exit fire up to 15 min late.
+
+def test_ltp_prefers_the_live_tick_over_the_closed_bar():
+    from orchestrator import _ltp
+    assert _ltp(_indic(last=100.0, live=103.5)) == 103.5
+
+
+def test_ltp_falls_back_to_the_closed_bar_when_live_is_unusable():
+    from orchestrator import _ltp
+    assert _ltp(_indic(last=100.0)) == 100.0                    # feed gave no live tick
+    assert _ltp(_indic(last=100.0, live=None)) == 100.0         # present but null
+    assert _ltp(_indic(last=100.0, live=0)) == 100.0            # non-positive
+    assert _ltp(_indic(last=100.0, live=-5)) == 100.0
+
+
+def test_ltp_rejects_an_implausible_live_tick():
+    from orchestrator import _ltp, LIVE_MAX_DRIFT_PCT
+    assert LIVE_MAX_DRIFT_PCT == 20.0
+    # Within one 15m bar a >20% gap from the closed bar is a bad tick, not a real move.
+    assert _ltp(_indic(last=100.0, live=500.0)) == 100.0
+    assert _ltp(_indic(last=100.0, live=1.0)) == 100.0
+    assert _ltp(_indic(last=100.0, live=119.0)) == 119.0        # a big-but-real move still passes
+
+
+def test_manage_stops_out_on_the_live_tick_while_the_closed_bar_is_still_safe():
+    # THE point of the change: closed bar 96 is above the 95 stop, the tape is already at 94.
+    # Before, this position survived until the next 15m close and gave back the difference.
+    store = Store(":memory:")
+    pid = store.open_position(symbol="RELIANCE", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+                 {"RELIANCE": _indic(last=96, live=94, high=112, low=93)})
+    run_id = store.start_run("paper")
+    orch._manage_positions(run_id)
+    p = store.get_position(pid)
+    assert p.exit_reason == "STOP" and p.exit_price == 94.0
+
+
+def test_manage_takes_target_on_the_live_tick_for_a_short():
+    # Target kept inside the profit-book bands (2.6% move = 13% on margin at 5x) so this asserts
+    # the TARGET path, not take-profit.
+    store = Store(":memory:")
+    pid = store.open_position(symbol="RELIANCE", exchange="NSE", side="SHORT", quantity=10,
+                              entry_price=100.0, target_price=97.5, stop_loss=105.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")),
+                 {"RELIANCE": _indic(last=98.2, live=97.4, high=101, low=97)})
+    run_id = store.start_run("paper")
+    orch._manage_positions(run_id)
+    p = store.get_position(pid)
+    assert p.exit_reason == "TARGET" and p.exit_price == 97.4
 
 
 def test_manage_square_off_near_close():

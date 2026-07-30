@@ -309,8 +309,38 @@ def _should_square_off(indicators: dict) -> bool:
     return False
 
 
+LIVE_MAX_DRIFT_PCT = 20.0     # a live tick further than this from the closed bar is a bad tick
+
+
 def _ltp(indicators: dict) -> float:
-    return float(indicators["price"]["last"])
+    """The price to MANAGE a position against: the live tick when the feed gives one, else the
+    close of the last completed bar.
+
+    The engine LABELS on completed 15m bars — it drops the forming candle on purpose, so the label
+    is stable — but `price.last` can be a full bar old. Managing against it made every soft exit
+    (stop, target, take-profit, trailing, scale-in, pyramid, square-off fill) react up to 15 minutes
+    late, while the broker's resting stop was already working off the live tape. `price.live` is
+    Yahoo's regularMarketPrice, published alongside the closed-bar report for exactly this purpose.
+
+    Entry/label logic is unaffected — that still reasons on completed bars.
+
+    Falls back to the closed bar when the live tick is missing, non-positive, or implausibly far
+    from it: inside a single bar a >LIVE_MAX_DRIFT_PCT gap is a feed glitch, and acting on one
+    would fire a bogus stop on a real position.
+    """
+    price = indicators["price"]
+    closed = float(price["last"])
+    live = price.get("live")
+    if live is None:
+        return closed
+    live = float(live)
+    if live <= 0:
+        return closed
+    if closed > 0 and abs(live / closed - 1.0) * 100.0 > LIVE_MAX_DRIFT_PCT:
+        log.warning("%s: ignoring implausible live tick %.2f vs closed bar %.2f — managing on the "
+                    "closed bar", indicators.get("symbol", "?"), live, closed)
+        return closed
+    return live
 
 
 def _profit_price(side: str, entry: float, return_pct: float, leverage: float = LEVERAGE) -> float:
