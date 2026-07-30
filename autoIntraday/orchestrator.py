@@ -312,6 +312,31 @@ def _should_square_off(indicators: dict) -> bool:
 LIVE_MAX_DRIFT_PCT = 20.0     # a live tick further than this from the closed bar is a bad tick
 
 
+def _opposes(action: str, side: str) -> bool:
+    """True when a decision's action is a directional call AGAINST an open position.
+
+    HOLD / WAIT / NO_TRADE are neutral, not opposing — they carry valid same-side levels and must
+    keep trailing normally. Kept as one definition shared by the resting-order refresh and the
+    trail gate so the two can never drift apart.
+    """
+    opposite = (("SELL_NOW", "SHORT_NOW") if side == "LONG"
+                else ("BUY_NOW", "BUY_ON_PULLBACK", "BUY_ON_BREAKOUT"))
+    return action in opposite
+
+
+def _stop_is_sane(side: str, stop: float, ltp: float) -> bool:
+    """A LONG's stop must sit strictly BELOW the live price, a SHORT's strictly ABOVE.
+
+    A stop on the wrong side of the tape is not a stop — it is an instruction to exit at once. A
+    short's stop written onto a long looks like a normal ratchet toward profit (it is simply
+    'higher'), which is how BALKRISIND was closed on 2026-07-30 at a stop 21 points above the
+    market. This is the last line of defence, independent of where the level came from.
+    """
+    if stop is None or ltp is None or ltp <= 0:
+        return True                              # nothing to check against; other guards apply
+    return stop < ltp if side == "LONG" else stop > ltp
+
+
 def _ltp(indicators: dict) -> float:
     """The price to MANAGE a position against: the live tick when the feed gives one, else the
     close of the last completed bar.
@@ -842,7 +867,7 @@ class Orchestrator:
         # Position stays open — trail its stop/target to the engine's latest read, guarantee it
         # has SOME stop, then re-sync the broker bracket so a level that just moved is resting at
         # the broker now rather than a cycle from now (_ensure_leg is a no-op when it already is).
-        self._maybe_trail(run_id, position, decision)
+        self._maybe_trail(run_id, position, decision, indicators)
         position = self.store.get_position(position.id)
         self._ensure_protective_stop(run_id, position, indicators)
         if eager:
@@ -1192,13 +1217,30 @@ class Orchestrator:
                     position.stop_loss)
         return True
 
-    def _maybe_trail(self, run_id: int, position, decision) -> None:
+    def _maybe_trail(self, run_id: int, position, decision, indicators=None) -> None:
         """Re-check an open position's protective levels each cycle and update them where the
         engine's latest read moved. The stop only RATCHETS toward profit (never loosens): up for
         a long, down for a short. The target follows the engine's latest target1. Changed levels
         are pushed to the BROKER's OCO too — a trailed stop that only lives in our DB protects
         nothing between cycles. A no-op when neither level moves; a real change is logged as an
-        ADJUSTED operation so the dashboard's activity tally shows stop/target updates."""
+        ADJUSTED operation so the dashboard's activity tally shows stop/target updates.
+
+        An OPPOSING read moves nothing. When the engine flips against the position it emits the
+        OTHER side's plan — a short's stop sits above the market — and 'is the new stop higher?'
+        reads that as a ratchet toward profit. Writing it forces an exit the conviction gate at
+        _manage_one has already refused (BALKRISIND, 2026-07-30: a quality-34 SELL_NOW put the
+        stop 21 points above the tape on a long that went on to close +3.20%). An unconvicted flip
+        only feeds the reversal counter; the trade rides the stop its last same-side read set.
+        """
+        if _opposes(decision.action, position.side):
+            self.store.record_decision(
+                run_id=run_id, symbol=position.symbol, action="HOLD",
+                reason=f"ignored {decision.action} levels — opposing read, "
+                       f"stop {position.stop_loss} kept",
+                position_id=position.id)
+            log.info("%s: ignored %s levels (opposing read) — stop %s / target %s kept",
+                     position.symbol, decision.action, position.stop_loss, position.target_price)
+            return
         new_stop = position.stop_loss
         if decision.stop_loss is not None:
             if position.side == "LONG":
@@ -1218,6 +1260,19 @@ class Orchestrator:
             else:  # SHORT
                 if position.target_price is None or decision.target1 < position.target_price:
                     new_target = decision.target1
+        # Last-line clamp: a stop on the wrong side of the tape is an instruction to exit at once.
+        # Refuse it, keep the level we had, and log it as the defect it is.
+        if new_stop != position.stop_loss and indicators is not None:
+            if not _stop_is_sane(position.side, new_stop, _ltp(indicators)):
+                log.error("%s: REFUSED stop %s for a %s at %.2f — a stop on the wrong side of the "
+                          "tape would exit immediately; keeping %s", position.symbol, new_stop,
+                          position.side, _ltp(indicators), position.stop_loss)
+                self.store.record_decision(
+                    run_id=run_id, symbol=position.symbol, action="HOLD",
+                    reason=f"refused stop {new_stop} (wrong side of price "
+                           f"{_ltp(indicators)}) — stop {position.stop_loss} kept",
+                    position_id=position.id)
+                new_stop = position.stop_loss
         if new_stop != position.stop_loss or new_target != position.target_price:
             self.store.update_position_levels(position.id, stop_loss=new_stop,
                                               target_price=new_target)
@@ -1554,9 +1609,7 @@ class Orchestrator:
         # plain WAIT (the pullback simply hasn't printed yet) or a few-point quality wobble no
         # longer kills the order; that over-cancelling drove the low fill rate on pullback/breakout
         # entries. Post-fill stop protection is the exit path's job, not the resting-order refresh.
-        opposite_actions = (("SELL_NOW", "SHORT_NOW") if position.side == "LONG"
-                            else ("BUY_NOW", "BUY_ON_PULLBACK", "BUY_ON_BREAKOUT"))
-        if decision.action in opposite_actions:
+        if _opposes(decision.action, position.side):
             self._cancel_pending(position, "SETUP_GONE")
             self.store.record_decision(
                 run_id=run_id, symbol=position.symbol, action="CANCEL",

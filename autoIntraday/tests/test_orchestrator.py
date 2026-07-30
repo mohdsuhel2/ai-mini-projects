@@ -2383,3 +2383,122 @@ def test_place_entry_rr_enabled_default_rejects_low_rr():
     orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
     ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
     assert ok is False and store.get_open_positions() == []
+
+
+# ---- reversal persistence: an unconvicted opposing read must not act ------------------------
+# 2026-07-30: the skill flipped bearish on a LONG and returned a SHORT plan (stop ABOVE entry).
+# _maybe_trail wrote that stop onto the long because "higher than the old stop" was its only
+# test, forcing an exit the conviction gate had already refused. See
+# docs/superpowers/specs/2026-07-30-reversal-persistence-design.md
+
+def test_opposes_matches_the_resting_order_definition():
+    from orchestrator import _opposes
+    for a in ("SELL_NOW", "SHORT_NOW"):
+        assert _opposes(a, "LONG") is True
+        assert _opposes(a, "SHORT") is False
+    for a in ("BUY_NOW", "BUY_ON_PULLBACK", "BUY_ON_BREAKOUT"):
+        assert _opposes(a, "SHORT") is True
+        assert _opposes(a, "LONG") is False
+    for a in ("HOLD", "WAIT", "NO_TRADE"):          # neutral -> never opposing, still trails
+        assert _opposes(a, "LONG") is False
+        assert _opposes(a, "SHORT") is False
+
+
+def test_stop_is_sane_rejects_a_stop_on_the_wrong_side_of_price():
+    from orchestrator import _stop_is_sane
+    assert _stop_is_sane("LONG", 2213.70, 2229.20) is True      # below price -> fine
+    assert _stop_is_sane("LONG", 2250.23, 2229.20) is False     # BALKRISIND: above price
+    assert _stop_is_sane("LONG", 2229.20, 2229.20) is False     # at price -> instant exit
+    assert _stop_is_sane("SHORT", 990.0, 984.0) is True         # above price -> fine
+    assert _stop_is_sane("SHORT", 980.0, 984.0) is False
+
+
+def test_balkrisind_bearish_read_cannot_move_a_long_stop():
+    """The real 2026-07-30 case: SELL_NOW q34 on a LONG, carrying a SHORT's stop of 2250.23
+    while the tape was 2229.20. The stop must stay at 2213.70 — which the market never touched."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BALKRISIND", exchange="NSE", side="LONG", quantity=66,
+                              entry_price=2253.98, target_price=2294.8, stop_loss=2213.70,
+                              mode="paper")
+    engine = _FakeEngine(_decision(action="SELL_NOW", tq=34, conf=62,
+                                   entry=2229.6, stop=2250.23, target1=2213.7))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"BALKRISIND": _indic("BALKRISIND", last=2229.2, live=2229.2,
+                                       high=2240.0, low=2224.4)})
+    summary = orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "OPEN"                        # q34 is below the exit floor -> no exit
+    assert p.stop_loss == 2213.70                    # <- the fix: stop untouched
+    assert p.target_price == 2294.8                  # target untouched too
+    recs = store.get_decisions_for_run(summary["run_id"])
+    assert any("opposing read" in (r.reason or "") for r in recs)
+
+
+def test_pngsreva_stop_above_price_is_refused_by_the_clamp():
+    """Even from a same-side read, a LONG's stop may never sit at or above the live price."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="PNGSREVA", exchange="NSE", side="LONG", quantity=338,
+                              entry_price=442.764, target_price=451.625, stop_loss=436.0,
+                              mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=452.11, target1=451.625))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"PNGSREVA": _indic("PNGSREVA", last=438.0, live=438.0, high=445.0, low=433.0)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "OPEN"
+    assert p.stop_loss == 436.0                      # 452.11 refused: it sits above the tape
+
+
+def test_premierene_bullish_read_cannot_move_a_short_stop():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="PREMIERENE", exchange="NSE", side="SHORT", quantity=152,
+                              entry_price=984.29, target_price=962.0, stop_loss=990.5,
+                              mode="paper")
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=38, conf=63,
+                                   entry=984.0, stop=989.0, target1=981.5))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"PREMIERENE": _indic("PREMIERENE", last=984.0, live=984.0,
+                                       high=995.0, low=980.0)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.stop_loss == 990.5                      # untouched by the opposite-side plan
+
+
+def test_convicted_two_cycle_reversal_still_exits():
+    """REGRESSION GUARD: the genuine-reversal path must survive the fix. Two consecutive
+    convicted flips (quality and confidence both >= 55) still close the position on SIGNAL."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    engine = _FakeEngine(_decision(action="SELL_NOW", tq=70, conf=70, stop=105.0, target1=90.0))
+    indic = {"AAA": _indic("AAA", last=101, live=101, high=102, low=100)}
+    orch = _orch(store, _FakeClient(), engine, indic)
+    orch.run_cycle()
+    assert store.get_position(pid).status == "OPEN"          # cycle 1: awaiting confirmation
+    assert store.get_position(pid).stop_loss == 95.0         # and still no level write
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "CLOSED" and p.exit_reason == "SIGNAL"  # cycle 2: confirmed -> exit
+
+
+def test_neutral_hold_still_trails_normally():
+    """REGRESSION GUARD: the fix must not freeze legitimate trailing on same-side/neutral reads."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=98.0, target1=112.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=101, live=101, high=102, low=100)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.stop_loss == 98.0 and p.target_price == 112.0

@@ -98,9 +98,16 @@ On refusal, log and record a decision row using the established idiom at line 82
 A LONG's stop must be strictly **below** the live price; a SHORT's strictly **above**. A violation
 is refused — the previous stop is kept — and logged as a defect.
 
-Applied at the two places an engine-supplied stop reaches a position, independent of the direction
-gate: `_maybe_trail()` and `_ensure_protective_stop()`. Both already receive `indicators`, so the
-live price is available without changing any signature.
+Applied in `_maybe_trail()`, which is where engine-supplied stops reach a position.
+
+**Deviation found during implementation:** the spec originally also named
+`_ensure_protective_stop()`. That is wrong. It fires *only* when `position.stop_loss is None` —
+a position with no stop at all — so refusing its fallback would leave the position completely
+unprotected. A wrong-side stop at least exits; no stop does not. The clamp is therefore
+deliberately **not** applied there.
+
+`_maybe_trail` gains an optional `indicators` parameter to reach the live price. It defaults to
+`None` (clamp skipped) so the existing call signature stays valid for any other caller.
 
 This is defence in depth. It catches PNGSREVA's 452.11 even if such a level arrives via a path the
 direction gate does not cover — pyramid, scale-in, adopt, or a future caller.
