@@ -2179,3 +2179,52 @@ def test_fallback_stop_is_above_entry_for_a_short():
     _stopless_orch(store, client).run_cycle()
     p = store.get_open_positions()[0]
     assert p.side == "SHORT" and p.stop_loss == pytest.approx(202.0)
+
+
+# --- R:R gate on/off (config.rr_gate_enabled) ------------------------------------------------
+
+def test_entry_gate_rr_off_skips_risk_reward_floor():
+    # With rr_gate=False, _passes_entry_gate ignores risk_reward but STILL needs quality+confidence.
+    d = _decision(action="BUY_NOW", tq=80, conf=75, rr=0.5)          # R:R below floor
+    assert _passes_entry_gate(d, rr_gate=True) is False              # blocked on R:R when on
+    assert _passes_entry_gate(d, rr_gate=False) is True              # allowed when off
+    weak = _decision(action="BUY_NOW", tq=40, conf=75, rr=0.5)       # quality too low
+    assert _passes_entry_gate(weak, rr_gate=False) is False          # quality still enforced
+    shy = _decision(action="BUY_NOW", tq=80, conf=40, rr=0.5)        # confidence too low
+    assert _passes_entry_gate(shy, rr_gate=False) is False           # confidence still enforced
+
+
+def test_place_entry_rr_disabled_takes_low_rr_trade():
+    # rr_gate_enabled=False: a strong-conviction but poor-R:R trade (geo 0.3) is TAKEN.
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0, rr_gate_enabled=False)
+    d = _decision(action="BUY_NOW", tq=85, conf=80, rr=0.3, entry=100.0, stop=90.0, target1=103.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is True and len(store.get_open_positions()) == 1
+
+
+def test_place_entry_rr_disabled_still_rejects_no_upside():
+    # even with the gate off, a trade with target at/below entry (no reward) is invalid.
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0, rr_gate_enabled=False)
+    d = _decision(action="BUY_NOW", tq=85, conf=80, rr=0.3, entry=100.0, stop=95.0, target1=99.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    run_id = store.start_run("paper")
+    ok = orch._place_entry(run_id, "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is False and store.get_open_positions() == []
+    reasons = [x.reason for x in store.get_decisions_for_run(run_id) if x.reason]
+    assert any("invalid geometry" in r for r in reasons)
+
+
+def test_place_entry_rr_enabled_default_rejects_low_rr():
+    # default (enabled): the same low-R:R trade is rejected.
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0)                               # rr_gate_enabled defaults True
+    d = _decision(action="BUY_NOW", tq=85, conf=80, rr=0.3, entry=100.0, stop=90.0, target1=103.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is False and store.get_open_positions() == []

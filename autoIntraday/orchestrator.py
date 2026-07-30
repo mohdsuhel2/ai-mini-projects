@@ -165,14 +165,17 @@ def _tick(px: float) -> float:
     return round(round(px / 0.05) * 0.05, 2)
 
 
-def _passes_entry_gate(decision) -> bool:
+def _passes_entry_gate(decision, rr_gate: bool = True) -> bool:
     """A trade is only worth taking with a genuine, data-backed edge. Every hard floor here must
-    clear before capital is risked: a strong setup (trade_quality), a real payoff-to-risk skew
-    (risk_reward), the engine's own conviction (confidence), and a valid entry+stop to size and
-    protect it. Anything short of all four is a WAIT, not a marginal trade."""
+    clear before capital is risked: a strong setup (trade_quality), the engine's own conviction
+    (confidence), and a valid entry+stop to size and protect it. When rr_gate is on (default) the
+    self-reported payoff-to-risk skew (risk_reward) must also clear MIN_RISK_REWARD; when off
+    (config.rr_gate_enabled=False) the R:R floor is skipped and the trade rides on quality +
+    confidence. Anything short is a WAIT, not a marginal trade."""
     return (decision.action in ENTRY_ACTIONS
             and decision.trade_quality is not None and decision.trade_quality >= MIN_TRADE_QUALITY
-            and decision.risk_reward is not None and decision.risk_reward >= MIN_RISK_REWARD
+            and (not rr_gate
+                 or (decision.risk_reward is not None and decision.risk_reward >= MIN_RISK_REWARD))
             and decision.confidence is not None and decision.confidence >= MIN_CONFIDENCE
             and decision.entry is not None and decision.stop_loss is not None
             and decision.target1 is not None)
@@ -1214,13 +1217,22 @@ class Orchestrator:
         # shaved target / widened stop must still clear MIN_RISK_REWARD after margins.
         rr_levels = raw if cfg.rr_gate_pre_margin else decision
         actual_rr = _geometric_rr(rr_levels.entry, rr_levels.stop_loss, rr_levels.target1, side)
-        if actual_rr is None or actual_rr < MIN_RISK_REWARD:
+        # A None R:R means degenerate geometry (no reward — target at/below entry, or stop on the
+        # wrong side): that's an INVALID trade, rejected even when the R:R floor is off. The
+        # MIN_RISK_REWARD floor itself is skipped when cfg.rr_gate_enabled is False (trade on
+        # quality + confidence).
+        if actual_rr is None:
+            self.store.record_decision(run_id=run_id, symbol=symbol, action=decision.action,
+                                       score=decision.trade_quality,
+                                       reason="rejected: invalid geometry (no reward)",
+                                       raw_json=decision.raw_response)
+            return False
+        if cfg.rr_gate_enabled and actual_rr < MIN_RISK_REWARD:
             self.store.record_decision(run_id=run_id, symbol=symbol, action=decision.action,
                                        score=decision.trade_quality,
                                        reason=f"rejected: "
                                               f"{'pre' if cfg.rr_gate_pre_margin else 'post'}-margin "
-                                              f"R:R {actual_rr and round(actual_rr, 2)} "
-                                              f"< {MIN_RISK_REWARD}",
+                                              f"R:R {round(actual_rr, 2)} < {MIN_RISK_REWARD}",
                                        raw_json=decision.raw_response)
             return False
         max_risk_amount = cfg.total_pool * MAX_RISK_PER_TRADE_PCT / 100.0
@@ -1677,7 +1689,7 @@ class Orchestrator:
                 self.store.record_decision(run_id=run_id, symbol=symbol, action="SKIP",
                                            reason=f"decision error: {e}")
                 continue
-            if not _passes_entry_gate(decision):
+            if not _passes_entry_gate(decision, cfg.rr_gate_enabled):
                 self.store.record_decision(run_id=run_id, symbol=symbol, action=decision.action,
                                            score=decision.trade_quality, reason="below gate",
                                            raw_json=decision.raw_response)
@@ -1716,7 +1728,7 @@ class Orchestrator:
             if symbol in held:      # belt and braces — the model was told to exclude these
                 log.warning("skill screen returned held symbol %s — ignoring", symbol)
                 continue
-            if not _passes_entry_gate(decision):
+            if not _passes_entry_gate(decision, cfg.rr_gate_enabled):
                 self.store.record_decision(run_id=run_id, symbol=symbol,
                                            action=decision.action,
                                            score=decision.trade_quality, reason="below gate",
