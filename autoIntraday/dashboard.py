@@ -625,6 +625,41 @@ def _settings_dialog() -> None:
                 st.success("Saved.")
                 st.rerun()
 
+            st.divider()
+            st.caption("Scale into strength — pyramid extra capital into a position while the engine "
+                       "keeps re-affirming a STRONG same-side entry for N consecutive cycles. OFF by "
+                       "default. Each add is add% of the per-position capital, up to max-adds; a "
+                       "pyramided position's full-book rises to the pyramid full-book so the added "
+                       "capital can chase a bigger move. The structural stop is never widened.")
+            pc = _db(lambda s: s.get_config())
+            pyr_on = st.checkbox("Enable scale-into-strength", value=bool(pc.pyramid_enabled))
+            pk1, pk2, pk3 = st.columns(3)
+            pyr_add = pk1.number_input("Add % of capital", min_value=10.0, max_value=100.0,
+                                       value=float(pc.pyramid_add_pct), step=5.0, format="%.0f")
+            pyr_max = pk2.number_input("Max adds", min_value=1, max_value=5,
+                                       value=int(pc.pyramid_max_adds), step=1)
+            pyr_full = pk3.number_input("Pyramid full-book % (on margin)", min_value=0.0,
+                                        max_value=100.0, value=float(pc.pyramid_full_pct),
+                                        step=1.0, format="%.0f")
+            pk4, pk5, pk6 = st.columns(3)
+            pyr_conf = pk4.number_input("Confirm cycles", min_value=1, max_value=6,
+                                        value=int(pc.pyramid_confirm_cycles), step=1)
+            pyr_q = pk5.number_input("Min quality", min_value=0.0, max_value=100.0,
+                                     value=float(pc.pyramid_min_quality), step=1.0, format="%.0f")
+            pyr_c = pk6.number_input("Min confidence", min_value=0.0, max_value=100.0,
+                                     value=float(pc.pyramid_min_confidence), step=1.0, format="%.0f")
+            if pyr_on:
+                st.warning(f"Adds REAL capital to winners in LIVE and can push a position to "
+                           f"{1 + pyr_add * pyr_max / 100:.1f}x its base size. Test in paper first.")
+            if st.button("Save scale-into-strength", use_container_width=True):
+                _db(lambda s: s.update_config(
+                    pyramid_enabled=pyr_on, pyramid_add_pct=pyr_add,
+                    pyramid_max_adds=int(pyr_max), pyramid_full_pct=pyr_full,
+                    pyramid_confirm_cycles=int(pyr_conf), pyramid_min_quality=pyr_q,
+                    pyramid_min_confidence=pyr_c))
+                st.success("Saved.")
+                st.rerun()
+
     with t_schedule:
         try:
             sched = read_schedule()

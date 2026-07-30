@@ -2181,6 +2181,104 @@ def test_fallback_stop_is_above_entry_for_a_short():
     assert p.side == "SHORT" and p.stop_loss == pytest.approx(202.0)
 
 
+# --- Scale-into-strength (pyramiding into persisting winners) ---------------------------------
+
+def _pyr_cfg(store, **kw):
+    base = dict(mode="live", total_pool=250000.0, max_open_positions=5,
+                capital_per_position=30000.0, pyramid_enabled=True)
+    base.update(kw)
+    store.update_config(**base)
+
+
+def _pyr_pos(store, qty=100, entry=100.0):
+    return store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=qty,
+                               entry_price=entry, target_price=140.0, stop_loss=95.0,
+                               mode="live", status="OPEN")
+
+
+def test_pyramid_adds_after_two_persisting_strong_reaffirms():
+    store = Store(":memory:")
+    _pyr_cfg(store)                                            # confirm_cycles=2 (default)
+    pid = _pyr_pos(store)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    strong = _decision(action="BUY_NOW", tq=85, conf=80, entry=100.0, stop=95.0, target1=140.0)
+    orch = _orch(store, client, _FakeEngine(strong), {"AAA": _indic(last=101.0)})
+    orch._manage_positions(store.start_run("live"))           # cycle 1: persistence 1/2, no add
+    p = store.get_position(pid)
+    assert p.pyramid_signal_count == 1 and p.pyramid_count == 0 and p.quantity == 100
+    orch._manage_positions(store.start_run("live"))           # cycle 2: confirmed -> add
+    p = store.get_position(pid)
+    assert p.pyramid_count == 1 and p.pyramid_signal_count == 0
+    assert p.quantity > 100                                   # capital added at market
+    assert p.stop_loss == pytest.approx(95.0)                 # structural stop NOT widened
+    assert any(o["order_type"] == "MARKET" and o["transaction_type"] == "BUY"
+               for o in client.orders)
+
+
+def test_pyramid_one_off_strong_does_not_add_and_resets():
+    store = Store(":memory:")
+    _pyr_cfg(store)
+    pid = _pyr_pos(store)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    strong = _decision(action="BUY_NOW", tq=85, conf=80, entry=100.0, stop=95.0, target1=140.0)
+    weak = _decision(action="HOLD", tq=60, conf=60)
+    # strong (1/2) then a non-strong read -> counter resets, never reaches 2, no add
+    _orch(store, client, _FakeEngine(strong), {"AAA": _indic(last=101.0)})._manage_positions(
+        store.start_run("live"))
+    assert store.get_position(pid).pyramid_signal_count == 1
+    _orch(store, client, _FakeEngine(weak), {"AAA": _indic(last=101.0)})._manage_positions(
+        store.start_run("live"))
+    p = store.get_position(pid)
+    assert p.pyramid_signal_count == 0 and p.pyramid_count == 0 and p.quantity == 100
+
+
+def test_pyramid_respects_max_adds_ceiling():
+    store = Store(":memory:")
+    _pyr_cfg(store, pyramid_max_adds=2)
+    pid = _pyr_pos(store)
+    store.record_pyramid_add(pid)
+    store.record_pyramid_add(pid)                             # already at the 2-add ceiling
+    client = _FakeClient(mode="live", order_status="OPEN")
+    strong = _decision(action="BUY_NOW", tq=85, conf=80, entry=100.0, stop=95.0, target1=140.0)
+    orch = _orch(store, client, _FakeEngine(strong), {"AAA": _indic(last=101.0)})
+    orch._manage_positions(store.start_run("live"))
+    orch._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert p.pyramid_count == 2 and p.quantity == 100         # no further add
+    assert not any(o["order_type"] == "MARKET" for o in client.orders)
+
+
+def test_pyramid_disabled_never_adds():
+    store = Store(":memory:")
+    _pyr_cfg(store, pyramid_enabled=False)
+    pid = _pyr_pos(store)
+    client = _FakeClient(mode="live", order_status="OPEN")
+    strong = _decision(action="BUY_NOW", tq=90, conf=90, entry=100.0, stop=95.0, target1=140.0)
+    orch = _orch(store, client, _FakeEngine(strong), {"AAA": _indic(last=101.0)})
+    orch._manage_positions(store.start_run("live"))
+    orch._manage_positions(store.start_run("live"))
+    p = store.get_position(pid)
+    assert p.pyramid_count == 0 and p.pyramid_signal_count == 0 and p.quantity == 100
+
+
+def test_pyramided_position_rides_higher_full_book():
+    # A pyramided position (pyramid_count>0) uses pyramid_full_pct (40% -> +8% price); a plain one
+    # uses profit_book_full_pct (19% -> +3.8%). At ltp +5% the plain one full-books, the pyramided
+    # one holds. Partial disabled to isolate the full-book.
+    store = Store(":memory:")
+    _pyr_cfg(store, pyramid_full_pct=40.0, profit_book_full_pct=19.0, profit_book_partial_pct=0.0,
+             exit_mode="db_only")
+    plain = _pyr_pos(store)
+    pyr = _pyr_pos(store)
+    store.record_pyramid_add(pyr)                             # mark as pyramided
+    client = _FakeClient(mode="live", order_status="OPEN")
+    orch = _orch(store, client, _FakeEngine(_decision(action="HOLD")), {"AAA": _indic(last=105.0)})
+    orch._manage_positions(store.start_run("live"))
+    assert store.get_position(plain).status == "CLOSED"       # +5% > +3.8% normal full-book
+    assert store.get_position(plain).exit_reason == "TAKE_PROFIT"
+    assert store.get_position(pyr).status == "OPEN"           # +5% < +8% pyramided full-book
+
+
 # --- R:R gate on/off (config.rr_gate_enabled) ------------------------------------------------
 
 def test_entry_gate_rr_off_skips_risk_reward_floor():

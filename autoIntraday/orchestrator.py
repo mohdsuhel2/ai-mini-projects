@@ -802,6 +802,10 @@ class Orchestrator:
             return 0
         if position.reverse_signal_count:
             self.store.set_reverse_signal_count(position.id, 0)   # flip not sustained — reset
+        # Scale INTO strength: a STRONG, persisting same-side re-affirm adds capital to a winner and
+        # raises its full-book. Checked BEFORE the underwater scale-in so only one adds per cycle.
+        if self._maybe_pyramid(run_id, position, decision, indicators):
+            return 0                       # added this cycle; don't also scale-in / trail
         # Engine re-affirmed the trade while it's underwater -> consider a disciplined scale-in.
         if self._maybe_scale_in(run_id, position, decision, indicators):
             return 0                       # added this cycle; don't also trail off the same read
@@ -830,16 +834,19 @@ class Orchestrator:
             favorable = (ltp - position.entry_price) / position.entry_price
         else:
             favorable = (position.entry_price - ltp) / position.entry_price
-        # return-on-margin % -> favorable price-move fraction (return / leverage)
-        full_move = (cfg.profit_book_full_pct / LEVERAGE) / 100.0
+        # return-on-margin % -> favorable price-move fraction (return / leverage). A position that
+        # has been pyramided into rides a HIGHER full-book (pyramid_full_pct) so the added capital
+        # can chase a bigger move; the partial book is unchanged.
+        full_pct = cfg.pyramid_full_pct if position.pyramid_count > 0 else cfg.profit_book_full_pct
+        full_move = (full_pct / LEVERAGE) / 100.0
         partial_move = (cfg.profit_book_partial_pct / LEVERAGE) / 100.0
         # Full take-profit: close the whole remaining position. Suppressed while a broker TARGET
         # leg is resting at Groww — that order is the single source of this exit (no double-sell).
-        if (cfg.profit_book_full_pct > 0 and favorable >= full_move
+        if (full_pct > 0 and favorable >= full_move
                 and not position.broker_target_order_id):
             self.store.record_decision(
                 run_id=run_id, symbol=position.symbol, action="EXIT",
-                reason=f"take-profit {cfg.profit_book_full_pct:g}% on margin @ {ltp}",
+                reason=f"take-profit {full_pct:g}% on margin @ {ltp}",
                 position_id=position.id)
             self._close_position(position, ltp, "TAKE_PROFIT")
             log.info("take-profit FULL %s @ %.2f (+%.1f%% on margin)", position.symbol, ltp,
@@ -1078,6 +1085,80 @@ class Orchestrator:
         log.warning("scaled in %s: +%d @ %.2f, qty %d->%d, avg %.2f->%.2f (stop %.2f unchanged)",
                     position.symbol, add_qty, ltp, position.quantity,
                     position.quantity + add_qty, position.entry_price, new_avg,
+                    position.stop_loss)
+        return True
+
+    def _maybe_pyramid(self, run_id: int, position, decision, indicators) -> bool:
+        """Scale INTO strength: when the engine re-affirms a STRONG same-side entry for
+        pyramid_confirm_cycles consecutive cycles, add pyramid_add_pct% of the per-position capital
+        at market — up to pyramid_max_adds adds and a hard 1+add_pct*max_adds/100 x base-capital
+        ceiling, never over-committing the free pool. The structural stop is NOT widened; once
+        added, the position's full-book rises to pyramid_full_pct (see _maybe_take_profit). Returns
+        True if it added this cycle. Opt-in (pyramid_enabled); mirror of the underwater _maybe_scale_in
+        (only one adds per cycle — pyramid is checked first)."""
+        cfg = self.store.get_config()
+        if not cfg.pyramid_enabled or _should_square_off(indicators):
+            return False
+        # Persistence: a STRONG same-side re-affirm advances the counter; anything else resets it.
+        strong = (decision.action in ENTRY_ACTIONS
+                  and _position_side(decision.action) == position.side
+                  and decision.trade_quality is not None
+                  and decision.trade_quality >= cfg.pyramid_min_quality
+                  and decision.confidence is not None
+                  and decision.confidence >= cfg.pyramid_min_confidence)
+        if not strong:
+            if position.pyramid_signal_count:
+                self.store.set_pyramid_signal_count(position.id, 0)
+            return False
+        confirmed = position.pyramid_signal_count + 1
+        # Not yet confirmed, or already at the add-count ceiling -> just track persistence.
+        if confirmed < cfg.pyramid_confirm_cycles or position.pyramid_count >= cfg.pyramid_max_adds:
+            self.store.set_pyramid_signal_count(position.id, confirmed)
+            return False
+        ltp = _ltp(indicators)
+        if ltp <= 0:
+            self.store.set_pyramid_signal_count(position.id, confirmed)
+            return False
+        # Size the add in MARGIN terms: add_pct% of the per-position capital, capped by (a) the room
+        # left under the position's hard ceiling and (b) the free pool. Pool/cap are margin; notional
+        # = margin * LEVERAGE.
+        add_margin = cfg.capital_per_position * cfg.pyramid_add_pct / 100.0
+        ceiling_margin = cfg.capital_per_position * (1 + cfg.pyramid_add_pct * cfg.pyramid_max_adds / 100.0)
+        cur_margin = position.quantity * position.entry_price / LEVERAGE
+        free_margin = cfg.total_pool - self.store.committed_capital() / LEVERAGE
+        add_margin = min(add_margin, ceiling_margin - cur_margin, free_margin)
+        add_qty = int(math.floor(add_margin * LEVERAGE / ltp)) if add_margin > 0 else 0
+        if add_qty < 1:
+            self.store.set_pyramid_signal_count(position.id, confirmed)   # keep persistence; no room
+            return False
+        txn = _txn(position.side)
+        order = self.client.place_order(
+            symbol=position.symbol, exchange=position.exchange, transaction_type=txn,
+            quantity=add_qty, order_type="MARKET", price=ltp, product="MIS")
+        if _is_rejected(order):
+            self.store.record_decision(run_id=run_id, symbol=position.symbol, action="SKIP",
+                                       reason=f"pyramid add rejected: {order.get('status')}",
+                                       position_id=position.id)
+            self.store.set_pyramid_signal_count(position.id, confirmed)
+            return False
+        self.store.record_order(
+            broker_order_id=order["order_id"], symbol=position.symbol, transaction_type=txn,
+            quantity=add_qty, order_type="MARKET", price=ltp,
+            status=order.get("status", "COMPLETE"), mode=self.client.mode,
+            position_id=position.id, raw_json=json.dumps(order, default=str))
+        new_avg = self.store.add_to_position(position.id, add_qty, ltp)
+        self.store.record_pyramid_add(position.id)          # +count, reset the persistence counter
+        self.store.record_decision(
+            run_id=run_id, symbol=position.symbol, action="ADD",
+            reason=f"pyramid +{add_qty} @ {ltp} (strong x{cfg.pyramid_confirm_cycles}; avg "
+                   f"{position.entry_price:.2f}->{new_avg:.2f}; add {position.pyramid_count + 1}/"
+                   f"{cfg.pyramid_max_adds}; full-book->{cfg.pyramid_full_pct:g}%; "
+                   f"stop {position.stop_loss} kept)",
+            entry_price=new_avg, stop_loss=position.stop_loss,
+            target_price=position.target_price, position_id=position.id)
+        log.warning("pyramid %s: +%d @ %.2f, qty %d->%d, avg %.2f->%.2f, add %d/%d (stop %s kept)",
+                    position.symbol, add_qty, ltp, position.quantity, position.quantity + add_qty,
+                    position.entry_price, new_avg, position.pyramid_count + 1, cfg.pyramid_max_adds,
                     position.stop_loss)
         return True
 

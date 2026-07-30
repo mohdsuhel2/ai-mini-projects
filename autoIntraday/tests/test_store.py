@@ -67,6 +67,33 @@ def test_rr_gate_pre_margin_defaults_true_and_toggles():
     assert store.get_config().rr_gate_pre_margin is False  # persisted as a real bool
 
 
+def test_pyramid_config_defaults_and_roundtrip():
+    store = Store(":memory:")
+    c = store.get_config()
+    assert c.pyramid_enabled is False                     # opt-in
+    assert c.pyramid_add_pct == 50.0 and c.pyramid_max_adds == 2
+    assert c.pyramid_full_pct == 40.0 and c.pyramid_confirm_cycles == 2
+    assert c.pyramid_min_quality == 80.0 and c.pyramid_min_confidence == 75.0
+    c = store.update_config(pyramid_enabled=True, pyramid_add_pct=60.0, pyramid_max_adds=3,
+                            pyramid_full_pct=35.0, pyramid_confirm_cycles=3,
+                            pyramid_min_quality=82.0, pyramid_min_confidence=78.0)
+    assert c.pyramid_enabled is True and c.pyramid_add_pct == 60.0 and c.pyramid_max_adds == 3
+    assert store.get_config().pyramid_confirm_cycles == 3   # persisted
+
+
+def test_position_pyramid_counters_and_helpers():
+    store = Store(":memory:")
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=100,
+                              entry_price=100.0, mode="live", status="OPEN")
+    p = store.get_position(pid)
+    assert p.pyramid_count == 0 and p.pyramid_signal_count == 0
+    store.set_pyramid_signal_count(pid, 2)
+    assert store.get_position(pid).pyramid_signal_count == 2
+    store.record_pyramid_add(pid)                          # +1 count, resets signal counter
+    p = store.get_position(pid)
+    assert p.pyramid_count == 1 and p.pyramid_signal_count == 0
+
+
 def test_rr_gate_enabled_defaults_true_and_toggles():
     store = Store(":memory:")
     assert store.get_config().rr_gate_enabled is True      # default: R:R gate on
