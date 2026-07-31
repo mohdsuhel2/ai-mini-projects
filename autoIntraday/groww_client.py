@@ -169,6 +169,27 @@ def _default_sdk_factory(api_key: str, totp: str) -> Any:
 _SEGMENT_CASH = "CASH"
 
 
+# Keys Groww has been observed to carry a rejection/status message under. The docs name
+# `remark`; community SDKs report `status_message`. Both are checked, plus the obvious variants,
+# so a rename on Groww's side degrades to "no reason given" rather than silently losing it again.
+_REASON_KEYS = ("remark", "status_message", "rejection_reason", "reason", "message", "error")
+
+
+def _order_reason(raw: Any) -> Optional[str]:
+    """Groww's own text for an order — the rejection reason when it refused one.
+
+    We used to discard this, so every broker rejection surfaced only in the Groww app and our
+    logs said nothing. That cost three wrong guesses at the SL_M failure on 2026-07-31.
+    """
+    if not isinstance(raw, dict):
+        return None
+    for key in _REASON_KEYS:
+        val = raw.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
 def _retry(fn: Callable[[], Any], attempts: int = 3, backoff_seconds: float = 0.5) -> Any:
     """Retry a read-only call a few times with linear backoff. Never use for writes."""
     last_error: Optional[Exception] = None
@@ -455,6 +476,7 @@ class GrowwClient:
             {"symbol": o.get("trading_symbol") or o.get("symbol"),
              "order_id": o.get("groww_order_id") or o.get("order_id"),
              "status": o.get("order_status") or o.get("status"),
+             "reason": _order_reason(o),
              "transaction_type": o.get("transaction_type"),
              # MIS vs CNC. Reconcile only ever cancels MIS orders — a resting CNC sell belongs
              # to the user's delivery portfolio. Absent -> None, which fails safe (not MIS).
@@ -532,7 +554,12 @@ class GrowwClient:
         # Real SDK: get_order_status(segment, groww_order_id) - `segment` is required and
         # the id param is named `groww_order_id`, not a positional `order_id`.
         raw = _retry(lambda: self._sdk.get_order_status(segment=_SEGMENT_CASH, groww_order_id=order_id))
-        return {"order_id": order_id, "status": raw["order_status"]}
+        return {"order_id": order_id, "status": raw["order_status"],
+                # Groww's own rejection text. Dropping it is why three separate wrong fixes were
+                # attempted for the SL_M rejections on 2026-07-31 — the reason was only ever
+                # visible in the Groww app, never in our logs. Keys vary across responses, so try
+                # all the ones Groww is known to use.
+                "reason": _order_reason(raw)}
 
     def cancel_order(self, order_id: str) -> dict:
         self._require_auth()

@@ -278,7 +278,7 @@ def test_get_order_status_live_calls_sdk():
     sdk = _FakeSdkWithOrders()
     client = _authed_client(sdk)
     status = client.get_order_status("LIVE-1")
-    assert status == {"order_id": "LIVE-1", "status": "COMPLETE"}
+    assert status == {"order_id": "LIVE-1", "status": "COMPLETE", "reason": None}
 
 
 def test_cancel_order_paper_marks_cancelled():
@@ -454,11 +454,11 @@ def test_get_open_orders_live_maps_fields():
     client.authenticate()
     orders = client.get_open_orders()
     assert orders == [
-        {"symbol": "AAA", "order_id": "G1", "status": "APPROVED",
+        {"symbol": "AAA", "order_id": "G1", "status": "APPROVED", "reason": None,
          "transaction_type": "BUY", "product": "MIS"},
-        {"symbol": "BBB", "order_id": "G2", "status": "EXECUTED",
+        {"symbol": "BBB", "order_id": "G2", "status": "EXECUTED", "reason": None,
          "transaction_type": "SELL", "product": "CNC"},
-        {"symbol": "CCC", "order_id": "G3", "status": "APPROVED",
+        {"symbol": "CCC", "order_id": "G3", "status": "APPROVED", "reason": None,
          "transaction_type": "SELL", "product": None},
     ]
 
@@ -781,3 +781,30 @@ def test_sl_m_payload_uses_the_symbols_own_tick():
     c.place_order(symbol="NETWEB", exchange="NSE", transaction_type="SELL", quantity=10,
                   order_type="SL_M", price=None, trigger_price=4399.95)
     assert captured["price"] == 4399.9 and captured["trigger_price"] == 4399.9
+
+
+def test_order_reason_extracts_growws_text_from_any_known_key():
+    """Groww's rejection text arrives under different keys (docs say `remark`, community SDKs
+    report `status_message`). Losing it is what left 76 rejected stops invisible on 2026-07-31."""
+    from groww_client import _order_reason
+    assert _order_reason({"remark": "Order placed successfully"}) == "Order placed successfully"
+    assert _order_reason({"status_message": "choose price in multiples of the tick size"}) \
+        == "choose price in multiples of the tick size"
+    assert _order_reason({"rejection_reason": "beyond permissible range"}) \
+        == "beyond permissible range"
+    assert _order_reason({"remark": "   "}) is None       # blank is not a reason
+    assert _order_reason({}) is None
+    assert _order_reason(None) is None
+
+
+def test_get_order_status_surfaces_the_rejection_reason():
+    class _SDK:
+        def get_order_status(self, **kw):
+            return {"order_status": "REJECTED",
+                    "remark": "choose price in multiples of the tick size"}
+
+    c = GrowwClient(mode="live")
+    c._sdk = _SDK()
+    out = c.get_order_status("GSM123")
+    assert out["status"] == "REJECTED"
+    assert out["reason"] == "choose price in multiples of the tick size"

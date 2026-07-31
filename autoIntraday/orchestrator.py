@@ -1063,12 +1063,22 @@ class Orchestrator:
     # --- Broker exit bracket (LIVE eager modes: exit_mode 'armed' / 'on_fill') ----------------
     def _broker_order_status(self, order_id: str) -> str:
         """Best-effort broker status, UPPER-cased; '' on any error (treated as still-resting so a
-        transient status glitch never books/closes a position by mistake)."""
+        transient status glitch never books/closes a position by mistake).
+
+        A REJECTED order is logged at error level WITH Groww's own reason. Previously the reason
+        was discarded and a rejection was silently re-placed next cycle, so a stop could fail all
+        session while the position looked protected (2026-07-31: 76/76 SL_M rejected, nothing in
+        our logs)."""
         try:
-            return str(self.client.get_order_status(order_id).get("status", "")).upper()
+            raw = self.client.get_order_status(order_id)
         except Exception:
             log.exception("bracket status check failed for %s", order_id)
             return ""
+        status = str(raw.get("status", "")).upper()
+        if status in _REJECTED_STATES:
+            log.error("broker REJECTED order %s: %s", order_id,
+                      raw.get("reason") or "(no reason given by Groww)")
+        return status
 
     def _bracket_live(self, position) -> bool:
         return bool(position.broker_stop_order_id or position.broker_target_order_id)
