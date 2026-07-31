@@ -97,3 +97,37 @@ reverses should produce a decisive exit, not a slow bleed to the stop.
   ignored it, vs the flag was absent/late). If the flag was absent, this becomes an engine/data fix
   instead of a prompt fix.
 - Gather more losing-entry examples across more days before finalising the score-penalty weights.
+
+---
+
+# RESOLUTION — 2026-07-30 deep-analysis pass (walk-forward validated)
+
+**Status update: the open validation was run and the evidence INVERTED Fixes 1 & 2; Fixes 3 & 4 shipped.**
+
+## Validation findings
+
+- **SYRMA flags check (the doc's open question):** at the actual decision bar (11:30 close) the engine
+  showed `blowoff_top: False`, `volume_climax_ratio: 2.05` (< 2.5), `exhaustion_flags: []`. The 11:40
+  climax bar was STILL FORMING at the 11:42 entry — the data was NOT there to obey. Engine-timing fact,
+  not model disobedience. (Meanwhile 63MOONS — the day's +5% winner — DID carry `blowoff_top: True` and
+  was benched to grade C by the score dock.)
+- **A/B, climax gate (would-be Fix 1):** over 66 names / Apr–Jul / 1,484 long signals, blowoff/climax-
+  flagged longs OUTPERFORM as immediate entries (+0.161%/tr vs +0.019% clean; extended>1%+flagged
+  +0.375%/tr — the single best cohort). Hardening the anti-chase gate is the 8th failed long filter.
+- **A/B, entry type:** resting a limit at VWAP loses to entering at signal in EVERY cohort
+  (ALL: +0.038%/tr immediate vs −0.034% limit, 37% no-fill; long-on-pullback +0.197 vs −0.040).
+  VWAP-limit fills are adversely selected.
+
+## What was actually shipped (2026-07-30 evening)
+
+- **Fix 1 — REJECTED** (8th failed long filter; see above).
+- **Fix 2 — REVERSED and shipped:** the existing blowoff score dock now has a Gate-G carve-out in
+  `stock_analyze_intraday_2.py::_trade_quality` — no climax dock when bias long/lop + ADX>40 + above
+  VWAP (63MOONS 11:45: C66 → B77 actionable). Grade-B long verdict is now
+  "BUY NOW (half size, immediate)" — never a resting-limit "conditional". v1's Gate D
+  (stale-extended-breakout → WAIT) ported into the v2 verdict (`_stale_extended_breakout`).
+- **Fix 3 — shipped** (SKILL.md): reported R:R must equal the geometry of the emitted levels
+  (engine `risk_model` numbers); dishonest narrative R:R named with the VGUARD/DEEPINDS/MOIL examples.
+- **Fix 4 — shipped** (SKILL.md): new "MANAGING AN OPEN POSITION" section — vetoed flip = HOLD (Gate C
+  mirror), CONFIRMED closed-bar invalidation = convicted SELL NOW with quality/confidence ≥ 60,
+  Gate K stop discipline (original structural stop until +1R; never re-quote within ~0.4% of tape).

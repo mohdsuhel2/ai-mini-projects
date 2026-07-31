@@ -1,0 +1,117 @@
+checkpoints (random, seed 20260730): ['10:00', '11:00', '11:45', '12:00', '12:30', '14:00', '14:30', '14:45']
+
+====================================================================================================
+PER-DECISION LOG   (entry = closed-bar last; same exit policy both sides)
+====================================================================================================
+63MOONS    10:00  | v1: L  e808.4->STOP -1.49% | v2: L  e808.4->STOP -1.49% 
+63MOONS    11:00  | v1: --   no_trigger                             | v2: --   no_trigger                             
+63MOONS    11:45  | v1: L  e822.2->TARG +4.95% | v2: --   WAIT (grade C)                         
+63MOONS    12:00  | v1: L  e820.6->TARG +4.57% | v2: --   WAIT (grade C)                         
+63MOONS    12:30  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+63MOONS    14:00  | v1: --   stale extended breakout (Gate D)       | v2: L  e846.6->STOP -0.96% 
+63MOONS    14:30  | v1: --   no_trigger                             | v2: --   no_trigger                             
+63MOONS    14:45  | v1: --   stale extended breakout (Gate D)       | v2: --   no_fill                                
+ADANIPORTS 10:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+ADANIPORTS 11:00  | v1: S* e1668.6->EOD  +0.20% | v2: S* e1668.6->EOD  +0.20% 
+ADANIPORTS 11:45  | v1: S* e1665.0->EOD  -0.01% | v2: S  e1664.5->EOD  -0.04% 
+ADANIPORTS 12:00  | v1: S* e1664.7->EOD  -0.03% | v2: S  e1665.0->EOD  -0.01% 
+ADANIPORTS 12:30  | v1: S* e1666.6->EOD  +0.08% | v2: S  e1664.9->EOD  -0.02% 
+ADANIPORTS 14:00  | v1: --   corpse -3.0% (Gate I)                  | v2: --   corpse -> bounce only (Gate I)         
+ADANIPORTS 14:30  | v1: --   corpse -3.1% (Gate I)                  | v2: --   corpse -> bounce only (Gate I)         
+ADANIPORTS 14:45  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+AVALON     10:00  | v1: L  e1723.2->TARG +1.78% | v2: L  e1723.2->TARG +1.78% 
+AVALON     11:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+AVALON     11:45  | v1: L  e1773.1->STOP -1.56% | v2: L  e1773.1->STOP -1.56% 
+AVALON     12:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+AVALON     12:30  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+AVALON     14:00  | v1: S* e1736.1->STOP -1.54% | v2: S* e1736.1->STOP -1.54% 
+AVALON     14:30  | v1: --   no_trigger                             | v2: --   no_trigger                             
+AVALON     14:45  | v1: --   no_trigger                             | v2: --   no_trigger                             
+BALKRISIND 10:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+BALKRISIND 11:00  | v1: S* e2213.0->STOP -2.11% | v2: S* e2213.0->STOP -2.11% 
+BALKRISIND 11:45  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+BALKRISIND 12:00  | v1: L  e2245.0->TARG +3.15% | v2: L  e2245.0->TARG +3.15% 
+BALKRISIND 12:30  | v1: --   no_trigger                             | v2: --   no_trigger                             
+BALKRISIND 14:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+BALKRISIND 14:30  | v1: L* e2249.1->TARG +1.40% | v2: L* e2249.1->TARG +1.40% 
+BALKRISIND 14:45  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+BLACKBUCK  10:00  | v1: L  e559.7->STOP -1.92% | v2: L* e551.1->TARG +3.02% 
+BLACKBUCK  11:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+BLACKBUCK  11:45  | v1: S* e547.3->EOD  +0.70% | v2: S* e547.3->EOD  +0.70% 
+BLACKBUCK  12:00  | v1: S* e547.3->EOD  +0.70% | v2: S* e547.3->EOD  +0.70% 
+BLACKBUCK  12:30  | v1: S* e547.3->EOD  +0.70% | v2: S* e547.3->EOD  +0.70% 
+BLACKBUCK  14:00  | v1: S* e547.3->EOD  +0.70% | v2: S* e547.3->EOD  +0.70% 
+BLACKBUCK  14:30  | v1: --   no_trigger                             | v2: --   no_trigger                             
+BLACKBUCK  14:45  | v1: --   no_trigger                             | v2: --   no_trigger                             
+MOIL       10:00  | v1: L  e301.0->STOP -1.59% | v2: L  e301.0->STOP -1.59% 
+MOIL       11:00  | v1: L  e298.4->STOP -0.76% | v2: L  e298.4->STOP -0.76% 
+MOIL       11:45  | v1: S* e293.2->EOD  +2.08% | v2: S* e293.2->EOD  +2.08% 
+MOIL       12:00  | v1: S* e291.8->EOD  +1.59% | v2: S* e291.8->EOD  +1.59% 
+MOIL       12:30  | v1: S* e291.8->EOD  +1.59% | v2: S* e291.8->EOD  +1.59% 
+MOIL       14:00  | v1: --   no_trigger                             | v2: --   no_trigger                             
+MOIL       14:30  | v1: S  e288.3->STOP -1.28% | v2: --   NO TRADE — short vs bullish HTF        
+MOIL       14:45  | v1: S  e292.1->STOP -0.45% | v2: --   NO TRADE — short vs bullish HTF        
+PNGSREVA   10:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+PNGSREVA   11:00  | v1: --   corpse -4.0% (Gate I)                  | v2: --   corpse -> bounce only (Gate I)         
+PNGSREVA   11:45  | v1: --   corpse -4.7% (Gate I)                  | v2: --   corpse -> bounce only (Gate I)         
+PNGSREVA   12:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+PNGSREVA   12:30  | v1: --   corpse -5.0% (Gate I)                  | v2: --   corpse -> bounce only (Gate I)         
+PNGSREVA   14:00  | v1: L  e437.6->STOP -1.04% | v2: L  e437.6->STOP -1.04% 
+PNGSREVA   14:30  | v1: --   corpse -3.9% (Gate I)                  | v2: --   NO TRADE — short vs bullish HTF        
+PNGSREVA   14:45  | v1: --   corpse -3.8% (Gate I)                  | v2: --   NO TRADE — short vs bullish HTF        
+PREMIERENE 10:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+PREMIERENE 11:00  | v1: S* e984.2->EOD  +0.22% | v2: S  e984.8->EOD  +0.28% 
+PREMIERENE 11:45  | v1: S* e983.8->EOD  +0.18% | v2: S  e984.6->EOD  +0.26% 
+PREMIERENE 12:00  | v1: S* e984.0->EOD  +0.20% | v2: S  e983.8->EOD  +0.18% 
+PREMIERENE 12:30  | v1: S* e980.5->EOD  -0.15% | v2: S  e985.0->EOD  +0.30% 
+PREMIERENE 14:00  | v1: S* e977.6->STOP -0.64% | v2: S* e977.6->STOP -0.64% 
+PREMIERENE 14:30  | v1: S* e984.9->EOD  +0.29% | v2: S* e984.9->EOD  +0.29% 
+PREMIERENE 14:45  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+SYRMA      10:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+SYRMA      11:00  | v1: L  e1411.9->TARG +1.91% | v2: L  e1411.9->TARG +1.91% 
+SYRMA      11:45  | v1: L  e1458.7->STOP -2.61% | v2: --   WAIT (grade C)                         
+SYRMA      12:00  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+SYRMA      12:30  | v1: --   neutral (Gate E)                       | v2: --   WAIT (neutral bias — Gate E)           
+SYRMA      14:00  | v1: S* e1378.5->EOD  +0.50% | v2: S* e1378.5->EOD  +0.50% 
+SYRMA      14:30  | v1: S  e1373.6->EOD  +0.15% | v2: S* e1368.9->EOD  -0.20% 
+SYRMA      14:45  | v1: --   no_trigger                             | v2: --   no_trigger                             
+
+====================================================================================================
+AGGREGATE — every (symbol, checkpoint) decision
+====================================================================================================
+  v1  n=36  TGT=6 STOP=12 EOD=18  win%= 17  totP&L=+10.49%  (Rs +10,493 @1L/trade)
+  v2  n=32  TGT=5 STOP=9 EOD=18  win%= 16  totP&L=+9.41%  (Rs +9,410 @1L/trade)
+
+DIVERGENT decisions (one traded, the other didn't): 6
+  63MOONS    11:45  v1 traded LONG -> TARGET +4.95%  | other skipped: WAIT (grade C)
+  63MOONS    12:00  v1 traded LONG -> TARGET +4.57%  | other skipped: WAIT (grade C)
+  63MOONS    14:00  v2 traded LONG -> STOP -0.96%  | other skipped: stale extended breakout (Gate D)
+  MOIL       14:30  v1 traded SHORT -> STOP -1.28%  | other skipped: NO TRADE — short vs bullish HTF
+  MOIL       14:45  v1 traded SHORT -> STOP -0.45%  | other skipped: NO TRADE — short vs bullish HTF
+  SYRMA      11:45  v1 traded LONG -> STOP -2.61%  | other skipped: WAIT (grade C)
+
+====================================================================================================
+PORTFOLIO VIEW — first trade per symbol per skill (like live: one position per name)
+====================================================================================================
+  v1: n= 9  TGT=2 STOP=5 EOD=2  win%= 22  totP&L=-4.03%  (Rs -4,034 @1L/trade)
+     63MOONS    10:00 LONG  e808.35 sl796.27 tg832.50 -> STOP   -1.49%  [long]
+     ADANIPORTS 11:00 SHORT e1668.60 sl1679.73 tg1646.34 -> EOD    +0.20%  [short-on-breakdown]
+     AVALON     10:00 LONG  e1723.20 sl1707.90 tg1753.80 -> TARGET +1.78%  [long]
+     BALKRISIND 11:00 SHORT e2213.00 sl2259.62 tg2119.76 -> STOP   -2.11%  [short-on-breakdown]
+     BLACKBUCK  10:00 LONG  e559.70 sl548.98 tg581.14 -> STOP   -1.92%  [long]
+     MOIL       10:00 LONG  e301.00 sl296.21 tg310.57 -> STOP   -1.59%  [long]
+     PNGSREVA   14:00 LONG  e437.65 sl433.11 tg446.73 -> STOP   -1.04%  [long]
+     PREMIERENE 11:00 SHORT e984.20 sl997.03 tg958.55 -> EOD    +0.22%  [short-on-breakdown]
+     SYRMA      11:00 LONG  e1411.90 sl1398.43 tg1438.84 -> TARGET +1.91%  [long]
+  v2: n= 9  TGT=3 STOP=4 EOD=2  win%= 33  totP&L=+0.96%  (Rs +962 @1L/trade)
+     63MOONS    10:00 LONG  e808.35 sl796.27 tg832.50 -> STOP   -1.49%  [BUY NOW (grade A+)]
+     ADANIPORTS 11:00 SHORT e1668.60 sl1679.73 tg1646.34 -> EOD    +0.20%  [SHORT ON BREAKDOWN (grade B, conditional)]
+     AVALON     10:00 LONG  e1723.20 sl1707.90 tg1753.80 -> TARGET +1.78%  [BUY ON PULLBACK (grade B, conditional)]
+     BALKRISIND 11:00 SHORT e2213.00 sl2259.62 tg2119.76 -> STOP   -2.11%  [FINOPB -> swing-low trigger (Gate B)]
+     BLACKBUCK  10:00 LONG  e551.06 sl542.74 tg567.70 -> TARGET +3.02%  [BUY ON PULLBACK (grade B, conditional)]
+     MOIL       10:00 LONG  e301.00 sl296.21 tg310.57 -> STOP   -1.59%  [BUY NOW (grade A)]
+     PNGSREVA   14:00 LONG  e437.65 sl433.11 tg446.73 -> STOP   -1.04%  [BUY ON PULLBACK (grade B, conditional)]
+     PREMIERENE 11:00 SHORT e984.80 sl997.62 tg959.15 -> EOD    +0.28%  [SHORT NOW (grade A)]
+     SYRMA      11:00 LONG  e1411.90 sl1398.43 tg1438.84 -> TARGET +1.91%  [BUY NOW (grade A)]
+
+full rows -> scratchpad/ab_v1_v2_0730.json

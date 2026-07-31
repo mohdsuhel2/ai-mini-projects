@@ -1,0 +1,416 @@
+
+===== SRF: 47 days, avg|gap|=0.51%, gaps>=0.3%: 30 (filled same day: 15, 50%) =====
+  10:00  n=  7  TGT=  0 STOP=  6 EOD=  1  win%=  0  avgP&L=-0.38%  medP&L=-0.52%  totP&L=-2.6%
+  11:00  n= 12  TGT=  1 STOP=  9 EOD=  2  win%=  8  avgP&L=-0.21%  medP&L=-0.43%  totP&L=-2.5%
+  12:00  n= 11  TGT=  2 STOP=  7 EOD=  2  win%= 18  avgP&L=-0.13%  medP&L=-0.26%  totP&L=-1.4%
+  13:00  n= 11  TGT=  2 STOP=  7 EOD=  2  win%= 18  avgP&L=-0.20%  medP&L=-0.35%  totP&L=-2.2%
+  14:00  n= 15  TGT=  7 STOP=  3 EOD=  5  win%= 47  avgP&L=+0.23%  medP&L=+0.35%  totP&L=+3.4%
+  ALL    n= 56  TGT= 12 STOP= 32 EOD= 12  win%= 21  avgP&L=-0.09%  medP&L=-0.29%  totP&L=-5.2%
+
+===== BLUESTONE: 47 days, avg|gap|=0.80%, gaps>=0.3%: 35 (filled same day: 27, 77%) =====
+  10:00  n=  7  TGT=  3 STOP=  3 EOD=  1  win%= 43  avgP&L=+0.01%  medP&L=-1.15%  totP&L=+0.1%
+  11:00  n= 10  TGT=  4 STOP=  2 EOD=  4  win%= 40  avgP&L=+0.49%  medP&L=+0.49%  totP&L=+4.9%
+  12:00  n= 16  TGT=  2 STOP= 10 EOD=  4  win%= 12  avgP&L=-0.40%  medP&L=-0.54%  totP&L=-6.4%
+  13:00  n= 11  TGT=  1 STOP=  8 EOD=  2  win%=  9  avgP&L=-0.35%  medP&L=-0.41%  totP&L=-3.8%
+  14:00  n= 11  TGT=  4 STOP=  6 EOD=  1  win%= 36  avgP&L=+0.07%  medP&L=-0.22%  totP&L=+0.7%
+  ALL    n= 55  TGT= 14 STOP= 29 EOD= 12  win%= 25  avgP&L=-0.08%  medP&L=-0.38%  totP&L=-4.5%
+
+===== STALLION: 47 days, avg|gap|=0.98%, gaps>=0.3%: 38 (filled same day: 24, 63%) =====
+  10:00  n= 12  TGT=  5 STOP=  4 EOD=  3  win%= 42  avgP&L=+0.68%  medP&L=+0.39%  totP&L=+8.2%
+  11:00  n= 20  TGT=  3 STOP= 14 EOD=  3  win%= 15  avgP&L=-0.52%  medP&L=-0.76%  totP&L=-10.4%
+  12:00  n= 23  TGT=  6 STOP= 14 EOD=  3  win%= 26  avgP&L=+0.04%  medP&L=-0.67%  totP&L=+0.9%
+  13:00  n= 18  TGT=  2 STOP=  9 EOD=  7  win%= 11  avgP&L=-0.22%  medP&L=-0.48%  totP&L=-3.9%
+  14:00  n= 16  TGT=  2 STOP=  8 EOD=  6  win%= 12  avgP&L=-0.29%  medP&L=-0.48%  totP&L=-4.6%
+  ALL    n= 89  TGT= 18 STOP= 49 EOD= 22  win%= 20  avgP&L=-0.11%  medP&L=-0.54%  totP&L=-9.9%
+
+===== SIKA: 47 days, avg|gap|=0.92%, gaps>=0.3%: 36 (filled same day: 24, 67%) =====
+  10:00  n=  4  TGT=  1 STOP=  3 EOD=  0  win%= 25  avgP&L=-0.13%  medP&L=-1.02%  totP&L=-0.5%
+  11:00  n= 12  TGT=  3 STOP=  6 EOD=  3  win%= 25  avgP&L=+0.10%  medP&L=-0.32%  totP&L=+1.3%
+  12:00  n= 14  TGT=  3 STOP=  8 EOD=  3  win%= 21  avgP&L=-0.46%  medP&L=-0.52%  totP&L=-6.5%
+  13:00  n=  9  TGT=  1 STOP=  5 EOD=  3  win%= 11  avgP&L=-0.16%  medP&L=-0.41%  totP&L=-1.5%
+  14:00  n=  8  TGT=  3 STOP=  2 EOD=  3  win%= 38  avgP&L=+0.43%  medP&L=+0.88%  totP&L=+3.4%
+  ALL    n= 47  TGT= 11 STOP= 24 EOD= 12  win%= 23  avgP&L=-0.08%  medP&L=-0.39%  totP&L=-3.8%
+
+===== DYCL: 47 days, avg|gap|=0.90%, gaps>=0.3%: 37 (filled same day: 24, 65%) =====
+  10:00  n=  4  TGT=  0 STOP=  4 EOD=  0  win%=  0  avgP&L=-1.27%  medP&L=-1.03%  totP&L=-5.1%
+  11:00  n= 14  TGT=  2 STOP=  9 EOD=  3  win%= 14  avgP&L=-0.44%  medP&L=-0.73%  totP&L=-6.2%
+  12:00  n=  9  TGT=  0 STOP=  6 EOD=  3  win%=  0  avgP&L=-0.39%  medP&L=-0.81%  totP&L=-3.5%
+  13:00  n=  8  TGT=  1 STOP=  3 EOD=  4  win%= 12  avgP&L=-0.15%  medP&L=-0.14%  totP&L=-1.2%
+  14:00  n=  7  TGT=  3 STOP=  0 EOD=  4  win%= 43  avgP&L=+0.59%  medP&L=+0.53%  totP&L=+4.1%
+  ALL    n= 42  TGT=  6 STOP= 22 EOD= 14  win%= 14  avgP&L=-0.28%  medP&L=-0.61%  totP&L=-11.9%
+
+===== KARURVYSYA: 47 days, avg|gap|=0.58%, gaps>=0.3%: 30 (filled same day: 19, 63%) =====
+  10:00  n=  6  TGT=  3 STOP=  2 EOD=  1  win%= 50  avgP&L=+0.91%  medP&L=+0.78%  totP&L=+5.5%
+  11:00  n= 13  TGT=  2 STOP=  7 EOD=  4  win%= 15  avgP&L=-0.04%  medP&L=-0.34%  totP&L=-0.5%
+  12:00  n= 13  TGT=  3 STOP=  6 EOD=  4  win%= 23  avgP&L=-0.07%  medP&L=-0.32%  totP&L=-1.0%
+  13:00  n= 13  TGT=  3 STOP=  8 EOD=  2  win%= 23  avgP&L=-0.12%  medP&L=-0.31%  totP&L=-1.6%
+  14:00  n=  9  TGT=  1 STOP=  3 EOD=  5  win%= 11  avgP&L=+0.05%  medP&L=+0.14%  totP&L=+0.4%
+  ALL    n= 54  TGT= 12 STOP= 26 EOD= 16  win%= 22  avgP&L=+0.05%  medP&L=-0.26%  totP&L=+2.9%
+
+===== COMBINED (all symbols) =====
+  10:00  n= 40  TGT= 12 STOP= 22 EOD=  6  win%= 30  avgP&L=+0.14%  medP&L=-0.41%  totP&L=+5.5%
+  11:00  n= 81  TGT= 15 STOP= 47 EOD= 19  win%= 19  avgP&L=-0.17%  medP&L=-0.44%  totP&L=-13.4%
+  12:00  n= 86  TGT= 16 STOP= 51 EOD= 19  win%= 19  avgP&L=-0.21%  medP&L=-0.46%  totP&L=-17.9%
+  13:00  n= 70  TGT= 10 STOP= 40 EOD= 20  win%= 14  avgP&L=-0.20%  medP&L=-0.40%  totP&L=-14.2%
+  14:00  n= 66  TGT= 20 STOP= 22 EOD= 24  win%= 30  avgP&L=+0.11%  medP&L=+0.07%  totP&L=+7.5%
+  LONG       n=132  TGT= 29 STOP= 74 EOD= 29  win%= 22  avgP&L=-0.12%  medP&L=-0.44%  totP&L=-16.1%
+  SHORT      n=111  TGT= 19 STOP= 57 EOD= 35  win%= 17  avgP&L=-0.11%  medP&L=-0.40%  totP&L=-12.2%
+  SHORT_TRIG n=100  TGT= 25 STOP= 51 EOD= 24  win%= 25  avgP&L=-0.04%  medP&L=-0.27%  totP&L=-4.2%
+
+  by gap regime (trade-day gap):
+  flat(<0.3%)     n= 78  TGT= 13 STOP= 44 EOD= 21  win%= 17  avgP&L=-0.04%  medP&L=-0.33%  totP&L=-3.4%
+  modest(0.3-1%)  n=150  TGT= 38 STOP= 81 EOD= 31  win%= 25  avgP&L=-0.10%  medP&L=-0.36%  totP&L=-15.1%
+  big(>1%)        n=115  TGT= 22 STOP= 57 EOD= 36  win%= 19  avgP&L=-0.12%  medP&L=-0.42%  totP&L=-14.0%
+
+  by bias label:
+  long                 n=109  TGT= 22 STOP= 60 EOD= 27  win%= 20  avgP&L=-0.15%  medP&L=-0.42%  totP&L=-16.2%
+  long-on-pullback     n= 23  TGT=  7 STOP= 14 EOD=  2  win%= 30  avgP&L=+0.00%  medP&L=-0.48%  totP&L=+0.1%
+  short                n=111  TGT= 19 STOP= 57 EOD= 35  win%= 17  avgP&L=-0.11%  medP&L=-0.40%  totP&L=-12.2%
+  short-on-breakdown   n=100  TGT= 25 STOP= 51 EOD= 24  win%= 25  avgP&L=-0.04%  medP&L=-0.27%  totP&L=-4.2%
+
+  non-trades: {'WAIT': 486, 'SKIP_RVOL': 547, 'SKIP_EXTENDED': 21, 'NO_TRIGGER': 13}
+
+===== trade log =====
+  SRF    2026-05-11 12:00 gap-1.1% SHORT      [short] e2794.0 sl2806.8 tg2768.4 rr2.0 -> STOP   -0.46%
+  SRF    2026-05-11 13:00 gap-1.1% SHORT      [short] e2784.0 sl2801.6 tg2748.8 rr2.0 -> STOP   -0.63%
+  SRF    2026-05-13 11:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e2694.7 sl2714.0 tg2656.1 rr2.0 -> STOP   -0.72% (trig 11:00)
+  SRF    2026-05-13 14:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e2703.8 sl2708.6 tg2694.2 rr2.0 -> TARGET +0.35% (trig 14:00)
+  SRF    2026-05-22 11:00 gap+1.7% SHORT_TRIG [short-on-breakdown] e2643.9 sl2659.2 tg2613.3 rr2.0 -> EOD    +0.17% (trig 11:00)
+  SRF    2026-05-22 12:00 gap+1.7% SHORT_TRIG [short-on-breakdown] e2650.4 sl2658.3 tg2634.7 rr2.0 -> TARGET +0.59% (trig 12:00)
+  SRF    2026-05-26 10:00 gap+0.3% LONG       [long] e2769.0 sl2752.7 tg2801.7 rr2.0 -> STOP   -0.59%
+  SRF    2026-05-26 12:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e2752.8 sl2760.1 tg2738.2 rr2.0 -> EOD    +0.11% (trig 12:00)
+  SRF    2026-05-26 13:00 gap+0.3% SHORT      [short] e2746.6 sl2759.0 tg2721.8 rr2.0 -> EOD    -0.11%
+  SRF    2026-05-26 14:00 gap+0.3% SHORT      [short] e2743.0 sl2753.9 tg2723.8 rr1.76 -> STOP   -0.40%
+  SRF    2026-05-29 14:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e2687.2 sl2698.6 tg2668.7 rr1.62 -> STOP   -0.42% (trig 14:00)
+  SRF    2026-06-03 13:00 gap-0.0% SHORT_TRIG [short-on-breakdown] e2723.4 sl2732.9 tg2704.4 rr2.0 -> STOP   -0.35% (trig 13:00)
+  SRF    2026-06-11 11:00 gap-0.5% SHORT_TRIG [short-on-breakdown] e2689.9 sl2700.0 tg2669.7 rr2.0 -> STOP   -0.38% (trig 11:00)
+  SRF    2026-06-11 12:00 gap-0.5% SHORT_TRIG [short-on-breakdown] e2690.8 sl2699.8 tg2672.8 rr2.0 -> TARGET +0.67% (trig 12:00)
+  SRF    2026-06-11 13:00 gap-0.5% SHORT_TRIG [short-on-breakdown] e2688.4 sl2698.5 tg2668.2 rr2.0 -> TARGET +0.75% (trig 13:00)
+  SRF    2026-06-11 14:00 gap-0.5% SHORT_TRIG [short-on-breakdown] e2673.8 sl2686.5 tg2652.9 rr1.64 -> TARGET +0.78% (trig 14:00)
+  SRF    2026-06-15 11:00 gap+0.8% LONG       [long] e2746.2 sl2733.0 tg2772.6 rr2.0 -> STOP   -0.48%
+  SRF    2026-06-15 13:00 gap+0.8% SHORT_TRIG [short-on-breakdown] e2726.0 sl2738.2 tg2701.5 rr2.0 -> STOP   -0.45% (trig 13:00)
+  SRF    2026-06-15 14:00 gap+0.8% SHORT_TRIG [short-on-breakdown] e2735.0 sl2739.8 tg2725.5 rr2.0 -> TARGET +0.35% (trig 14:00)
+  SRF    2026-06-16 11:00 gap+0.5% LONG       [long] e2779.0 sl2760.0 tg2817.1 rr2.0 -> STOP   -0.68%
+  SRF    2026-06-16 13:00 gap+0.5% SHORT_TRIG [short-on-breakdown] e2741.8 sl2758.5 tg2708.4 rr2.0 -> STOP   -0.61% (trig 13:00)
+  SRF    2026-06-17 13:00 gap+0.5% SHORT_TRIG [short-on-breakdown] e2665.0 sl2683.8 tg2627.5 rr2.0 -> STOP   -0.70% (trig 13:00)
+  SRF    2026-06-17 14:00 gap+0.5% SHORT_TRIG [short-on-breakdown] e2692.4 sl2699.1 tg2678.9 rr2.0 -> STOP   -0.25% (trig 14:00)
+  SRF    2026-06-18 10:00 gap+0.2% LONG       [long] e2701.0 sl2687.0 tg2729.1 rr2.0 -> STOP   -0.52%
+  SRF    2026-06-18 11:00 gap+0.2% SHORT_TRIG [short-on-breakdown] e2686.6 sl2702.0 tg2655.8 rr2.0 -> STOP   -0.57% (trig 11:00)
+  SRF    2026-06-18 13:00 gap+0.2% LONG       [long] e2702.9 sl2694.3 tg2720.0 rr2.0 -> STOP   -0.32%
+  SRF    2026-06-22 11:00 gap+0.2% SHORT_TRIG [short-on-breakdown] e2702.1 sl2716.1 tg2674.2 rr2.0 -> STOP   -0.52% (trig 11:00)
+  SRF    2026-06-22 12:00 gap+0.2% SHORT_TRIG [short-on-breakdown] e2708.6 sl2713.7 tg2698.5 rr2.0 -> STOP   -0.19% (trig 12:00)
+  SRF    2026-06-22 14:00 gap+0.2% LONG       [long] e2707.3 sl2700.3 tg2721.4 rr2.0 -> TARGET +0.52%
+  SRF    2026-06-23 10:00 gap+0.3% LONG       [long] e2763.0 sl2757.1 tg2774.8 rr2.0 -> STOP   -0.21%
+  SRF    2026-06-23 12:00 gap+0.3% SHORT      [short] e2755.0 sl2764.0 tg2736.9 rr2.0 -> STOP   -0.33%
+  SRF    2026-06-23 14:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e2735.2 sl2751.1 tg2709.2 rr1.63 -> EOD    -0.05% (trig 14:00)
+  SRF    2026-06-25 14:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e2748.4 sl2761.7 tg2726.7 rr1.64 -> EOD    +0.79% (trig 14:00)
+  SRF    2026-06-29 11:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e2686.6 sl2708.1 tg2643.6 rr2.0 -> EOD    +0.82% (trig 11:00)
+  SRF    2026-06-29 12:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e2696.2 sl2703.3 tg2682.0 rr2.0 -> STOP   -0.26% (trig 12:00)
+  SRF    2026-06-29 13:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e2687.5 sl2698.4 tg2665.6 rr2.0 -> TARGET +0.81% (trig 13:00)
+  SRF    2026-06-29 14:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e2682.8 sl2696.4 tg2655.5 rr2.0 -> TARGET +1.02% (trig 14:00)
+  SRF    2026-07-02 10:00 gap+0.1% LONG       [long] e2801.0 sl2779.2 tg2844.5 rr2.0 -> STOP   -0.78%
+  SRF    2026-07-02 12:00 gap+0.1% SHORT      [short] e2765.3 sl2790.4 tg2715.2 rr2.0 -> STOP   -0.91%
+  SRF    2026-07-02 13:00 gap+0.1% SHORT      [short] e2778.6 sl2789.3 tg2757.2 rr2.0 -> STOP   -0.39%
+  SRF    2026-07-03 11:00 gap+0.9% LONG       [long] e2810.2 sl2800.7 tg2829.2 rr2.0 -> STOP   -0.34%
+  SRF    2026-07-03 14:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e2803.7 sl2807.1 tg2796.9 rr2.0 -> TARGET +0.24% (trig 14:00)
+  SRF    2026-07-06 10:00 gap+0.7% LONG       [long] e2839.0 sl2830.2 tg2856.6 rr2.0 -> STOP   -0.31%
+  SRF    2026-07-06 11:00 gap+0.7% LONG       [long] e2827.0 sl2811.1 tg2858.9 rr2.0 -> TARGET +1.13%
+  SRF    2026-07-06 12:00 gap+0.7% LONG       [long] e2843.4 sl2833.2 tg2863.8 rr2.0 -> STOP   -0.36%
+  SRF    2026-07-06 14:00 gap+0.7% SHORT      [short] e2823.3 sl2840.0 tg2793.7 rr1.78 -> EOD    -0.24%
+  SRF    2026-07-07 11:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e2806.3 sl2816.2 tg2786.5 rr2.0 -> STOP   -0.35% (trig 11:00)
+  SRF    2026-07-08 14:00 gap-1.3% SHORT_TRIG [short-on-breakdown] e2722.8 sl2743.7 tg2688.8 rr1.63 -> EOD    +0.40% (trig 14:00)
+  SRF    2026-07-15 10:00 gap-0.2% LONG       [long] e2788.4 sl2772.8 tg2819.5 rr2.0 -> STOP   -0.56%
+  SRF    2026-07-15 12:00 gap-0.2% SHORT_TRIG [short-on-breakdown] e2784.0 sl2795.5 tg2760.9 rr2.0 -> EOD    +0.20% (trig 12:00)
+  SRF    2026-07-15 13:00 gap-0.2% SHORT      [short] e2773.9 sl2792.2 tg2737.2 rr2.0 -> EOD    -0.16%
+  SRF    2026-07-15 14:00 gap-0.2% SHORT      [short] e2775.9 sl2784.4 tg2759.0 rr2.0 -> EOD    -0.09%
+  SRF    2026-07-16 10:00 gap+0.1% LONG       [long] e2879.6 sl2856.1 tg2926.5 rr2.0 -> EOD    +0.34%
+  SRF    2026-07-16 11:00 gap+0.1% LONG       [long] e2883.5 sl2867.8 tg2914.8 rr2.0 -> STOP   -0.54%
+  SRF    2026-07-16 12:00 gap+0.1% SHORT      [short] e2864.8 sl2877.6 tg2839.3 rr2.0 -> STOP   -0.45%
+  SRF    2026-07-16 14:00 gap+0.1% LONG       [long-on-pullback] e2875.3 sl2869.4 tg2887.1 rr2.0 -> TARGET +0.41%
+  BLUESTONE 2026-05-14 12:00 gap+1.1% LONG       [long] e486.0 sl482.7 tg492.6 rr2.0 -> EOD    -0.15%
+  BLUESTONE 2026-05-14 13:00 gap+1.1% LONG       [long] e488.3 sl484.4 tg496.2 rr2.0 -> STOP   -0.81%
+  BLUESTONE 2026-05-29 10:00 gap-0.3% LONG       [long] e469.1 sl466.0 tg475.1 rr2.0 -> TARGET +1.30%
+  BLUESTONE 2026-05-29 11:00 gap-0.3% LONG       [long] e476.1 sl474.0 tg480.2 rr2.0 -> STOP   -0.44%
+  BLUESTONE 2026-05-29 12:00 gap-0.3% SHORT_TRIG [short-on-breakdown] e475.0 sl477.4 tg470.3 rr2.0 -> STOP   -0.50% (trig 12:30)
+  BLUESTONE 2026-05-29 13:00 gap-0.3% SHORT      [short] e474.4 sl476.5 tg470.3 rr2.0 -> STOP   -0.43%
+  BLUESTONE 2026-06-01 10:00 gap+0.4% LONG       [long] e500.2 sl490.6 tg519.6 rr2.0 -> EOD    -1.25%
+  BLUESTONE 2026-06-01 11:00 gap+0.4% LONG       [long] e496.0 sl491.9 tg504.1 rr2.0 -> EOD    -0.40%
+  BLUESTONE 2026-06-01 12:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e495.0 sl498.4 tg488.1 rr2.0 -> STOP   -0.70% (trig 12:00)
+  BLUESTONE 2026-06-01 13:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e494.9 sl496.7 tg491.2 rr2.0 -> STOP   -0.37% (trig 13:00)
+  BLUESTONE 2026-06-01 14:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e494.5 sl495.9 tg491.6 rr2.0 -> STOP   -0.29% (trig 14:00)
+  BLUESTONE 2026-06-03 12:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e488.6 sl490.4 tg485.2 rr2.0 -> STOP   -0.35% (trig 12:00)
+  BLUESTONE 2026-06-04 10:00 gap+2.2% LONG       [long] e535.7 sl529.5 tg548.2 rr2.0 -> TARGET +2.33%
+  BLUESTONE 2026-06-04 11:00 gap+2.2% LONG       [long] e536.9 sl533.4 tg543.7 rr2.0 -> TARGET +1.28%
+  BLUESTONE 2026-06-04 12:00 gap+2.2% LONG       [long] e545.0 sl534.9 tg565.3 rr2.0 -> STOP   -1.86%
+  BLUESTONE 2026-06-04 13:00 gap+2.2% LONG       [long] e548.0 sl539.6 tg564.8 rr2.0 -> STOP   -1.53%
+  BLUESTONE 2026-06-08 10:00 gap-1.3% LONG       [long] e562.5 sl556.0 tg575.4 rr2.0 -> STOP   -1.15%
+  BLUESTONE 2026-06-08 11:00 gap-1.3% SHORT      [short] e554.8 sl563.9 tg536.4 rr2.0 -> EOD    +0.95%
+  BLUESTONE 2026-06-08 12:00 gap-1.3% SHORT      [short] e550.5 sl555.8 tg540.0 rr2.0 -> EOD    +0.18%
+  BLUESTONE 2026-06-08 13:00 gap-1.3% SHORT_TRIG [short-on-breakdown] e549.7 sl557.1 tg535.0 rr2.0 -> EOD    +0.04% (trig 13:00)
+  BLUESTONE 2026-06-08 14:00 gap-1.3% SHORT_TRIG [short-on-breakdown] e546.0 sl550.2 tg539.1 rr1.63 -> STOP   -0.78% (trig 14:00)
+  BLUESTONE 2026-06-09 12:00 gap-3.3% LONG       [long] e530.0 sl521.8 tg546.4 rr2.0 -> EOD    -0.38%
+  BLUESTONE 2026-06-09 14:00 gap-3.3% LONG       [long] e532.0 sl527.9 tg538.8 rr1.63 -> STOP   -0.78%
+  BLUESTONE 2026-06-10 11:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e532.5 sl535.3 tg527.1 rr2.0 -> TARGET +1.02% (trig 11:00)
+  BLUESTONE 2026-06-10 12:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e531.9 sl535.1 tg525.5 rr2.0 -> TARGET +1.20% (trig 12:00)
+  BLUESTONE 2026-06-10 13:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e532.0 sl534.7 tg526.6 rr2.0 -> TARGET +1.01% (trig 13:00)
+  BLUESTONE 2026-06-10 14:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e530.2 sl533.1 tg525.3 rr1.64 -> TARGET +0.91% (trig 14:00)
+  BLUESTONE 2026-06-15 14:00 gap+2.5% LONG       [long-on-pullback] e529.3 sl528.1 tg531.7 rr2.0 -> STOP   -0.22%
+  BLUESTONE 2026-06-18 13:00 gap+0.5% SHORT_TRIG [short-on-breakdown] e501.1 sl503.4 tg496.6 rr2.0 -> STOP   -0.45% (trig 14:00)
+  BLUESTONE 2026-06-18 14:00 gap+0.5% SHORT_TRIG [short-on-breakdown] e501.1 sl503.3 tg496.8 rr2.0 -> STOP   -0.44% (trig 14:00)
+  BLUESTONE 2026-06-24 12:00 gap-0.8% SHORT      [short] e529.0 sl535.9 tg515.4 rr2.0 -> STOP   -1.29%
+  BLUESTONE 2026-06-30 11:00 gap-0.7% LONG       [long] e546.8 sl543.2 tg553.9 rr2.0 -> EOD    +0.04%
+  BLUESTONE 2026-07-01 10:00 gap+0.5% LONG       [long] e573.5 sl566.6 tg587.2 rr2.0 -> STOP   -1.20%
+  BLUESTONE 2026-07-01 11:00 gap+0.5% LONG       [long-on-pullback] e570.0 sl566.2 tg577.4 rr2.0 -> STOP   -0.66%
+  BLUESTONE 2026-07-01 12:00 gap+0.5% SHORT      [short] e562.9 sl568.7 tg551.2 rr2.0 -> STOP   -1.04%
+  BLUESTONE 2026-07-01 13:00 gap+0.5% LONG       [long-on-pullback] e568.0 sl565.7 tg572.6 rr2.0 -> STOP   -0.41%
+  BLUESTONE 2026-07-02 12:00 gap-1.6% SHORT_TRIG [short-on-breakdown] e571.8 sl574.3 tg566.8 rr2.0 -> EOD    +0.19% (trig 14:15)
+  BLUESTONE 2026-07-06 12:00 gap-0.5% LONG       [long] e580.9 sl577.5 tg587.8 rr2.0 -> STOP   -0.59%
+  BLUESTONE 2026-07-06 14:00 gap-0.5% LONG       [long] e581.0 sl578.2 tg586.4 rr2.0 -> TARGET +0.93%
+  BLUESTONE 2026-07-07 12:00 gap+1.5% SHORT      [short] e591.1 sl594.9 tg583.5 rr2.0 -> TARGET +1.29%
+  BLUESTONE 2026-07-07 13:00 gap+1.5% SHORT      [short] e591.8 sl593.3 tg588.8 rr2.0 -> STOP   -0.26%
+  BLUESTONE 2026-07-07 14:00 gap+1.5% SHORT      [short] e591.0 sl594.2 tg584.6 rr2.0 -> TARGET +1.08%
+  BLUESTONE 2026-07-15 10:00 gap+0.1% LONG       [long] e620.1 sl615.1 tg630.1 rr2.0 -> TARGET +1.62%
+  BLUESTONE 2026-07-15 12:00 gap+0.1% LONG       [long-on-pullback] e631.2 sl627.1 tg639.3 rr2.0 -> STOP   -0.64%
+  BLUESTONE 2026-07-15 13:00 gap+0.1% LONG       [long-on-pullback] e630.2 sl627.5 tg635.8 rr2.0 -> STOP   -0.44%
+  BLUESTONE 2026-07-15 14:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e626.3 sl629.7 tg619.5 rr2.0 -> EOD    +0.00% (trig 14:00)
+  BLUESTONE 2026-07-16 11:00 gap+0.8% SHORT      [short] e612.7 sl617.3 tg603.4 rr2.0 -> TARGET +1.51%
+  BLUESTONE 2026-07-16 12:00 gap+0.8% SHORT_TRIG [short-on-breakdown] e612.5 sl616.9 tg603.6 rr2.0 -> STOP   -0.72% (trig 12:00)
+  BLUESTONE 2026-07-16 14:00 gap+0.8% SHORT_TRIG [short-on-breakdown] e608.8 sl613.0 tg602.1 rr1.62 -> TARGET +1.11% (trig 14:00)
+  BLUESTONE 2026-07-17 13:00 gap+0.3% SHORT      [short] e600.0 sl603.1 tg593.9 rr2.0 -> EOD    -0.17%
+  BLUESTONE 2026-07-17 14:00 gap+0.3% SHORT      [short] e596.5 sl601.2 tg587.2 rr2.0 -> STOP   -0.78%
+  BLUESTONE 2026-07-20 11:00 gap+0.4% SHORT      [short] e607.1 sl617.6 tg586.0 rr2.0 -> EOD    -0.54%
+  BLUESTONE 2026-07-20 12:00 gap+0.4% SHORT      [short] e607.3 sl613.5 tg595.0 rr2.0 -> STOP   -1.02%
+  BLUESTONE 2026-07-21 10:00 gap+4.2% LONG       [long] e639.0 sl628.7 tg659.4 rr2.0 -> STOP   -1.60%
+  BLUESTONE 2026-07-21 11:00 gap+4.2% LONG       [long-on-pullback] e634.9 sl628.2 tg648.2 rr2.0 -> TARGET +2.10%
+  STALLION 2026-05-14 11:00 gap-1.5% SHORT      [short] e135.6 sl137.7 tg131.5 rr2.0 -> STOP   -1.53%
+  STALLION 2026-05-14 12:00 gap-1.5% LONG       [long] e139.0 sl136.4 tg144.2 rr2.0 -> STOP   -1.88%
+  STALLION 2026-05-19 12:00 gap+0.1% LONG       [long-on-pullback] e152.8 sl149.5 tg159.4 rr2.0 -> TARGET +4.32%
+  STALLION 2026-05-20 11:00 gap-0.6% SHORT_TRIG [short-on-breakdown] e162.5 sl165.8 tg156.0 rr2.0 -> STOP   -2.01% (trig 11:00)
+  STALLION 2026-05-20 12:00 gap-0.6% SHORT      [short] e164.0 sl165.1 tg161.8 rr2.0 -> TARGET +1.35%
+  STALLION 2026-05-20 13:00 gap-0.6% SHORT_TRIG [short-on-breakdown] e161.7 sl164.1 tg156.9 rr2.0 -> STOP   -1.48% (trig 13:00)
+  STALLION 2026-05-20 14:00 gap-0.6% SHORT      [short] e161.9 sl162.6 tg160.5 rr2.0 -> STOP   -0.43%
+  STALLION 2026-05-21 10:00 gap+2.6% LONG       [long] e172.5 sl170.3 tg176.8 rr2.0 -> STOP   -1.24%
+  STALLION 2026-05-21 11:00 gap+2.6% SHORT      [short] e169.8 sl173.0 tg163.5 rr2.0 -> STOP   -1.85%
+  STALLION 2026-05-21 12:00 gap+2.6% SHORT      [short] e170.1 sl172.1 tg166.0 rr2.0 -> STOP   -1.18%
+  STALLION 2026-05-21 14:00 gap+2.6% SHORT_TRIG [short-on-breakdown] e167.5 sl169.8 tg163.7 rr1.64 -> STOP   -1.38% (trig 14:00)
+  STALLION 2026-05-22 11:00 gap+1.6% SHORT      [short] e168.6 sl170.6 tg164.5 rr2.0 -> EOD    +0.93%
+  STALLION 2026-05-22 12:00 gap+1.6% SHORT      [short] e169.1 sl170.0 tg167.3 rr2.0 -> TARGET +1.08%
+  STALLION 2026-05-22 13:00 gap+1.6% SHORT      [short] e168.4 sl170.0 tg165.3 rr2.0 -> EOD    +0.85%
+  STALLION 2026-05-22 14:00 gap+1.6% SHORT      [short] e168.5 sl169.8 tg166.1 rr1.95 -> TARGET +1.45%
+  STALLION 2026-05-25 10:00 gap+1.7% LONG       [long] e175.7 sl173.9 tg179.3 rr2.0 -> TARGET +2.08%
+  STALLION 2026-05-25 11:00 gap+1.7% LONG       [long] e176.3 sl175.0 tg178.9 rr2.0 -> STOP   -0.75%
+  STALLION 2026-05-25 12:00 gap+1.7% LONG       [long-on-pullback] e176.5 sl175.1 tg179.2 rr2.0 -> STOP   -0.77%
+  STALLION 2026-05-25 13:00 gap+1.7% SHORT      [short] e175.5 sl176.6 tg173.3 rr2.0 -> STOP   -0.63%
+  STALLION 2026-05-26 10:00 gap+0.3% LONG       [long] e182.8 sl180.5 tg187.4 rr2.0 -> TARGET +2.51%
+  STALLION 2026-05-26 14:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e183.5 sl184.2 tg182.2 rr2.0 -> TARGET +0.75% (trig 14:00)
+  STALLION 2026-05-27 11:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e179.2 sl181.1 tg175.6 rr2.0 -> STOP   -1.02% (trig 11:00)
+  STALLION 2026-05-27 12:00 gap+0.3% SHORT      [short] e178.6 sl180.1 tg175.8 rr2.0 -> STOP   -0.79%
+  STALLION 2026-05-27 13:00 gap+0.3% LONG       [long] e181.4 sl179.9 tg184.4 rr2.0 -> STOP   -0.83%
+  STALLION 2026-05-29 12:00 gap+0.0% LONG       [long] e177.3 sl175.9 tg180.1 rr2.0 -> STOP   -0.78%
+  STALLION 2026-05-29 13:00 gap+0.0% SHORT_TRIG [short-on-breakdown] e176.3 sl177.1 tg174.6 rr2.0 -> STOP   -0.46% (trig 13:15)
+  STALLION 2026-05-29 14:00 gap+0.0% SHORT_TRIG [short-on-breakdown] e175.6 sl176.9 tg172.9 rr2.0 -> STOP   -0.76% (trig 14:00)
+  STALLION 2026-06-01 11:00 gap+1.0% LONG       [long] e179.8 sl177.1 tg185.2 rr2.0 -> STOP   -1.50%
+  STALLION 2026-06-01 13:00 gap+1.0% LONG       [long] e179.3 sl178.4 tg181.3 rr2.0 -> STOP   -0.54%
+  STALLION 2026-06-01 14:00 gap+1.0% SHORT      [short] e177.4 sl179.3 tg173.8 rr2.0 -> EOD    -0.26%
+  STALLION 2026-06-02 13:00 gap-1.3% LONG       [long] e180.9 sl178.3 tg186.2 rr2.0 -> STOP   -1.44%
+  STALLION 2026-06-02 14:00 gap-1.3% SHORT      [short] e177.5 sl179.2 tg174.0 rr2.0 -> STOP   -0.99%
+  STALLION 2026-06-03 10:00 gap+0.9% LONG       [long] e184.6 sl182.3 tg189.1 rr2.0 -> TARGET +2.45%
+  STALLION 2026-06-03 11:00 gap+0.9% LONG       [long] e187.6 sl184.9 tg193.0 rr2.0 -> STOP   -1.43%
+  STALLION 2026-06-03 12:00 gap+0.9% LONG       [long-on-pullback] e186.0 sl184.7 tg188.7 rr2.0 -> STOP   -0.72%
+  STALLION 2026-06-03 13:00 gap+0.9% LONG       [long] e192.1 sl188.2 tg199.9 rr2.0 -> EOD    +0.98%
+  STALLION 2026-06-03 14:00 gap+0.9% LONG       [long] e190.3 sl187.1 tg196.7 rr2.0 -> EOD    +1.95%
+  STALLION 2026-06-04 11:00 gap+1.6% SHORT_TRIG [short-on-breakdown] e195.1 sl196.3 tg192.7 rr2.0 -> STOP   -0.61% (trig 11:15)
+  STALLION 2026-06-04 13:00 gap+1.6% SHORT      [short] e194.4 sl195.8 tg191.4 rr2.0 -> EOD    +0.19%
+  STALLION 2026-06-04 14:00 gap+1.6% SHORT      [short] e193.2 sl195.1 tg189.2 rr2.0 -> EOD    -0.44%
+  STALLION 2026-06-05 11:00 gap+0.7% SHORT      [short] e191.2 sl192.6 tg188.3 rr2.0 -> TARGET +1.49%
+  STALLION 2026-06-05 12:00 gap+0.7% SHORT      [short] e189.8 sl192.3 tg184.7 rr2.0 -> EOD    -0.12%
+  STALLION 2026-06-08 11:00 gap-2.1% SHORT_TRIG [short-on-breakdown] e183.2 sl184.5 tg180.7 rr2.0 -> TARGET +1.39% (trig 11:00)
+  STALLION 2026-06-09 10:00 gap+2.4% LONG       [long] e185.0 sl182.8 tg189.5 rr2.0 -> EOD    +0.99%
+  STALLION 2026-06-09 11:00 gap+2.4% LONG       [long] e186.6 sl184.4 tg191.0 rr2.0 -> EOD    +0.13%
+  STALLION 2026-06-09 12:00 gap+2.4% SHORT_TRIG [short-on-breakdown] e185.6 sl186.8 tg183.1 rr2.0 -> STOP   -0.67% (trig 14:15)
+  STALLION 2026-06-09 13:00 gap+2.4% SHORT_TRIG [short-on-breakdown] e185.6 sl186.5 tg183.7 rr2.0 -> STOP   -0.50% (trig 14:15)
+  STALLION 2026-06-11 12:00 gap-0.6% SHORT      [short] e176.0 sl178.7 tg170.6 rr2.0 -> EOD    +1.15%
+  STALLION 2026-06-11 13:00 gap-0.6% SHORT_TRIG [short-on-breakdown] e173.4 sl176.8 tg166.7 rr2.0 -> EOD    -0.33% (trig 13:00)
+  STALLION 2026-06-11 14:00 gap-0.6% SHORT_TRIG [short-on-breakdown] e172.8 sl175.6 tg168.3 rr1.63 -> EOD    -0.67% (trig 14:00)
+  STALLION 2026-06-15 10:00 gap+3.0% LONG       [long] e189.8 sl188.1 tg193.0 rr2.0 -> STOP   -0.85%
+  STALLION 2026-06-15 11:00 gap+3.0% LONG       [long-on-pullback] e190.7 sl189.2 tg193.8 rr2.0 -> TARGET +1.61%
+  STALLION 2026-06-15 12:00 gap+3.0% LONG       [long] e191.6 sl189.5 tg195.6 rr2.0 -> TARGET +2.10%
+  STALLION 2026-06-15 13:00 gap+3.0% LONG       [long] e195.3 sl192.1 tg201.7 rr2.0 -> EOD    -1.18%
+  STALLION 2026-06-15 14:00 gap+3.0% LONG       [long-on-pullback] e194.0 sl192.0 tg198.0 rr2.0 -> EOD    -0.51%
+  STALLION 2026-06-16 11:00 gap+0.9% SHORT      [short] e193.2 sl195.6 tg188.6 rr2.0 -> EOD    +0.63%
+  STALLION 2026-06-16 12:00 gap+0.9% SHORT      [short] e193.0 sl194.6 tg189.6 rr2.0 -> STOP   -0.87%
+  STALLION 2026-06-16 13:00 gap+0.9% SHORT      [short] e193.7 sl194.8 tg191.4 rr2.0 -> EOD    +0.87%
+  STALLION 2026-06-18 12:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e192.5 sl193.6 tg190.5 rr2.0 -> STOP   -0.54% (trig 12:00)
+  STALLION 2026-06-23 11:00 gap+1.1% LONG       [long-on-pullback] e199.0 sl197.9 tg201.2 rr2.0 -> STOP   -0.55%
+  STALLION 2026-06-23 12:00 gap+1.1% SHORT_TRIG [short-on-breakdown] e196.3 sl199.1 tg190.8 rr2.0 -> EOD    +2.19% (trig 12:00)
+  STALLION 2026-06-23 13:00 gap+1.1% SHORT      [short] e197.4 sl198.8 tg194.6 rr2.0 -> TARGET +1.44%
+  STALLION 2026-07-02 10:00 gap+1.2% LONG       [long] e187.7 sl186.9 tg189.2 rr2.0 -> STOP   -0.42%
+  STALLION 2026-07-03 10:00 gap+0.8% LONG       [long] e191.7 sl189.4 tg196.2 rr2.0 -> TARGET +2.39%
+  STALLION 2026-07-03 12:00 gap+0.8% SHORT      [short] e192.8 sl195.0 tg188.5 rr2.0 -> STOP   -1.12%
+  STALLION 2026-07-03 13:00 gap+0.8% SHORT      [short] e193.0 sl195.1 tg188.9 rr2.0 -> STOP   -1.07%
+  STALLION 2026-07-03 14:00 gap+0.8% SHORT      [short] e192.2 sl193.4 tg190.0 rr2.0 -> STOP   -0.59%
+  STALLION 2026-07-07 14:00 gap-0.2% SHORT      [short] e182.5 sl183.3 tg180.9 rr2.0 -> STOP   -0.45%
+  STALLION 2026-07-10 10:00 gap+2.3% LONG       [long] e196.1 sl194.3 tg199.7 rr2.0 -> TARGET +1.85%
+  STALLION 2026-07-10 13:00 gap+2.3% SHORT      [short] e204.3 sl206.2 tg200.4 rr2.0 -> STOP   -0.94%
+  STALLION 2026-07-13 10:00 gap-2.3% LONG       [long-on-pullback] e210.5 sl207.0 tg217.6 rr2.0 -> EOD    -0.48%
+  STALLION 2026-07-13 11:00 gap-2.3% SHORT      [short] e207.7 sl209.3 tg204.6 rr2.0 -> STOP   -0.76%
+  STALLION 2026-07-13 12:00 gap-2.3% SHORT_TRIG [short-on-breakdown] e207.8 sl209.4 tg204.5 rr2.0 -> STOP   -0.78% (trig 13:00)
+  STALLION 2026-07-14 12:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e205.1 sl206.3 tg202.7 rr2.0 -> TARGET +1.17% (trig 12:00)
+  STALLION 2026-07-14 13:00 gap-0.1% SHORT      [short] e204.1 sl205.5 tg201.3 rr2.0 -> EOD    -0.00%
+  STALLION 2026-07-14 14:00 gap-0.1% LONG       [long] e204.7 sl203.2 tg207.8 rr2.0 -> STOP   -0.75%
+  STALLION 2026-07-15 11:00 gap+0.7% SHORT      [short] e208.3 sl211.1 tg202.6 rr2.0 -> STOP   -1.36%
+  STALLION 2026-07-15 12:00 gap+0.7% SHORT_TRIG [short-on-breakdown] e206.0 sl209.8 tg198.2 rr2.0 -> STOP   -1.88% (trig 12:00)
+  STALLION 2026-07-16 10:00 gap+1.3% LONG       [long] e211.9 sl209.2 tg217.5 rr2.0 -> EOD    -0.21%
+  STALLION 2026-07-16 11:00 gap+1.3% SHORT      [short] e213.9 sl215.1 tg211.5 rr2.0 -> STOP   -0.56%
+  STALLION 2026-07-16 12:00 gap+1.3% SHORT_TRIG [short-on-breakdown] e214.3 sl215.5 tg212.0 rr2.0 -> TARGET +1.06% (trig 12:15)
+  STALLION 2026-07-16 14:00 gap+1.3% SHORT      [short] e212.3 sl214.3 tg209.1 rr1.65 -> EOD    +0.40%
+  STALLION 2026-07-20 11:00 gap-0.3% LONG       [long] e217.8 sl215.5 tg222.5 rr2.0 -> STOP   -1.06%
+  STALLION 2026-07-20 12:00 gap-0.3% SHORT      [short] e216.5 sl218.4 tg212.8 rr2.0 -> STOP   -0.86%
+  STALLION 2026-07-21 10:00 gap+0.6% LONG       [long] e222.5 sl220.5 tg226.5 rr2.0 -> STOP   -0.90%
+  STALLION 2026-07-21 11:00 gap+0.6% SHORT      [short] e220.0 sl223.5 tg213.1 rr2.0 -> STOP   -1.57%
+  STALLION 2026-07-21 12:00 gap+0.6% SHORT      [short] e222.1 sl223.4 tg219.4 rr2.0 -> STOP   -0.60%
+  STALLION 2026-07-21 13:00 gap+0.6% LONG       [long] e223.8 sl222.4 tg226.4 rr2.0 -> TARGET +1.17%
+  STALLION 2026-07-21 14:00 gap+0.6% LONG       [long] e243.4 sl238.6 tg251.2 rr1.63 -> STOP   -1.96%
+  SIKA   2026-05-18 12:00 gap-0.3% SHORT_TRIG [short-on-breakdown] e886.5 sl891.4 tg876.8 rr2.0 -> STOP   -0.55% (trig 13:30)
+  SIKA   2026-05-21 10:00 gap+1.1% LONG       [long] e930.5 sl921.6 tg948.3 rr2.0 -> STOP   -0.96%
+  SIKA   2026-05-25 13:00 gap+0.2% SHORT_TRIG [short-on-breakdown] e931.6 sl935.4 tg924.0 rr2.0 -> STOP   -0.41% (trig 14:15)
+  SIKA   2026-05-29 11:00 gap+2.7% SHORT      [short] e917.5 sl922.1 tg908.4 rr2.0 -> TARGET +0.99%
+  SIKA   2026-06-01 12:00 gap+0.5% SHORT      [short] e895.0 sl904.0 tg877.0 rr2.0 -> TARGET +2.01%
+  SIKA   2026-06-01 14:00 gap+0.5% SHORT      [short] e897.7 sl902.8 tg887.5 rr2.0 -> TARGET +1.14%
+  SIKA   2026-06-05 12:00 gap+0.7% LONG       [long] e930.4 sl918.1 tg954.8 rr2.0 -> EOD    +0.12%
+  SIKA   2026-06-15 11:00 gap+0.8% LONG       [long-on-pullback] e927.5 sl921.4 tg939.5 rr2.0 -> STOP   -0.65%
+  SIKA   2026-06-15 14:00 gap+0.8% SHORT_TRIG [short-on-breakdown] e902.0 sl910.8 tg887.7 rr1.64 -> EOD    +0.49% (trig 14:00)
+  SIKA   2026-06-16 11:00 gap+2.3% SHORT_TRIG [short-on-breakdown] e910.7 sl914.2 tg903.6 rr2.0 -> STOP   -0.39% (trig 11:00)
+  SIKA   2026-06-16 12:00 gap+2.3% LONG       [long] e918.5 sl912.5 tg930.7 rr2.0 -> STOP   -0.66%
+  SIKA   2026-06-17 11:00 gap+0.6% SHORT_TRIG [short-on-breakdown] e911.3 sl914.0 tg906.0 rr2.0 -> TARGET +0.58% (trig 12:45)
+  SIKA   2026-06-17 13:00 gap+0.6% SHORT_TRIG [short-on-breakdown] e910.0 sl912.5 tg904.9 rr2.0 -> STOP   -0.28% (trig 13:30)
+  SIKA   2026-06-18 11:00 gap+0.4% LONG       [long-on-pullback] e937.5 sl934.2 tg944.2 rr2.0 -> STOP   -0.36%
+  SIKA   2026-06-18 12:00 gap+0.4% SHORT      [short] e932.9 sl936.9 tg924.9 rr2.0 -> STOP   -0.43%
+  SIKA   2026-06-18 14:00 gap+0.4% LONG       [long] e941.3 sl935.7 tg950.4 rr1.63 -> TARGET +0.97%
+  SIKA   2026-06-19 10:00 gap+0.5% LONG       [long] e1067.1 sl1047.6 tg1106.0 rr2.0 -> TARGET +3.65%
+  SIKA   2026-06-19 12:00 gap+0.5% LONG       [long] e1101.0 sl1070.9 tg1161.3 rr2.0 -> STOP   -2.74%
+  SIKA   2026-06-19 13:00 gap+0.5% LONG       [long-on-pullback] e1088.5 sl1072.7 tg1120.1 rr2.0 -> STOP   -1.45%
+  SIKA   2026-06-22 11:00 gap+2.5% SHORT      [short] e1142.8 sl1164.9 tg1098.4 rr2.0 -> STOP   -1.94%
+  SIKA   2026-06-22 12:00 gap+2.5% SHORT      [short] e1150.8 sl1162.8 tg1126.8 rr2.0 -> STOP   -1.04%
+  SIKA   2026-06-22 13:00 gap+2.5% SHORT      [short] e1140.5 sl1153.8 tg1113.9 rr2.0 -> STOP   -1.17%
+  SIKA   2026-06-23 11:00 gap-0.2% SHORT      [short] e1109.0 sl1127.2 tg1072.6 rr2.0 -> STOP   -1.64%
+  SIKA   2026-06-23 12:00 gap-0.2% SHORT_TRIG [short-on-breakdown] e1099.5 sl1121.0 tg1056.5 rr2.0 -> STOP   -1.96% (trig 12:00)
+  SIKA   2026-06-23 14:00 gap-0.2% SHORT      [short] e1110.0 sl1117.0 tg1096.2 rr2.0 -> STOP   -0.62%
+  SIKA   2026-06-30 11:00 gap+1.3% LONG       [long] e1120.0 sl1099.5 tg1160.8 rr2.0 -> EOD    -0.29%
+  SIKA   2026-06-30 12:00 gap+1.3% LONG       [long] e1129.0 sl1110.5 tg1166.2 rr2.0 -> STOP   -1.65%
+  SIKA   2026-06-30 13:00 gap+1.3% LONG       [long-on-pullback] e1121.8 sl1113.0 tg1139.5 rr2.0 -> STOP   -0.79%
+  SIKA   2026-07-02 11:00 gap+0.9% LONG       [long] e1173.5 sl1156.2 tg1208.1 rr2.0 -> TARGET +2.95%
+  SIKA   2026-07-02 14:00 gap+0.9% SHORT      [short] e1210.8 sl1246.8 tg1142.5 rr1.9 -> STOP   -2.97%
+  SIKA   2026-07-03 12:00 gap+1.2% SHORT      [short] e1327.5 sl1338.2 tg1306.2 rr2.0 -> TARGET +1.61%
+  SIKA   2026-07-03 13:00 gap+1.2% SHORT      [short] e1299.0 sl1321.1 tg1254.9 rr2.0 -> TARGET +3.40%
+  SIKA   2026-07-03 14:00 gap+1.2% SHORT_TRIG [short-on-breakdown] e1283.1 sl1302.2 tg1252.0 rr1.63 -> TARGET +2.42% (trig 14:00)
+  SIKA   2026-07-06 11:00 gap-0.3% SHORT      [short] e1186.1 sl1214.4 tg1129.5 rr2.0 -> EOD    +1.98%
+  SIKA   2026-07-06 12:00 gap-0.3% SHORT      [short] e1191.3 sl1202.4 tg1169.1 rr2.0 -> TARGET +1.86%
+  SIKA   2026-07-06 13:00 gap-0.3% SHORT      [short] e1165.0 sl1186.9 tg1121.2 rr2.0 -> EOD    +0.21%
+  SIKA   2026-07-06 14:00 gap-0.3% SHORT      [short] e1177.0 sl1186.3 tg1158.5 rr2.0 -> EOD    +1.22%
+  SIKA   2026-07-07 11:00 gap+1.1% SHORT      [short] e1147.4 sl1156.4 tg1129.3 rr2.0 -> STOP   -0.79%
+  SIKA   2026-07-07 12:00 gap+1.1% LONG       [long] e1194.6 sl1163.4 tg1256.9 rr2.0 -> STOP   -2.61%
+  SIKA   2026-07-07 14:00 gap+1.1% LONG       [long] e1182.0 sl1162.0 tg1219.2 rr1.86 -> EOD    +0.78%
+  SIKA   2026-07-08 10:00 gap+1.6% LONG       [long] e1204.5 sl1191.5 tg1230.4 rr2.0 -> STOP   -1.08%
+  SIKA   2026-07-10 11:00 gap+2.4% SHORT_TRIG [short-on-breakdown] e1222.9 sl1244.2 tg1180.3 rr2.0 -> EOD    +0.81% (trig 11:00)
+  SIKA   2026-07-10 12:00 gap+2.4% SHORT_TRIG [short-on-breakdown] e1213.8 sl1234.7 tg1172.0 rr2.0 -> EOD    +0.07% (trig 12:00)
+  SIKA   2026-07-10 13:00 gap+2.4% SHORT_TRIG [short-on-breakdown] e1210.4 sl1225.4 tg1180.4 rr2.0 -> EOD    -0.21% (trig 13:00)
+  SIKA   2026-07-21 10:00 gap-1.1% LONG       [long] e1234.2 sl1207.8 tg1287.0 rr2.0 -> STOP   -2.14%
+  SIKA   2026-07-21 12:00 gap-1.1% SHORT      [short] e1176.8 sl1189.8 tg1150.7 rr2.0 -> EOD    -0.48%
+  SIKA   2026-07-21 13:00 gap-1.1% SHORT      [short] e1173.3 sl1187.4 tg1145.2 rr2.0 -> EOD    -0.78%
+  DYCL   2026-05-14 11:00 gap+1.5% SHORT      [short] e316.6 sl322.9 tg304.1 rr2.0 -> STOP   -1.98%
+  DYCL   2026-05-14 12:00 gap+1.5% SHORT      [short] e316.9 sl319.2 tg312.5 rr2.0 -> STOP   -0.70%
+  DYCL   2026-05-14 13:00 gap+1.5% LONG       [long] e321.9 sl319.8 tg326.2 rr2.0 -> EOD    +0.14%
+  DYCL   2026-05-14 14:00 gap+1.5% LONG       [long] e323.6 sl320.5 tg328.9 rr1.64 -> EOD    -0.39%
+  DYCL   2026-05-18 11:00 gap-1.9% SHORT      [short] e286.0 sl288.3 tg281.5 rr2.0 -> STOP   -0.79%
+  DYCL   2026-05-18 13:00 gap-1.9% LONG       [long] e287.9 sl285.8 tg291.9 rr2.0 -> STOP   -0.70%
+  DYCL   2026-05-25 12:00 gap-0.3% LONG       [long] e320.1 sl314.6 tg330.9 rr2.0 -> EOD    +0.61%
+  DYCL   2026-05-26 10:00 gap+0.3% LONG       [long] e327.4 sl323.6 tg335.1 rr2.0 -> STOP   -1.18%
+  DYCL   2026-05-26 11:00 gap+0.3% LONG       [long-on-pullback] e329.3 sl327.4 tg333.2 rr2.0 -> TARGET +1.19%
+  DYCL   2026-05-26 12:00 gap+0.3% LONG       [long] e332.6 sl328.5 tg340.9 rr2.0 -> STOP   -1.24%
+  DYCL   2026-05-26 13:00 gap+0.3% SHORT_TRIG [short-on-breakdown] e328.2 sl330.4 tg323.8 rr2.0 -> TARGET +1.35% (trig 13:00)
+  DYCL   2026-05-26 14:00 gap+0.3% SHORT      [short] e327.2 sl330.0 tg322.6 rr1.64 -> TARGET +1.41%
+  DYCL   2026-05-27 11:00 gap+0.8% SHORT      [short] e329.5 sl332.3 tg324.0 rr2.0 -> EOD    +1.06%
+  DYCL   2026-05-27 12:00 gap+0.8% SHORT      [short] e327.8 sl330.5 tg322.5 rr2.0 -> STOP   -0.81%
+  DYCL   2026-05-27 14:00 gap+0.8% SHORT      [short] e328.0 sl330.4 tg324.1 rr1.64 -> TARGET +1.18%
+  DYCL   2026-06-04 11:00 gap+0.9% LONG       [long] e335.2 sl331.0 tg343.5 rr2.0 -> STOP   -1.24%
+  DYCL   2026-06-04 12:00 gap+0.9% SHORT      [short] e328.4 sl332.7 tg319.9 rr2.0 -> STOP   -1.30%
+  DYCL   2026-06-04 14:00 gap+0.9% SHORT      [short] e328.3 sl330.2 tg324.5 rr2.0 -> TARGET +1.16%
+  DYCL   2026-06-17 11:00 gap+1.4% SHORT_TRIG [short-on-breakdown] e324.2 sl327.9 tg317.0 rr2.0 -> EOD    -0.17% (trig 11:00)
+  DYCL   2026-06-18 10:00 gap+0.0% LONG       [long] e334.2 sl331.3 tg340.1 rr2.0 -> STOP   -0.88%
+  DYCL   2026-06-19 11:00 gap-0.5% LONG       [long-on-pullback] e374.0 sl368.3 tg385.4 rr2.0 -> STOP   -1.53%
+  DYCL   2026-06-19 12:00 gap-0.5% SHORT      [short] e369.4 sl373.0 tg362.3 rr2.0 -> EOD    +0.66%
+  DYCL   2026-06-19 13:00 gap-0.5% SHORT      [short] e365.4 sl370.7 tg355.0 rr2.0 -> EOD    -0.42%
+  DYCL   2026-06-22 11:00 gap+0.5% SHORT      [short] e362.0 sl365.2 tg355.6 rr2.0 -> STOP   -0.89%
+  DYCL   2026-06-23 11:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e363.6 sl368.1 tg354.5 rr2.0 -> EOD    +0.99% (trig 11:00)
+  DYCL   2026-06-23 12:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e358.0 sl363.2 tg347.6 rr2.0 -> STOP   -1.45% (trig 12:00)
+  DYCL   2026-06-23 13:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e356.6 sl361.0 tg347.8 rr2.0 -> STOP   -1.23% (trig 13:00)
+  DYCL   2026-06-25 10:00 gap+0.6% LONG       [long] e379.2 sl376.1 tg385.5 rr2.0 -> STOP   -0.83%
+  DYCL   2026-06-25 11:00 gap+0.6% SHORT      [short] e376.4 sl379.5 tg370.4 rr2.0 -> TARGET +1.60%
+  DYCL   2026-06-25 12:00 gap+0.6% SHORT      [short] e374.3 sl379.0 tg364.9 rr2.0 -> STOP   -1.26%
+  DYCL   2026-06-25 13:00 gap+0.6% SHORT      [short] e369.4 sl375.9 tg356.6 rr2.0 -> STOP   -1.73%
+  DYCL   2026-06-29 11:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e368.5 sl370.9 tg363.5 rr2.0 -> STOP   -0.67% (trig 12:30)
+  DYCL   2026-07-14 14:00 gap+0.2% SHORT      [short] e392.8 sl397.6 tg383.1 rr2.0 -> EOD    -0.20%
+  DYCL   2026-07-15 11:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e386.2 sl393.7 tg371.4 rr2.0 -> STOP   -1.92% (trig 11:00)
+  DYCL   2026-07-15 13:00 gap+0.9% SHORT_TRIG [short-on-breakdown] e387.6 sl392.6 tg377.7 rr2.0 -> EOD    +0.45% (trig 13:00)
+  DYCL   2026-07-15 14:00 gap+0.9% SHORT      [short] e387.9 sl390.8 tg382.2 rr2.0 -> EOD    +0.53%
+  DYCL   2026-07-17 11:00 gap-0.0% SHORT_TRIG [short-on-breakdown] e382.9 sl385.0 tg378.7 rr2.0 -> STOP   -0.55% (trig 11:00)
+  DYCL   2026-07-21 10:00 gap-2.6% LONG       [long] e462.7 sl452.5 tg483.1 rr2.0 -> STOP   -2.20%
+  DYCL   2026-07-21 11:00 gap-2.6% LONG       [long-on-pullback] e458.0 sl452.0 tg470.0 rr2.0 -> STOP   -1.31%
+  DYCL   2026-07-21 12:00 gap-2.6% SHORT      [short] e445.4 sl458.6 tg418.8 rr2.0 -> EOD    +1.96%
+  DYCL   2026-07-21 13:00 gap-2.6% SHORT      [short] e440.8 sl450.4 tg421.6 rr2.0 -> EOD    +0.95%
+  DYCL   2026-07-21 14:00 gap-2.6% SHORT      [short] e438.4 sl443.9 tg427.4 rr2.0 -> EOD    +0.41%
+  KARURVYSYA 2026-05-15 11:00 gap+0.4% LONG       [long] e298.8 sl295.6 tg305.3 rr2.0 -> EOD    +0.40%
+  KARURVYSYA 2026-06-04 13:00 gap-0.6% SHORT_TRIG [short-on-breakdown] e282.1 sl284.3 tg277.8 rr2.0 -> STOP   -0.77% (trig 13:00)
+  KARURVYSYA 2026-06-05 11:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e281.0 sl282.7 tg277.7 rr2.0 -> STOP   -0.59% (trig 11:00)
+  KARURVYSYA 2026-06-05 13:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e280.8 sl282.6 tg277.2 rr2.0 -> EOD    +0.30% (trig 13:00)
+  KARURVYSYA 2026-06-05 14:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e280.4 sl282.4 tg276.8 rr1.73 -> EOD    +0.14% (trig 14:00)
+  KARURVYSYA 2026-06-08 11:00 gap-1.4% SHORT      [short] e284.4 sl285.7 tg281.6 rr2.0 -> STOP   -0.48%
+  KARURVYSYA 2026-06-08 12:00 gap-1.4% SHORT      [short] e284.1 sl285.4 tg281.5 rr2.0 -> STOP   -0.46%
+  KARURVYSYA 2026-06-08 13:00 gap-1.4% LONG       [long] e285.4 sl284.5 tg287.0 rr2.0 -> STOP   -0.29%
+  KARURVYSYA 2026-06-08 14:00 gap-1.4% SHORT      [short] e284.1 sl285.1 tg281.9 rr2.0 -> TARGET +0.75%
+  KARURVYSYA 2026-06-09 12:00 gap+0.6% LONG       [long] e286.9 sl283.8 tg292.9 rr2.0 -> STOP   -1.06%
+  KARURVYSYA 2026-06-09 13:00 gap+0.6% SHORT_TRIG [short-on-breakdown] e284.6 sl285.5 tg282.8 rr2.0 -> STOP   -0.31% (trig 14:00)
+  KARURVYSYA 2026-06-10 11:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e277.5 sl279.4 tg273.6 rr2.0 -> TARGET +1.38% (trig 11:00)
+  KARURVYSYA 2026-06-10 12:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e275.9 sl278.7 tg270.2 rr2.0 -> EOD    +0.67% (trig 12:00)
+  KARURVYSYA 2026-06-10 13:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e275.6 sl277.6 tg271.8 rr2.0 -> TARGET +1.40% (trig 13:00)
+  KARURVYSYA 2026-06-10 14:00 gap-0.1% SHORT_TRIG [short-on-breakdown] e273.7 sl275.2 tg271.3 rr1.62 -> EOD    -0.11% (trig 14:00)
+  KARURVYSYA 2026-06-11 10:00 gap+0.0% LONG       [long] e274.8 sl271.9 tg280.6 rr2.0 -> EOD    +0.62%
+  KARURVYSYA 2026-06-11 11:00 gap+0.0% SHORT_TRIG [short-on-breakdown] e272.6 sl273.7 tg270.5 rr2.0 -> STOP   -0.39% (trig 11:00)
+  KARURVYSYA 2026-06-11 12:00 gap+0.0% LONG       [long] e273.4 sl272.4 tg275.6 rr2.0 -> TARGET +0.80%
+  KARURVYSYA 2026-06-12 10:00 gap+1.0% LONG       [long] e283.2 sl281.9 tg285.8 rr2.0 -> TARGET +0.93%
+  KARURVYSYA 2026-06-12 11:00 gap+1.0% LONG       [long] e287.4 sl284.4 tg293.6 rr2.0 -> EOD    -0.14%
+  KARURVYSYA 2026-06-12 13:00 gap+1.0% LONG       [long-on-pullback] e285.7 sl284.8 tg287.4 rr2.0 -> TARGET +0.61%
+  KARURVYSYA 2026-06-16 11:00 gap+0.5% LONG       [long] e294.2 sl292.2 tg298.3 rr2.0 -> EOD    -0.02%
+  KARURVYSYA 2026-06-16 12:00 gap+0.5% LONG       [long] e296.0 sl293.7 tg300.6 rr2.0 -> EOD    -0.61%
+  KARURVYSYA 2026-06-16 13:00 gap+0.5% LONG       [long] e296.7 sl294.9 tg300.4 rr2.0 -> STOP   -0.62%
+  KARURVYSYA 2026-06-18 10:00 gap+0.0% LONG       [long] e300.2 sl299.0 tg302.7 rr2.0 -> STOP   -0.41%
+  KARURVYSYA 2026-06-18 11:00 gap+0.0% SHORT      [short] e297.1 sl299.3 tg292.9 rr2.0 -> EOD    +0.05%
+  KARURVYSYA 2026-06-18 12:00 gap+0.0% SHORT      [short] e296.9 sl297.8 tg295.0 rr2.0 -> STOP   -0.32%
+  KARURVYSYA 2026-06-18 14:00 gap+0.0% SHORT      [short] e297.2 sl298.3 tg295.1 rr2.0 -> STOP   -0.36%
+  KARURVYSYA 2026-06-24 12:00 gap-0.4% LONG       [long] e295.0 sl292.6 tg299.8 rr2.0 -> EOD    -0.10%
+  KARURVYSYA 2026-06-29 10:00 gap+0.2% LONG       [long] e294.2 sl292.6 tg297.5 rr2.0 -> TARGET +1.12%
+  KARURVYSYA 2026-06-29 11:00 gap+0.2% LONG       [long] e296.4 sl294.8 tg299.7 rr2.0 -> STOP   -0.54%
+  KARURVYSYA 2026-06-29 13:00 gap+0.2% SHORT      [short] e293.2 sl295.6 tg288.5 rr2.0 -> STOP   -0.81%
+  KARURVYSYA 2026-06-29 14:00 gap+0.2% LONG       [long] e298.0 sl295.6 tg302.0 rr1.63 -> EOD    +0.42%
+  KARURVYSYA 2026-06-30 13:00 gap+0.2% LONG       [long] e299.4 sl297.1 tg304.0 rr2.0 -> STOP   -0.77%
+  KARURVYSYA 2026-06-30 14:00 gap+0.2% SHORT      [short] e296.9 sl298.1 tg294.4 rr2.0 -> EOD    +0.25%
+  KARURVYSYA 2026-07-01 12:00 gap+0.0% LONG       [long] e300.5 sl298.1 tg305.4 rr2.0 -> STOP   -0.81%
+  KARURVYSYA 2026-07-01 13:00 gap+0.0% SHORT      [short] e296.9 sl298.6 tg293.6 rr2.0 -> STOP   -0.56%
+  KARURVYSYA 2026-07-02 12:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e295.9 sl296.9 tg294.0 rr2.0 -> STOP   -0.32% (trig 12:45)
+  KARURVYSYA 2026-07-02 13:00 gap+0.1% SHORT_TRIG [short-on-breakdown] e295.6 sl296.3 tg294.1 rr2.0 -> TARGET +0.49% (trig 13:45)
+  KARURVYSYA 2026-07-06 11:00 gap+0.8% LONG       [long] e296.8 sl294.9 tg300.5 rr2.0 -> TARGET +1.25%
+  KARURVYSYA 2026-07-06 12:00 gap+0.8% LONG       [long-on-pullback] e297.2 sl295.2 tg301.2 rr2.0 -> TARGET +1.36%
+  KARURVYSYA 2026-07-13 11:00 gap-1.2% LONG       [long] e310.4 sl309.0 tg313.4 rr2.0 -> STOP   -0.48%
+  KARURVYSYA 2026-07-13 12:00 gap-1.2% SHORT_TRIG [short-on-breakdown] e309.2 sl310.2 tg307.1 rr2.0 -> TARGET +0.68% (trig 13:15)
+  KARURVYSYA 2026-07-13 14:00 gap-1.2% SHORT      [short] e308.6 sl309.7 tg306.5 rr2.0 -> STOP   -0.35%
+  KARURVYSYA 2026-07-15 10:00 gap+1.0% LONG       [long] e306.0 sl305.3 tg307.4 rr2.0 -> STOP   -0.23%
+  KARURVYSYA 2026-07-15 11:00 gap+1.0% LONG       [long] e308.2 sl306.4 tg311.8 rr2.0 -> STOP   -0.58%
+  KARURVYSYA 2026-07-15 12:00 gap+1.0% SHORT      [short] e305.9 sl307.3 tg303.1 rr2.0 -> EOD    -0.36%
+  KARURVYSYA 2026-07-15 13:00 gap+1.0% SHORT      [short] e304.8 sl306.7 tg300.8 rr2.0 -> STOP   -0.65%
+  KARURVYSYA 2026-07-15 14:00 gap+1.0% SHORT      [short] e304.5 sl305.9 tg301.8 rr1.92 -> STOP   -0.46%
+  KARURVYSYA 2026-07-20 11:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e309.6 sl310.7 tg307.5 rr2.0 -> STOP   -0.34% (trig 11:00)
+  KARURVYSYA 2026-07-20 12:00 gap+0.4% SHORT_TRIG [short-on-breakdown] e309.1 sl310.4 tg306.4 rr2.0 -> STOP   -0.43% (trig 12:00)
+  KARURVYSYA 2026-07-21 10:00 gap+3.2% LONG       [long] e322.5 sl316.9 tg333.6 rr2.0 -> TARGET +3.45%
+  KARURVYSYA 2026-07-21 13:00 gap+3.2% LONG       [long] e338.4 sl331.7 tg352.0 rr2.0 -> EOD    +0.38%
+  KARURVYSYA 2026-07-21 14:00 gap+3.2% LONG       [long] e339.2 sl334.4 tg347.3 rr1.63 -> EOD    +0.15%

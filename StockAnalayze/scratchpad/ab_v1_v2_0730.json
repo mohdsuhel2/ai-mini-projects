@@ -1,0 +1,1591 @@
+[
+ {
+  "sym": "63MOONS",
+  "cp": "10:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 808.35,
+   "stop": 796.27,
+   "target": 832.5,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.4944021772747007,
+   "etime": "10:00",
+   "xtime": "10:05",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 808.35,
+   "stop": 796.27,
+   "target": 832.5,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.4944021772747007,
+   "etime": "10:00",
+   "xtime": "10:05",
+   "why": "BUY NOW (grade A+)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "11:00",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "11:45",
+  "v1": {
+   "side": "LONG",
+   "entry": 822.25,
+   "stop": 801.89,
+   "target": 862.96,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 4.951048951048964,
+   "etime": "11:45",
+   "xtime": "12:36",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "skip": "WAIT (grade C)",
+   "why": "WAIT (grade C)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "12:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 820.65,
+   "stop": 801.88,
+   "target": 858.18,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 4.5732041674282575,
+   "etime": "12:00",
+   "xtime": "12:35",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "skip": "WAIT (grade C)",
+   "why": "WAIT (grade C)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "12:30",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "14:00",
+  "v1": {
+   "skip": "stale extended breakout (Gate D)",
+   "why": "stale extended breakout (Gate D)",
+   "bias": "long-on-pullback"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 846.65,
+   "stop": 838.5,
+   "target": 862.94,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -0.9626173743577549,
+   "etime": "14:00",
+   "xtime": "14:25",
+   "why": "BUY NOW (grade A)",
+   "bias": "long-on-pullback"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "14:30",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "63MOONS",
+  "cp": "14:45",
+  "v1": {
+   "skip": "stale extended breakout (Gate D)",
+   "why": "stale extended breakout (Gate D)",
+   "bias": "long-on-pullback"
+  },
+  "v2": {
+   "skip": "no_fill",
+   "why": "BUY ON PULLBACK (grade B, conditional)",
+   "bias": "long-on-pullback"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "10:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "11:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1668.5999755859375,
+   "stop": 1679.73,
+   "target": 1646.34,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.2037651003122254,
+   "etime": "11:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1668.5999755859375,
+   "stop": 1679.73,
+   "target": 1646.34,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.2037651003122254,
+   "etime": "11:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "SHORT ON BREAKDOWN (grade B, conditional)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "11:45",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1665.0,
+   "stop": 1677.59,
+   "target": 1639.82,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": -0.012009079391894772,
+   "etime": "12:00",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1664.5,
+   "stop": 1676.85,
+   "target": 1639.81,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": -0.04205173757134695,
+   "etime": "11:45",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "12:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1664.699951171875,
+   "stop": 1676.8,
+   "target": 1640.49,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": -0.030035442702325277,
+   "etime": "12:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1665.0,
+   "stop": 1674.34,
+   "target": 1646.32,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": -0.012009079391894772,
+   "etime": "12:00",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "12:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1666.5999755859375,
+   "stop": 1676.12,
+   "target": 1647.55,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.08400482626733652,
+   "etime": "12:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1664.9,
+   "stop": 1673.84,
+   "target": 1647.02,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": -0.018016167449985687,
+   "etime": "12:30",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "14:00",
+  "v1": {
+   "skip": "corpse -3.0% (Gate I)",
+   "why": "corpse -3.0% (Gate I)",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "skip": "corpse -> bounce only (Gate I)",
+   "why": "corpse -> bounce only (Gate I)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "14:30",
+  "v1": {
+   "skip": "corpse -3.1% (Gate I)",
+   "why": "corpse -3.1% (Gate I)",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "skip": "corpse -> bounce only (Gate I)",
+   "why": "corpse -> bounce only (Gate I)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "ADANIPORTS",
+  "cp": "14:45",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "10:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 1723.2,
+   "stop": 1707.9,
+   "target": 1753.8,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 1.7757660167130762,
+   "etime": "10:00",
+   "xtime": "10:13",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 1723.2,
+   "stop": 1707.9,
+   "target": 1753.8,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 1.7757660167130762,
+   "etime": "10:00",
+   "xtime": "10:13",
+   "why": "BUY ON PULLBACK (grade B, conditional)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "11:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "11:45",
+  "v1": {
+   "side": "LONG",
+   "entry": 1773.1,
+   "stop": 1745.42,
+   "target": 1828.46,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.561107664542316,
+   "etime": "11:45",
+   "xtime": "14:18",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 1773.1,
+   "stop": 1745.42,
+   "target": 1828.46,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.561107664542316,
+   "etime": "11:45",
+   "xtime": "14:18",
+   "why": "BUY NOW (grade A)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "12:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "12:30",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "14:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1736.0999755859375,
+   "stop": 1762.82,
+   "target": 1689.23,
+   "rr": 1.75,
+   "res": "STOP",
+   "pnl": -1.539083278026343,
+   "etime": "14:30",
+   "xtime": "15:09",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1736.0999755859375,
+   "stop": 1762.82,
+   "target": 1689.23,
+   "rr": 1.75,
+   "res": "STOP",
+   "pnl": -1.539083278026343,
+   "etime": "14:30",
+   "xtime": "15:09",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "14:30",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "AVALON",
+  "cp": "14:45",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "10:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "11:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 2213.0,
+   "stop": 2259.62,
+   "target": 2119.76,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -2.1066425666516064,
+   "etime": "11:15",
+   "xtime": "11:39",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 2213.0,
+   "stop": 2259.62,
+   "target": 2119.76,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -2.1066425666516064,
+   "etime": "11:15",
+   "xtime": "11:39",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "11:45",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "12:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 2245.0,
+   "stop": 2209.64,
+   "target": 2315.72,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 3.150111358574592,
+   "etime": "12:00",
+   "xtime": "15:14",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 2245.0,
+   "stop": 2209.64,
+   "target": 2315.72,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 3.150111358574592,
+   "etime": "12:00",
+   "xtime": "15:14",
+   "why": "BUY ON PULLBACK (grade B, conditional)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "12:30",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "14:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "14:30",
+  "v1": {
+   "side": "LONG",
+   "entry": 2249.11,
+   "stop": 2233.37,
+   "target": 2280.59,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 1.3996647562813713,
+   "etime": "14:32",
+   "xtime": "15:00",
+   "kind": "limit",
+   "why": "long-on-pullback",
+   "bias": "long-on-pullback"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 2249.11,
+   "stop": 2233.37,
+   "target": 2280.59,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 1.3996647562813713,
+   "etime": "14:32",
+   "xtime": "15:00",
+   "kind": "limit",
+   "why": "BUY ON PULLBACK (grade B, conditional)",
+   "bias": "long-on-pullback"
+  }
+ },
+ {
+  "sym": "BALKRISIND",
+  "cp": "14:45",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "10:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 559.7,
+   "stop": 548.98,
+   "target": 581.14,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.9153117741647407,
+   "etime": "10:00",
+   "xtime": "13:48",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 551.06,
+   "stop": 542.74,
+   "target": 567.7,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 3.0196348854934385,
+   "etime": "10:34",
+   "xtime": "10:52",
+   "kind": "limit",
+   "why": "BUY ON PULLBACK (grade B, conditional)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "11:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "11:45",
+  "v1": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 562.54,
+   "target": 516.82,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 562.54,
+   "target": 516.82,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "12:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 562.3,
+   "target": 517.29,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 562.3,
+   "target": 517.29,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "12:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 562.03,
+   "target": 517.84,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 562.03,
+   "target": 517.84,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "14:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 556.9,
+   "target": 531.7,
+   "rr": 1.62,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 547.2999877929688,
+   "stop": 556.9,
+   "target": 531.7,
+   "rr": 1.62,
+   "res": "EOD",
+   "pnl": 0.7034488711506914,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "14:30",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "BLACKBUCK",
+  "cp": "14:45",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "10:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 301.0,
+   "stop": 296.21,
+   "target": 310.57,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.5913621262458544,
+   "etime": "10:00",
+   "xtime": "10:30",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 301.0,
+   "stop": 296.21,
+   "target": 310.57,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.5913621262458544,
+   "etime": "10:00",
+   "xtime": "10:30",
+   "why": "BUY NOW (grade A)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "11:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 298.35,
+   "stop": 296.09,
+   "target": 302.88,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -0.7574995810290086,
+   "etime": "11:00",
+   "xtime": "11:19",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 298.35,
+   "stop": 296.09,
+   "target": 302.88,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -0.7574995810290086,
+   "etime": "11:00",
+   "xtime": "11:19",
+   "why": "BUY NOW (grade A+)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "11:45",
+  "v1": {
+   "side": "SHORT",
+   "entry": 293.25,
+   "stop": 298.87,
+   "target": 282.01,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 2.0801384837222936,
+   "etime": "12:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 293.25,
+   "stop": 298.87,
+   "target": 282.01,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 2.0801384837222936,
+   "etime": "12:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "12:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 291.79998779296875,
+   "stop": 298.75,
+   "target": 277.91,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 1.5935552059664682,
+   "etime": "12:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 291.79998779296875,
+   "stop": 298.75,
+   "target": 277.91,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 1.5935552059664682,
+   "etime": "12:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "12:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 291.79998779296875,
+   "stop": 298.65,
+   "target": 278.1,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 1.5935552059664682,
+   "etime": "12:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 291.79998779296875,
+   "stop": 298.65,
+   "target": 278.1,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 1.5935552059664682,
+   "etime": "12:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "14:00",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "14:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 288.3,
+   "stop": 292.0,
+   "target": 283.34,
+   "rr": 1.34,
+   "res": "STOP",
+   "pnl": -1.2833853624696356,
+   "etime": "14:30",
+   "xtime": "14:44",
+   "why": "short",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "NO TRADE \u2014 short vs bullish HTF",
+   "why": "NO TRADE \u2014 short vs bullish HTF",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "MOIL",
+  "cp": "14:45",
+  "v1": {
+   "side": "SHORT",
+   "entry": 292.05,
+   "stop": 293.37,
+   "target": 289.41,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -0.4519774011299438,
+   "etime": "14:45",
+   "xtime": "14:45",
+   "why": "short",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "NO TRADE \u2014 short vs bullish HTF",
+   "why": "NO TRADE \u2014 short vs bullish HTF",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "10:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "11:00",
+  "v1": {
+   "skip": "corpse -4.0% (Gate I)",
+   "why": "corpse -4.0% (Gate I)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "corpse -> bounce only (Gate I)",
+   "why": "corpse -> bounce only (Gate I)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "11:45",
+  "v1": {
+   "skip": "corpse -4.7% (Gate I)",
+   "why": "corpse -4.7% (Gate I)",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "skip": "corpse -> bounce only (Gate I)",
+   "why": "corpse -> bounce only (Gate I)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "12:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "12:30",
+  "v1": {
+   "skip": "corpse -5.0% (Gate I)",
+   "why": "corpse -5.0% (Gate I)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "corpse -> bounce only (Gate I)",
+   "why": "corpse -> bounce only (Gate I)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "14:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 437.65,
+   "stop": 433.11,
+   "target": 446.73,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.0373586199017404,
+   "etime": "14:00",
+   "xtime": "15:16",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 437.65,
+   "stop": 433.11,
+   "target": 446.73,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -1.0373586199017404,
+   "etime": "14:00",
+   "xtime": "15:16",
+   "why": "BUY ON PULLBACK (grade B, conditional)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "14:30",
+  "v1": {
+   "skip": "corpse -3.9% (Gate I)",
+   "why": "corpse -3.9% (Gate I)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "NO TRADE \u2014 short vs bullish HTF",
+   "why": "NO TRADE \u2014 short vs bullish HTF",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "PNGSREVA",
+  "cp": "14:45",
+  "v1": {
+   "skip": "corpse -3.8% (Gate I)",
+   "why": "corpse -3.8% (Gate I)",
+   "bias": "short"
+  },
+  "v2": {
+   "skip": "NO TRADE \u2014 short vs bullish HTF",
+   "why": "NO TRADE \u2014 short vs bullish HTF",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "10:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "11:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 984.2000122070312,
+   "stop": 997.03,
+   "target": 958.55,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.2235330400065516,
+   "etime": "11:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 984.8,
+   "stop": 997.62,
+   "target": 959.15,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.2843216896831757,
+   "etime": "11:00",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "11:45",
+  "v1": {
+   "side": "SHORT",
+   "entry": 983.7999877929688,
+   "stop": 995.6,
+   "target": 960.19,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.1829627785426946,
+   "etime": "12:00",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 984.6,
+   "stop": 991.48,
+   "target": 970.84,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.26406662604103737,
+   "etime": "11:45",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "12:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 984.0,
+   "stop": 994.94,
+   "target": 962.11,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.20325203252032908,
+   "etime": "12:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 983.8,
+   "stop": 991.48,
+   "target": 968.44,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.18296401707663668,
+   "etime": "12:00",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "12:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 980.5,
+   "stop": 992.49,
+   "target": 956.53,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": -0.15298317185110655,
+   "etime": "12:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 985.0,
+   "stop": 989.0,
+   "target": 977.01,
+   "rr": 2.0,
+   "res": "EOD",
+   "pnl": 0.3045685279187804,
+   "etime": "12:30",
+   "xtime": "15:20",
+   "why": "SHORT NOW (grade A)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "14:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 977.5999755859375,
+   "stop": 983.85,
+   "target": 967.43,
+   "rr": 1.63,
+   "res": "STOP",
+   "pnl": -0.6393232989103215,
+   "etime": "14:15",
+   "xtime": "14:34",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 977.5999755859375,
+   "stop": 983.85,
+   "target": 967.43,
+   "rr": 1.63,
+   "res": "STOP",
+   "pnl": -0.6393232989103215,
+   "etime": "14:15",
+   "xtime": "14:34",
+   "kind": "trigger",
+   "why": "SHORT ON BREAKDOWN (grade B, conditional)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "14:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 984.9000244140625,
+   "stop": 990.06,
+   "target": 978.01,
+   "rr": 1.34,
+   "res": "EOD",
+   "pnl": 0.29444860820140306,
+   "etime": "14:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 984.9000244140625,
+   "stop": 990.06,
+   "target": 978.01,
+   "rr": 1.34,
+   "res": "EOD",
+   "pnl": 0.29444860820140306,
+   "etime": "14:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "SHORT ON BREAKDOWN (grade B, conditional)",
+   "bias": "short-on-breakdown"
+  }
+ },
+ {
+  "sym": "PREMIERENE",
+  "cp": "14:45",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "10:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "11:00",
+  "v1": {
+   "side": "LONG",
+   "entry": 1411.9,
+   "stop": 1398.43,
+   "target": 1438.84,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 1.908067143565395,
+   "etime": "11:00",
+   "xtime": "11:36",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "side": "LONG",
+   "entry": 1411.9,
+   "stop": 1398.43,
+   "target": 1438.84,
+   "rr": 2.0,
+   "res": "TARGET",
+   "pnl": 1.908067143565395,
+   "etime": "11:00",
+   "xtime": "11:36",
+   "why": "BUY NOW (grade A)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "11:45",
+  "v1": {
+   "side": "LONG",
+   "entry": 1458.7,
+   "stop": 1420.6,
+   "target": 1534.9,
+   "rr": 2.0,
+   "res": "STOP",
+   "pnl": -2.611914718585051,
+   "etime": "11:45",
+   "xtime": "12:09",
+   "why": "long",
+   "bias": "long"
+  },
+  "v2": {
+   "skip": "WAIT (grade C)",
+   "why": "WAIT (grade C)",
+   "bias": "long"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "12:00",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "12:30",
+  "v1": {
+   "skip": "neutral (Gate E)",
+   "why": "neutral (Gate E)",
+   "bias": "neutral"
+  },
+  "v2": {
+   "skip": "WAIT (neutral bias \u2014 Gate E)",
+   "why": "WAIT (neutral bias \u2014 Gate E)",
+   "bias": "neutral"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "14:00",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1378.5,
+   "stop": 1409.16,
+   "target": 1329.01,
+   "rr": 1.61,
+   "res": "EOD",
+   "pnl": 0.5005458407009389,
+   "etime": "14:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB veto -> swing-low trigger (Gate B)",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1378.5,
+   "stop": 1409.16,
+   "target": 1329.01,
+   "rr": 1.61,
+   "res": "EOD",
+   "pnl": 0.5005458407009389,
+   "etime": "14:15",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "FINOPB -> swing-low trigger (Gate B)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "14:30",
+  "v1": {
+   "side": "SHORT",
+   "entry": 1373.6,
+   "stop": 1400.52,
+   "target": 1337.75,
+   "rr": 1.33,
+   "res": "EOD",
+   "pnl": 0.14560457295154094,
+   "etime": "14:30",
+   "xtime": "15:20",
+   "why": "short",
+   "bias": "short"
+  },
+  "v2": {
+   "side": "SHORT",
+   "entry": 1368.9000244140625,
+   "stop": 1395.83,
+   "target": 1333.17,
+   "rr": 1.33,
+   "res": "EOD",
+   "pnl": -0.1972350882987639,
+   "etime": "14:45",
+   "xtime": "15:20",
+   "kind": "trigger",
+   "why": "SHORT ON BREAKDOWN (grade B, conditional)",
+   "bias": "short"
+  }
+ },
+ {
+  "sym": "SYRMA",
+  "cp": "14:45",
+  "v1": {
+   "skip": "no_trigger",
+   "why": "short-on-breakdown",
+   "bias": "short-on-breakdown"
+  },
+  "v2": {
+   "skip": "no_trigger",
+   "why": "SHORT ON BREAKDOWN (grade B, conditional)",
+   "bias": "short-on-breakdown"
+  }
+ }
+]
