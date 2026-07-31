@@ -291,6 +291,29 @@ class GrowwClient:
             "volume": int(raw["volume"]),
         }
 
+    def get_historical_candles(self, symbol: str, start_time: str, end_time: str,
+                               interval_minutes: int = 1) -> dict[str, Any]:
+        """Historical OHLCV — used to seed the Live Intraday indicators at session start.
+
+        The GrowwFeed WebSocket carries no candles, so without this a fresh session cannot compute
+        VWAP/EMA/ATR until it has polled for an hour. Groww limits 1-min data to 7 days per request
+        and 3 months back.
+
+        Uses the SDK's get_historical_candle_data: it takes `trading_symbol`, matching the symbol
+        convention used everywhere else here. The newer get_historical_candles wants a differently
+        formatted `groww_symbol`, so switching to it would need a symbol-mapping layer first.
+
+        Returns {"candles": [[epoch_seconds, o, h, l, c, v], ...]}.
+        """
+        self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_historical_candles(
+                symbol, start_time, end_time, interval_minutes)
+        raw = _retry(lambda: self._sdk.get_historical_candle_data(
+            trading_symbol=symbol, exchange="NSE", segment=_SEGMENT_CASH,
+            start_time=start_time, end_time=end_time, interval_in_minutes=interval_minutes))
+        return {"candles": list(raw.get("candles") or [])}
+
     def get_holdings(self) -> list[dict]:
         self._require_auth()
         if self._sdk is _GATEWAY_READY:

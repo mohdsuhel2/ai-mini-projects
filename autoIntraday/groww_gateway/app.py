@@ -124,6 +124,20 @@ def get_quote(symbol: str) -> dict[str, Any]:
     return _get_live_client().get_quote(symbol.upper())
 
 
+@app.get("/v1/candles", dependencies=[Depends(_require_gateway_token)])
+def get_candles(symbol: str, start: str, end: str, interval: int = 1) -> dict[str, Any]:
+    """Historical OHLCV candles — the ONLY way to seed the Live Intraday indicators at open.
+
+    The GrowwFeed WebSocket carries LTP/depth/order updates but no candles, so a fresh session
+    has no history to compute VWAP, EMA or ATR from until it has polled for an hour. This fills
+    that gap. Groww limits: 1-min <= 7 days per request and 3 months back.
+
+    start/end are 'YYYY-MM-DD HH:mm:ss' IST. Returns {"candles": [[epoch,o,h,l,c,v], ...]}.
+    """
+    return _get_live_client().get_historical_candles(
+        symbol.upper(), start_time=start, end_time=end, interval_minutes=interval)
+
+
 @app.get("/v1/holdings", dependencies=[Depends(_require_gateway_token)])
 def get_holdings() -> list[dict]:
     return _get_live_client().get_holdings()

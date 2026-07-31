@@ -32,6 +32,12 @@ class GrowwGatewayTransport:
     def get_quote(self, symbol: str) -> dict[str, Any]:
         return self._request("GET", f"/v1/quote/{urllib.parse.quote(symbol)}")
 
+    def get_historical_candles(self, symbol: str, start_time: str, end_time: str,
+                               interval_minutes: int = 1) -> dict[str, Any]:
+        query = urllib.parse.urlencode({"symbol": symbol, "start": start_time,
+                                        "end": end_time, "interval": interval_minutes})
+        return self._request("GET", f"/v1/candles?{query}")
+
     def get_holdings(self) -> list[dict]:
         return self._request("GET", "/v1/holdings")
 

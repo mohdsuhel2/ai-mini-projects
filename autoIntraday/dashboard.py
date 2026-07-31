@@ -1460,12 +1460,111 @@ def _compare_page() -> None:
         st.caption("— no compare cycles yet")
 
 
+def _live_page() -> None:
+    """Live Intraday — the deterministic (no-LLM) single-stock trader.
+
+    This page NEVER runs the strategy: the trader is a separate long-lived daemon, and Streamlit
+    re-runs this script on every interaction. The two share only the database — the page writes
+    control flags, the loop re-reads them each tick. So DISARM works even with this page closed.
+    """
+    from live_store import LiveStore
+
+    st.subheader("Live Intraday")
+    st.caption("Rule-based, no AI. One stock, one position, long only. The trader runs as its own "
+               "daemon — this page only reads its state and sets its flags.")
+    try:
+        ls = LiveStore(DB_PATH)
+    except Exception as e:
+        st.error(f"live store unavailable: {e}")
+        return
+    cfg, state = ls.get_config(), ls.get_state()
+    today = datetime.now(IST).date().isoformat()
+    trades = ls.trades_for(today)
+    realized = ls.realized_pnl(today)
+    open_trade = ls.get_open_trade()
+
+    # --- is the daemon actually alive? A stale heartbeat means nothing is trading. -------------
+    hb, hb_txt, hb_tone = state.get("heartbeat_at"), "never", "neg"
+    if hb:
+        try:
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(hb)).total_seconds()
+            hb_txt = f"{int(age)}s ago"
+            hb_tone = "pos" if age < 30 else "neg"
+        except Exception:
+            hb_txt = "unparseable"
+    armed = bool(cfg["armed"])
+    _tiles([
+        _tile("Trader", "ARMED" if armed else "DISARMED", cfg["mode"].upper(),
+              "pos" if armed else "plain"),
+        _tile("Heartbeat", hb_txt, "daemon last tick", hb_tone),
+        _tile("Symbol", state.get("symbol") or "—", state.get("selected_reason") or ""),
+        _tile("Realized today", f"₹{realized:,.0f}", f"{len(trades)} trade(s)",
+              _pnl_tone(realized)),
+    ])
+    if not armed and state.get("disarmed_reason"):
+        st.warning(f"Disarmed: {state['disarmed_reason']}")
+    if hb_tone == "neg":
+        st.info("No recent heartbeat — the livetrader daemon does not appear to be running. "
+                "Arming here has no effect until it is started.")
+
+    st.markdown(f"**Signal:** `{state.get('signal_action') or '—'}` — "
+                f"{state.get('signal_reason') or 'no read yet'}")
+
+    if open_trade:
+        st.markdown("**Open position**")
+        st.dataframe([{"symbol": open_trade.symbol, "qty": open_trade.quantity,
+                       "entry": open_trade.entry_price, "stop": open_trade.stop,
+                       "target": open_trade.target, "mode": open_trade.mode}],
+                     use_container_width=True, hide_index=True)
+    else:
+        st.caption("No open position.")
+
+    c1, c2 = st.columns(2)
+    if c1.button("🔴 DISARM" if armed else "🟢 ARM", use_container_width=True):
+        if armed:
+            ls.disarm("disarmed from the dashboard")
+        else:
+            ls.set_config(armed=1)
+        st.rerun()
+    if c2.button("Drop symbol & re-select", use_container_width=True,
+                 disabled=open_trade is not None,
+                 help="Blocked while a position is open."):
+        ls.update_state(symbol=None, selected_reason="manual re-select requested")
+        st.rerun()
+
+    with st.expander("Settings"):
+        live_mode = st.toggle("LIVE mode (places REAL Groww orders)", value=cfg["mode"] == "live")
+        cap = st.number_input("Capital per trade (₹)", min_value=1000.0,
+                              value=float(cfg["capital_per_trade"]), step=1000.0)
+        rr = st.number_input("Minimum R:R", min_value=1.0, value=float(cfg["min_rr"]), step=0.1)
+        atr_m = st.number_input("ATR multiple (stop)", min_value=0.5,
+                                value=float(cfg["atr_mult"]), step=0.1)
+        cap_loss = st.number_input("Daily loss cap (₹)", min_value=0.0,
+                                   value=float(cfg["daily_loss_cap"]), step=500.0)
+        if st.button("Save settings", use_container_width=True):
+            ls.set_config(mode="live" if live_mode else "paper", capital_per_trade=cap,
+                          min_rr=rr, atr_mult=atr_m, daily_loss_cap=cap_loss)
+            st.success("Saved.")
+            st.rerun()
+        st.caption(f"Stop floor {cfg['min_stop_pct']}% of price · select at {cfg['select_at']} · "
+                   f"no new entry after {cfg['no_new_entry_after']} · "
+                   f"square-off {cfg['squareoff_at']}")
+
+    if trades:
+        st.markdown("**Today's trades**")
+        st.dataframe([{"symbol": t.symbol, "qty": t.quantity, "entry": t.entry_price,
+                       "exit": t.exit_price, "reason": t.exit_reason,
+                       "pnl": t.pnl, "mode": t.mode} for t in trades],
+                     use_container_width=True, hide_index=True)
+
+
 def main() -> None:
     st.set_page_config(page_title="autoIntraday", layout="wide",
                        initial_sidebar_state="collapsed")
     intraday = st.Page(_render, title="Intraday", url_path="intraday", default=True)
     swing = st.Page(_swing_page, title="Swing", url_path="swing")
-    pages = [intraday, swing]
+    live = st.Page(_live_page, title="Live Intraday", url_path="live-intraday")
+    pages = [intraday, swing, live]
     # The Compare tab appears only when Compare Testing is on, so the app looks exactly like today
     # when it's off (enable it from Settings ▸ Strategies).
     try:
