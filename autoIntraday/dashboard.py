@@ -1558,13 +1558,93 @@ def _live_page() -> None:
                      use_container_width=True, hide_index=True)
 
 
+def _active_short_page() -> None:
+    """activeShort — tonight's fall candidates and tomorrow's armed shorts.
+
+    Read-only over the store, like every other page: the scan and arm jobs run on their own
+    schedule and this only reflects what they recorded.
+    """
+    from active_short_store import ActiveShortStore
+
+    st.subheader("Active Short")
+    st.caption("Scans after the close for stocks likely to fall next session, then arms "
+               "conditional short entries below each confirmation level at the open. Shorts are "
+               "intraday-only in India — everything squares off the same day.")
+    try:
+        ss = ActiveShortStore(DB_PATH)
+    except Exception as e:
+        st.error(f"activeShort store unavailable: {e}")
+        return
+    cfg = ss.get_config()
+    live_ok, live_why = ss.live_allowed()
+    done = ss.completed_paper_sessions()
+    need = int(cfg["paper_sessions_required"])
+    enabled = bool(cfg["active_short_enabled"])
+
+    _tiles([
+        _tile("Mode", "ENABLED" if enabled else "DISABLED", cfg["active_short_mode"].upper(),
+              "pos" if enabled else "plain"),
+        _tile("Paper gate", f"{done}/{need}", "sessions recorded",
+              "pos" if done >= need else "plain"),
+        _tile("Max shorts", str(cfg["max_shorts"]), f"₹{cfg['capital_per_short']:,.0f} each"),
+        _tile("Arm at", cfg["arm_at"], f"expire {cfg['arm_expiry']} · flat {cfg['squareoff_at']}"),
+    ])
+    if not live_ok:
+        st.info(f"Live trading refused — {live_why}. Next-session direction is close to a coin "
+                f"flip; the paper period exists to measure whether this signal has an edge "
+                f"before real money is committed.")
+
+    today = datetime.now(IST).date().isoformat()
+    picks = ss.picks_for(today)
+    st.markdown(f"**Picks for {today}**")
+    if picks:
+        st.dataframe([{"rank": p.rank, "symbol": p.symbol, "confidence": p.confidence,
+                       "short below": p.confirmation_level, "stop": p.stop, "target": p.target,
+                       "rvol": p.rvol, "status": p.status, "fill": p.fill_price,
+                       "pnl": p.pnl, "why": p.reason} for p in picks],
+                     use_container_width=True, hide_index=True)
+    else:
+        st.caption("No picks recorded for today. An empty night is a valid result — the scanner "
+                   "returns nothing when the regime is bullish or nothing clears its bar.")
+
+    sessions = ss.sessions(limit=20)
+    if sessions:
+        st.markdown("**Session history** — the hit rate, not a claim about it")
+        st.dataframe([{"date": s["trade_date"], "mode": s["mode"], "picks": s["picks"],
+                       "triggered": s["triggered"], "pnl": s["realized_pnl"],
+                       "complete": bool(s["completed_at"])} for s in sessions],
+                     use_container_width=True, hide_index=True)
+
+    with st.expander("Settings"):
+        on = st.toggle("Enable activeShort", value=enabled)
+        want_live = st.toggle("LIVE mode (places REAL short orders)",
+                              value=cfg["active_short_mode"] == "live",
+                              disabled=done < need,
+                              help=None if done >= need else
+                              f"Locked until {need} paper sessions are recorded ({done} so far).")
+        n = st.number_input("Max shorts per session", 1, 10, int(cfg["max_shorts"]))
+        cap = st.number_input("Capital per short (₹)", 1000.0,
+                              value=float(cfg["capital_per_short"]), step=1000.0)
+        conf = st.number_input("Minimum confidence", 50.0, 100.0,
+                               float(cfg["min_confidence"]), step=1.0)
+        if st.button("Save activeShort settings", use_container_width=True):
+            ss.set_config(active_short_enabled=1 if on else 0,
+                          active_short_mode="live" if (want_live and done >= need) else "paper",
+                          max_shorts=int(n), capital_per_short=cap, min_confidence=conf)
+            st.success("Saved.")
+            st.rerun()
+        st.caption(f"Stop {cfg['stop_pct']}% above fill · target {cfg['target_pct']}% below · "
+                   f"skip gaps beyond {cfg['max_gap_pct']}% · RVOL floor {cfg['min_rvol']}")
+
+
 def main() -> None:
     st.set_page_config(page_title="autoIntraday", layout="wide",
                        initial_sidebar_state="collapsed")
     intraday = st.Page(_render, title="Intraday", url_path="intraday", default=True)
     swing = st.Page(_swing_page, title="Swing", url_path="swing")
     live = st.Page(_live_page, title="Live Intraday", url_path="live-intraday")
-    pages = [intraday, swing, live]
+    ashort = st.Page(_active_short_page, title="Active Short", url_path="active-short")
+    pages = [intraday, swing, live, ashort]
     # The Compare tab appears only when Compare Testing is on, so the app looks exactly like today
     # when it's off (enable it from Settings ▸ Strategies).
     try:
