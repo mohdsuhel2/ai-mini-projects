@@ -908,6 +908,38 @@ def build_report(
 
     rev = reversal_watch(struct, rsi, vwap, last, inst)
 
+    # 5m fast trigger (2026-07-31, audit fix 4 — TIMING only, unproven as selection; the 15m
+    # close stays the canonical trigger): the last CLOSED 5m bar vs the day VWAP. A confirmed
+    # reversal short may fire on the 5m close below VWAP — up to ~10 min earlier than the 15m
+    # close — attacking the measured latency tax (median long signal fires at the 77th
+    # percentile of the day range).
+    if m5_bars and vwap:
+        m5_today = [b for b in m5_bars if b.date[:10] == today]
+        if m5_today:
+            c5 = m5_today[-1].close
+            rev["trigger_5m"] = {
+                "last_5m_close": _round(c5), "time": m5_today[-1].date,
+                "below_vwap": bool(c5 < vwap), "above_vwap": bool(c5 > vwap),
+                "note": "faster trigger for a CONFIRMED reversal/sob entry — timing only; "
+                        "half size vs a 15m-close trigger; never a selection signal"}
+
+    # Anchored VWAP from the DAY-HIGH bar (2026-07-31, audit fix 6): the reference level for
+    # topper-fade shorts (the best short cohort, +0.27% med / 60% win at daychg>+3%). Price
+    # holding BELOW the high-anchored VWAP = sellers from the top are in control; a rally back
+    # to it is the Gate-I "short the bounce" location. Reference level only — not a gate.
+    avwap_high = None
+    hi_idx = max(range(len(today_bars)), key=lambda i: today_bars[i].high)
+    seg = today_bars[hi_idx:]
+    den = sum(b.volume for b in seg if b.volume)
+    if den:
+        num = sum((b.high + b.low + b.close) / 3.0 * b.volume for b in seg if b.volume)
+        lvl = num / den
+        avwap_high = {"level": _round(lvl), "anchor_time": today_bars[hi_idx].date,
+                      "last_vs": "below" if last < lvl else "above",
+                      "note": "VWAP anchored at the day-high bar — topper-short reference: "
+                              "below = distribution from the top; the bounce INTO it is the "
+                              "short-the-bounce level (Gate I)"}
+
     cndl_15 = candlestick_pattern(today_bars, today_high, today_low)
     cndl_5 = (candlestick_pattern(m5_bars) if m5_bars else {"note": "not_fetched (use full mode)"})
     candlestick = {
@@ -971,6 +1003,7 @@ def build_report(
         "intraday_structure": struct,
         "breakout": brk,
         "reversal_watch": rev,
+        "avwap_from_high": avwap_high,
         "candlestick": candlestick,
         "institutional": inst,
         "higher_timeframe": htf,
@@ -1403,8 +1436,14 @@ def _no_trade_filters(report: Dict[str, Any], side: Optional[str], stop_rr: Dict
     obias = (report.get("higher_timeframe") or {}).get("overall_bias") or ""
     if bias == "neutral":
         fails.append("directional_bias neutral → WAIT (Gate E)")
+    # Side-aware participation floor (A/B 2026-07-31, n=2,643 sim trades): LONGS at RVOL
+    # 0.8-1.2 average +0.016%/tr — a no-edge cohort that is 22% of the long book → floor 1.2.
+    # SHORTS at 0.8-1.2 still earn +0.067%/tr → floor stays 0.8 (and RVOL 5+ shorts are the
+    # best short cohort, +0.425%/tr — never cap shorts on high RVOL).
     if rvol is not None and rvol < 0.8:
         fails.append(f"RVOL {rvol} < 0.8 (no participation)")
+    elif side == "long" and rvol is not None and rvol < 1.2:
+        fails.append(f"RVOL {rvol} < 1.2 for a LONG (no-edge cohort, A/B 07-31)")
     # NOTE: R:R is deliberately NOT a hard no-trade filter. A/B-DISPROVEN 2026-07-24 — a hard R:R>=2 gate
     # is net HARMFUL: high-R:R (far-target) trades are LOWER probability, so filtering on R:R selects the
     # WORSE trades (kept win 40-43% vs dropped 43%). R:R stays as risk_model info + a small score input only.
@@ -1412,8 +1451,10 @@ def _no_trade_filters(report: Dict[str, Any], side: Optional[str], stop_rr: Dict
         fails.append(f"ADX {adx} < 18 and pinned at VWAP (chop)")
     if side == "long" and "bearish" in obias and bias != "long-on-pullback":
         fails.append("long vs bearish HTF")
-    if side == "short" and "bullish" in obias:
-        fails.append("short vs bullish HTF")
+    # NOTE: "short vs bullish HTF" was REMOVED as a hard filter (A/B 2026-07-31): HTF-bullish
+    # shorts are the BEST short cohort (+0.194%/tr, n=666 — overextension fades) while
+    # HTF-bearish shorts LOSE (−0.066%/tr). The conflict is still surfaced as
+    # validated_gates.htf_conflict for exit-protection use, just not as an entry veto.
     if not liq.get("tradeable", True):
         fails.append("liquidity: " + str(liq.get("rating", "")))
     if tod.get("score") == 0:
@@ -1495,6 +1536,11 @@ def _validated_gates(report: Dict[str, Any], side: Optional[str]) -> Dict[str, A
             out["topper_preferred"] = True
             out["notes"].append(f"Gate I: green/flat ({round(daychg, 1)}%) rolling over → PREFERRED topper short.")
     out["day_change_pct"] = _round(daychg, 2) if daychg is not None else None
+    # HTF conflict flag (info for exit protection — NOT an entry veto for shorts, see
+    # _no_trade_filters): true when the trade side fights the aggregate higher-timeframe bias.
+    obias = (report.get("higher_timeframe") or {}).get("overall_bias") or ""
+    out["htf_conflict"] = bool((side == "short" and "bullish" in obias)
+                               or (side == "long" and "bearish" in obias))
     return out
 
 
@@ -1536,18 +1582,20 @@ def institutional_desk_block(report: Dict[str, Any], capital: Optional[float] = 
             rz = (report.get("breakout") or {}).get("retest_zone")
             verdict = (f"WAIT — stale extended breakout (Gate D): clean entry passed; "
                        f"only a retest hold of ₹{rz} re-arms it")
-        elif tqs["grade"] in ("A+", "A"):
-            verdict = ("BUY NOW" if side == "long" else "SHORT NOW") + f" (grade {tqs['grade']})"
+        else:
+            # GRADES SCALE SIZE — THEY NEVER BENCH A CLEAN-GATE LABEL (A/B 2026-07-31, n=2,643:
+            # the score is anti-predictive of per-trade P&L — old grade F earned +0.148%/tr vs
+            # grade A +0.091%; a weight rebalance also FAILED its A/B. The label + validated
+            # gates carry the edge; the score only modulates conviction/size). Entries are
+            # IMMEDIATE — never a resting VWAP limit (A/B 07-30: limits lose in every cohort).
+            size = {"A+": "full size", "A": "full size", "B": "half size",
+                    "C": "third size", "F": "third size"}[tqs["grade"]]
+            verdict = (("BUY NOW" if side == "long" else "SHORT NOW")
+                       + f" ({size}, immediate — grade {tqs['grade']})")
+            if side == "short" and bias == "short-on-breakdown":
+                verdict = f"SHORT ON BREAKDOWN ({size} on the trigger — grade {tqs['grade']})"
             if gates["topper_preferred"]:
                 verdict += " · preferred topper (Gate I)"
-        elif tqs["grade"] == "B":
-            # Long side: IMMEDIATE entry at reduced size — NOT a resting VWAP limit. A/B 2026-07-30
-            # (1,484 signals): limit-at-VWAP loses vs immediate in EVERY cohort (fills are
-            # adversely selected — the strong moves never come back to the limit).
-            verdict = ("BUY NOW (grade B — half size, immediate; do not rest a VWAP limit)"
-                       if side == "long" else "SHORT ON BREAKDOWN (grade B, conditional)")
-        else:
-            verdict = f"WAIT (grade {tqs['grade']})"
 
         return {
             "trade_side": side or "none",
