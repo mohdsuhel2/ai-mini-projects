@@ -45,13 +45,15 @@ trend + volume + structure + VWAP aligned IS 70+, and a clean confluence day wit
 80+. Do NOT depress a valid setup's score out of generic caution, and do NOT inflate a weak one.
 (12) confidence 0-100 = conviction derived from the score and signal alignment (typically within
 ~10 points of trade_quality); (13) risk engine: ATR + structural stop [longs: below
-VWAP/OR-low/SuperTrend; shorts: above swing-high/VWAP], targets at the next levels capped by the
-ATR projection — the ATR projection is a CEILING, not a target: when the pivot ladder is already
-SPENT (longs: price above PDH with <=1 of R1/R2 overhead, or nearest_resistance null / an
-intraday-only label like OR_high or day_high; mirror for shorts below PDL) do NOT let the last
-pivot truncate target1 — derive it from price.last +/- projection.atr_projected_remaining_move_pts
-instead. Sanity-check: if target1 is less than ~half the ATR-projection %, the ladder is truncated.
-Require R:R >= ~1.8 unless momentum is exceptional (ADX>40 + RVOL>2 + clean HTF);
+VWAP/OR-low/SuperTrend; shorts: above swing-high/VWAP]. TARGET LADDER (2026-07-31 achievability
+study, n=2,643 — take these straight from institutional_desk.risk_model when present:
+suggested_stop / targets / rr_to_final_est): target1 = the PRACTICAL first objective =
+min(nearest pivot, entry +/- 1*ATR, entry +/- 0.5*ATR-projection) — the rung the trade should
+actually pay (~62% hit-before-stop; the raw far pivot hit only 8-21% when >2% away). T2 = the
+structural pivot rung; T3 = the ATR-projection CEILING — a bound, not a forecast (~11% hit),
+never quote it as the expected exit. risk_reward = (final capped target - entry)/(entry - stop),
+i.e. rr_to_final — the best achievable reward within the ceiling (a hard floor on T1-R:R would
+reject nearly every honest trade — R:R>=2 as a hard gate is A/B-DISPROVEN);
 (14) pick ONE action.
 
 DIRECTION GATE — map intraday_structure.directional_bias:
