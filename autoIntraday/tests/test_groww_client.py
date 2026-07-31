@@ -624,54 +624,100 @@ def test_is_token_invalid_error_ignores_rate_limit_and_unrelated():
     assert not is_token_invalid_error(None)
 
 
-# ---- SL / SL_M limit price (2026-07-31) -----------------------------------------------------
-# Groww rejected every resting stop with "Difference between limit price and trigger price is
-# beyond permissible range". Cause: place_order sent price=0.0 for SL_M (order_type != MARKET but
-# price is None), so the exchange compared a limit of 0 against a trigger of e.g. 842.10. The
-# rejection is ASYNC — Groww returns status NEW, so nothing in our logs ever showed it and the
-# position was recorded as protected while it was not.
+# ---- per-order-type payload construction (2026-07-31) ---------------------------------------
+# Root cause of "Price is beyond permissible range": GrowwAPI.place_order defaults price=0.0 and
+# hardcodes BOTH "price" and "trigger_price" into its request body, so a stop-loss with no limit
+# went out as {"order_type": "SL_M", "trigger_price": 842.10, "price": 0} and the exchange
+# validated a limit of 0 against the trigger. The SDK has no SL_M handling and no validation --
+# it is a passthrough -- so it does NOT require price == trigger_price. Its own place_smart_order
+# builds bodies conditionally and documents a stop-loss leg's price as optional, so an absent
+# price is legitimate; place_order simply cannot omit the key, and None serialises to null.
 
-def test_sl_m_sends_the_trigger_as_its_limit_price_not_zero():
+from groww_client import build_order_price_fields
+
+
+def test_market_keeps_the_proven_zero_price_and_sends_no_trigger():
+    """MARKET deliberately keeps price=0.0 rather than null. Conceptually a market order has no
+    limit, but 0.0 is empirically proven on this account (every entry and exit) while null is
+    unverified — and MARKET is the path that both opens and closes positions."""
+    assert build_order_price_fields("MARKET", None, None) == (0.0, None)
+    # a caller-supplied price (paper seeds one) is never forwarded as a limit
+    assert build_order_price_fields("MARKET", 1234.0, 999.0) == (0.0, None)
+
+
+def test_limit_requires_a_positive_price_and_sends_no_trigger():
+    assert build_order_price_fields("LIMIT", 850.0, None) == (850.0, None)
+    assert build_order_price_fields("LIMIT", 850.0, 999.0) == (850.0, None)   # trigger dropped
+    for bad in (None, 0, -1):
+        with pytest.raises(GrowwClientError, match="LIMIT order requires"):
+            build_order_price_fields("LIMIT", bad, None)
+
+
+def test_sl_requires_both_price_and_trigger():
+    assert build_order_price_fields("SL", 841.0, 842.10) == (841.0, 842.10)
+    with pytest.raises(GrowwClientError, match="SL order requires a positive trigger_price"):
+        build_order_price_fields("SL", 841.0, None)
+    with pytest.raises(GrowwClientError, match="SL order requires a positive price"):
+        build_order_price_fields("SL", None, 842.10)
+
+
+def test_sl_m_sends_the_trigger_and_omits_the_price():
+    """The bug: this used to yield price=0.0. It must be None, which the SDK serialises as null."""
+    assert build_order_price_fields("SL_M", None, 842.10) == (None, 842.10)
+    # even if a caller passes a price, SL_M is a MARKET stop — the limit is not sent
+    assert build_order_price_fields("SL_M", 850.0, 842.10) == (None, 842.10)
+    for bad in (None, 0, -1):
+        with pytest.raises(GrowwClientError, match="SL_M order requires a positive trigger_price"):
+            build_order_price_fields("SL_M", None, bad)
+
+
+def test_unsupported_order_type_fails_locally_with_a_descriptive_error():
+    with pytest.raises(GrowwClientError, match="unsupported order_type"):
+        build_order_price_fields("BRACKET", 100.0, None)
+
+
+def _capture_sdk():
     captured = {}
 
     class _SDK:
         def place_order(self, **kw):
             captured.update(kw)
             return {"groww_order_id": "X1", "order_status": "NEW"}
+    return captured, _SDK()
 
+
+def test_stop_loss_for_an_existing_position_sends_a_null_price():
+    """The reported case end to end: long 10 @ 850, protective stop at 842.10."""
+    captured, sdk = _capture_sdk()
     c = GrowwClient(mode="live")
-    c._sdk = _SDK()
+    c._sdk = sdk
     c.place_order(symbol="AAA", exchange="NSE", transaction_type="SELL", quantity=10,
                   order_type="SL_M", price=None, trigger_price=842.10)
+    assert captured["order_type"] == "SL_M"
     assert captured["trigger_price"] == 842.10
-    assert captured["price"] == 842.10          # NOT 0.0 — that is what the exchange rejected
+    assert captured["price"] is None            # NOT 0.0 — that is what Groww rejected
+    assert captured["transaction_type"] == "SELL" and captured["quantity"] == 10
 
 
-def test_sl_limit_keeps_an_explicitly_supplied_price():
-    captured = {}
-
-    class _SDK:
-        def place_order(self, **kw):
-            captured.update(kw)
-            return {"groww_order_id": "X1", "order_status": "NEW"}
-
+def test_market_and_limit_still_place_correctly():
+    captured, sdk = _capture_sdk()
     c = GrowwClient(mode="live")
-    c._sdk = _SDK()
-    c.place_order(symbol="AAA", exchange="NSE", transaction_type="SELL", quantity=10,
-                  order_type="SL", price=840.0, trigger_price=842.10)
-    assert captured["price"] == 840.0           # caller's explicit limit is respected
-
-
-def test_market_order_still_carries_no_limit_price():
-    captured = {}
-
-    class _SDK:
-        def place_order(self, **kw):
-            captured.update(kw)
-            return {"groww_order_id": "X1", "order_status": "NEW"}
-
-    c = GrowwClient(mode="live")
-    c._sdk = _SDK()
+    c._sdk = sdk
     c.place_order(symbol="AAA", exchange="NSE", transaction_type="BUY", quantity=10,
-                  order_type="MARKET", price=1234.0)
-    assert captured["price"] == 0.0
+                  order_type="MARKET", price=850.0)
+    assert captured["price"] == 0.0 and captured["trigger_price"] is None
+
+    c.place_order(symbol="AAA", exchange="NSE", transaction_type="BUY", quantity=10,
+                  order_type="LIMIT", price=849.5)
+    assert captured["price"] == 849.5 and captured["trigger_price"] is None
+
+
+def test_invalid_order_fails_before_reaching_the_sdk():
+    """Validation must happen locally — the SDK is never called with a malformed order."""
+    captured, sdk = _capture_sdk()
+    c = GrowwClient(mode="live")
+    c._sdk = sdk
+    with pytest.raises(GrowwClientError):
+        c.place_order(symbol="AAA", exchange="NSE", transaction_type="SELL", quantity=10,
+                      order_type="SL_M", price=None, trigger_price=None)
+    assert captured == {}                        # nothing was sent

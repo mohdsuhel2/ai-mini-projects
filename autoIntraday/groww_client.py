@@ -182,6 +182,69 @@ def _retry(fn: Callable[[], Any], attempts: int = 3, backoff_seconds: float = 0.
     raise GrowwClientError(f"failed after {attempts} attempts: {last_error}") from last_error
 
 
+# Order types we support, and what each one is allowed to carry. Derived from inspecting the
+# growwapi 1.5.0 SDK (see build_order_price_fields) — NOT from the published docs.
+_ORDER_TYPES = ("MARKET", "LIMIT", "SL", "SL_M")
+
+
+def build_order_price_fields(order_type: str, price: Optional[float],
+                             trigger_price: Optional[float]) -> tuple[Optional[float],
+                                                                     Optional[float]]:
+    """Decide the (price, trigger_price) actually sent, per order type. Raises on an invalid combo.
+
+    Why this exists: GrowwAPI.place_order builds its request body with BOTH keys hardcoded --
+
+        request_body = {..., "price": price, "trigger_price": trigger_price, ...}
+
+    -- and `requests` serialises None as JSON null rather than dropping the key, so the SDK can
+    never truly omit a field. Its own signature also defaults `price=0.0`. That default is what
+    sent {"order_type": "SL_M", "trigger_price": 842.10, "price": 0} and drew "Price is beyond
+    permissible range": the exchange validated a limit of 0 against a trigger of 842.10.
+
+    What the SDK actually tells us:
+      * There is NO SL_M-specific handling and NO validation anywhere in it. It is a passthrough,
+        so it does not "require" price == trigger_price. That was a guess and is now reverted.
+      * The newer place_smart_order path in the SAME client builds its body CONDITIONALLY
+        (`if trigger_price is not None: body[...] = ...`), omitting absent fields, and documents
+        its stop-loss leg as taking "price (optional)".
+
+    So an absent price is legitimate for a stop-loss order; place_order simply cannot express it.
+    None is the closest achievable to omission — it serialises to null instead of a bogus 0.
+
+    Rules:
+      MARKET -> no price, no trigger (a market order has neither)
+      LIMIT  -> price required, no trigger
+      SL     -> both required (stop-loss LIMIT)
+      SL_M   -> trigger required, price omitted (null)
+    """
+    otype = (order_type or "").upper()
+    if otype not in _ORDER_TYPES:
+        raise GrowwClientError(f"unsupported order_type {order_type!r}; expected one of "
+                               f"{', '.join(_ORDER_TYPES)}")
+    if otype == "MARKET":
+        # 0.0, NOT None. A market order has no limit, so conceptually nothing should be sent — but
+        # price=0.0 is EMPIRICALLY PROVEN on this account (every entry and every exit, 127 orders
+        # on 2026-07-31 alone, all accepted). Sending null here is unverified, and MARKET is the
+        # path that both opens positions and closes them. Changing a working critical path on
+        # inference is exactly the reasoning that produced the SL_M bug. Left alone deliberately.
+        return 0.0, None
+    if otype == "LIMIT":
+        if price is None or price <= 0:
+            raise GrowwClientError("LIMIT order requires a positive price")
+        return float(price), None
+    if otype == "SL":
+        if trigger_price is None or trigger_price <= 0:
+            raise GrowwClientError("SL order requires a positive trigger_price")
+        if price is None or price <= 0:
+            raise GrowwClientError("SL order requires a positive price (use SL_M for a "
+                                   "market stop)")
+        return float(price), float(trigger_price)
+    # SL_M
+    if trigger_price is None or trigger_price <= 0:
+        raise GrowwClientError("SL_M order requires a positive trigger_price")
+    return None, float(trigger_price)
+
+
 class GrowwClient:
     def __init__(self, mode: str, sdk_factory: Callable[[str, str], Any] = _default_sdk_factory):
         if mode not in VALID_MODES:
@@ -395,15 +458,18 @@ class GrowwClient:
         if self.mode == "paper":
             return self._simulate_order(symbol, transaction_type, quantity, order_type, price)
         if self._sdk is _GATEWAY_READY:
+            # Validate BEFORE the network hop so a malformed order fails here with a descriptive
+            # message instead of costing a round trip and a broker-side rejection.
+            gw_price, gw_trigger = build_order_price_fields(order_type, price, trigger_price)
             return self._via_gateway().place_order(
                 symbol=symbol,
                 exchange=exchange,
                 transaction_type=transaction_type,
                 quantity=quantity,
                 order_type=order_type,
-                price=price,
+                price=gw_price,
                 product=product,
-                trigger_price=trigger_price,
+                trigger_price=gw_trigger,
             )
         try:
             # Real SDK: place_order(validity, exchange, order_type, product, quantity,
@@ -411,27 +477,16 @@ class GrowwClient:
             # -- param is `trading_symbol`, not `symbol`; `segment` and `validity` are
             # required and were entirely missing from the original assumption; the
             # response is a raw `groww_order_id` key, not `order_id`.
-            # A live MARKET order carries no limit price (paper passes one only to seed the
-            # simulated fill). A stop order (SL/SL_M) with no explicit limit takes the TRIGGER as
-            # its price: sending 0.0 made the exchange compare a limit of 0 against a trigger of
-            # e.g. 842.10 and reject with "Difference between limit price and trigger price is
-            # beyond permissible range" (2026-07-31). Groww returns NEW and rejects downstream, so
-            # this failed silently and positions were recorded as protected while they were not.
-            # A zero gap is always inside the permissible band; for SL_M the field does not
-            # constrain the fill, which still goes at market once the trigger is touched.
-            if order_type == "MARKET":
-                live_price = 0.0
-            elif price is not None:
-                live_price = price
-            elif trigger_price is not None:
-                live_price = trigger_price
-            else:
-                live_price = 0.0
+            # Price/trigger are decided PER ORDER TYPE and validated locally first — no generic
+            # "or 0.0" fallback. See build_order_price_fields for what the SDK actually does and
+            # why a bare 0.0 was rejected. Passing price=None makes the SDK serialise JSON null
+            # rather than a bogus limit of 0.
+            live_price, live_trigger = build_order_price_fields(order_type, price, trigger_price)
             raw = self._sdk.place_order(
                 trading_symbol=symbol, exchange=exchange, transaction_type=transaction_type,
                 quantity=quantity, order_type=order_type, price=live_price,
                 product=product, segment=_SEGMENT_CASH, validity="DAY",
-                trigger_price=trigger_price,
+                trigger_price=live_trigger,
             )
         except Exception as e:
             raise GrowwClientError(f"order placement failed: {e}") from e
