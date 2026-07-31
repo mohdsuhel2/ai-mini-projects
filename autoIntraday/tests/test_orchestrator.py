@@ -1285,10 +1285,15 @@ def test_live_breakout_places_real_stop_entry_order_at_broker():
 
 
 def test_tick_rounding():
+    """Rounds to the SYMBOL'S tick, not a fixed 0.05. Groww's master gives most large NSE names a
+    0.10 tick; a 0.05-aligned price is invalid there ("choose price in multiples of the tick
+    size", 2026-07-31). Unknown symbols use the coarser 0.10, which is always safe."""
     from orchestrator import _tick
-    assert _tick(188.6 * 1.005) == 189.55
-    assert _tick(100.02) == 100.0
-    assert _tick(100.03) == 100.05
+    assert _tick(188.6 * 1.005, "63MOONS") == 189.55        # 0.05 tick
+    assert _tick(100.03, "63MOONS") == 100.05
+    assert _tick(4399.95, "NETWEB") == 4399.9               # 0.10 tick
+    assert _tick(100.02) == 100.0                           # unknown -> 0.10 fallback
+    assert _tick(100.03) == 100.0
 
 
 def test_trail_pushes_new_levels_to_broker_oco():

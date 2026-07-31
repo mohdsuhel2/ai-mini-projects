@@ -186,29 +186,25 @@ def _retry(fn: Callable[[], Any], attempts: int = 3, backoff_seconds: float = 0.
 # growwapi 1.5.0 SDK (see build_order_price_fields) — NOT from the published docs.
 _ORDER_TYPES = ("MARKET", "LIMIT", "SL", "SL_M")
 
-# NSE tick size. 0.05 is safe universally: where the true tick is 0.01, a 0.05-aligned price is
-# still valid, so rounding to 0.05 can never produce an off-tick price.
-_TICK = 0.05
+def tick_round(px: Optional[float], symbol: Optional[str] = None) -> Optional[float]:
+    """Snap a price to the SYMBOL'S OWN tick grid (see instrument_master).
 
+    A hard-coded 0.05 was wrong: Groww's instrument master gives BAJFINANCE, MANKIND, NETWEB,
+    TDPOWERSYS and RELIANCE a tick of 0.10, and only 63MOONS 0.05. Prices like 4399.95 and
+    1126.85 are valid on a 0.05 grid and INVALID on the 0.10 grid the exchange applies, which is
+    what "choose price in multiples of the tick size" was telling us.
 
-def tick_round(px: Optional[float]) -> Optional[float]:
-    """Snap a price to the NSE tick grid. Groww rejects off-tick prices with "choose price in
-    multiples of the tick size".
-
-    Applied HERE rather than at each call site because this is the single choke point every order
-    passes through. The bracket legs were already tick-rounded in the orchestrator, but LIMIT
-    ENTRY prices were not — every resting entry on 2026-07-30/31 went out off-tick (2253.98,
-    560.9348, 852.396, 442.764, 1126.3876). The final round(_, 2) matters: round(x/0.05)*0.05
-    alone yields values like 4350.550000000001, which is off-tick as far as the exchange cares.
+    Applied HERE because this is the single choke point every order passes through — the
+    orchestrator rounded its bracket legs but never its LIMIT entry prices.
     """
-    if px is None:
-        return None
-    return round(round(float(px) / _TICK) * _TICK, 2)
+    from instrument_master import round_to_tick
+    return round_to_tick(px, symbol)
 
 
 def build_order_price_fields(order_type: str, price: Optional[float],
-                             trigger_price: Optional[float]) -> tuple[Optional[float],
-                                                                     Optional[float]]:
+                             trigger_price: Optional[float],
+                             symbol: Optional[str] = None) -> tuple[Optional[float],
+                                                                    Optional[float]]:
     """Decide the (price, trigger_price) actually sent, per order type. Raises on an invalid combo.
 
     Why this exists: GrowwAPI.place_order builds its request body with BOTH keys hardcoded --
@@ -250,14 +246,14 @@ def build_order_price_fields(order_type: str, price: Optional[float],
     if otype == "LIMIT":
         if price is None or price <= 0:
             raise GrowwClientError("LIMIT order requires a positive price")
-        return tick_round(price), None
+        return tick_round(price, symbol), None
     if otype == "SL":
         if trigger_price is None or trigger_price <= 0:
             raise GrowwClientError("SL order requires a positive trigger_price")
         if price is None or price <= 0:
             raise GrowwClientError("SL order requires a positive price (use SL_M for a "
                                    "market stop)")
-        return tick_round(price), tick_round(trigger_price)
+        return tick_round(price, symbol), tick_round(trigger_price, symbol)
     # SL_M. price MIRRORS the trigger rather than being null.
     #
     # Sending null was the better-evidenced reading of the SDK (place_smart_order omits absent
@@ -269,7 +265,7 @@ def build_order_price_fields(order_type: str, price: Optional[float],
     # API, not inferred.
     if trigger_price is None or trigger_price <= 0:
         raise GrowwClientError("SL_M order requires a positive trigger_price")
-    t = tick_round(trigger_price)
+    t = tick_round(trigger_price, symbol)
     return t, t
 
 
@@ -488,7 +484,8 @@ class GrowwClient:
         if self._sdk is _GATEWAY_READY:
             # Validate BEFORE the network hop so a malformed order fails here with a descriptive
             # message instead of costing a round trip and a broker-side rejection.
-            gw_price, gw_trigger = build_order_price_fields(order_type, price, trigger_price)
+            gw_price, gw_trigger = build_order_price_fields(order_type, price, trigger_price,
+                                                           symbol)
             return self._via_gateway().place_order(
                 symbol=symbol,
                 exchange=exchange,
@@ -509,7 +506,8 @@ class GrowwClient:
             # "or 0.0" fallback. See build_order_price_fields for what the SDK actually does and
             # why a bare 0.0 was rejected. Passing price=None makes the SDK serialise JSON null
             # rather than a bogus limit of 0.
-            live_price, live_trigger = build_order_price_fields(order_type, price, trigger_price)
+            live_price, live_trigger = build_order_price_fields(order_type, price, trigger_price,
+                                                               symbol)
             raw = self._sdk.place_order(
                 trading_symbol=symbol, exchange=exchange, transaction_type=transaction_type,
                 quantity=quantity, order_type=order_type, price=live_price,

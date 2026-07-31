@@ -655,7 +655,9 @@ def test_limit_requires_a_positive_price_and_sends_no_trigger():
 
 def test_sl_requires_both_price_and_trigger():
     assert build_order_price_fields("SL", 841.0, 842.10) == (841.0, 842.10)
-    assert build_order_price_fields("SL", 841.03, 842.107) == (841.05, 842.10)   # snapped
+    # snapped to the symbol's own grid; with no symbol the safe 0.10 fallback applies
+    assert build_order_price_fields("SL", 841.03, 842.107, "63MOONS") == (841.05, 842.10)
+    assert build_order_price_fields("SL", 841.03, 842.107) == (841.0, 842.1)
     with pytest.raises(GrowwClientError, match="SL order requires a positive trigger_price"):
         build_order_price_fields("SL", 841.0, None)
     with pytest.raises(GrowwClientError, match="SL order requires a positive price"):
@@ -730,15 +732,19 @@ def test_invalid_order_fails_before_reaching_the_sdk():
 
 def test_every_outgoing_price_is_snapped_to_the_tick_grid():
     """Groww rejects off-tick prices with "choose price in multiples of the tick size". Every
-    LIMIT entry placed on 2026-07-30/31 went out off-tick — 2253.98, 560.9348, 852.396, 442.764,
-    1126.3876 — because only the bracket legs were rounded, never the entry."""
+    LIMIT entry placed on 2026-07-30/31 went out off-tick (2253.98, 560.9348, 852.396, 442.764,
+    1126.3876) because only the bracket legs were rounded, never the entry."""
     from groww_client import tick_round
-    for raw in (2253.98, 560.9348, 852.396, 442.764, 1126.3876, 4350.528):
-        snapped = tick_round(raw)
-        assert abs(snapped / 0.05 - round(snapped / 0.05)) < 1e-9, f"{raw} -> {snapped} off-tick"
+    from instrument_master import tick_size_for
+    for sym in ("NETWEB", "63MOONS", "UNKNOWNSYM"):
+        tick = tick_size_for(sym)
+        for raw in (2253.98, 560.9348, 852.396, 442.764, 1126.3876, 4350.528):
+            snapped = tick_round(raw, sym)
+            assert abs(snapped / tick - round(snapped / tick)) < 1e-9, \
+                f"{sym}: {raw} -> {snapped} off its {tick} grid"
     assert tick_round(None) is None
-    # float noise must not survive: round(x/0.05)*0.05 alone gives 4350.550000000001
-    assert tick_round(4350.528) == 4350.55
+    # float noise must not survive: round(x/tick)*tick alone gives e.g. 4350.550000000001
+    assert tick_round(4350.528, "63MOONS") == 4350.55
 
 
 def test_limit_entry_price_is_snapped_before_it_reaches_the_sdk():
@@ -748,3 +754,30 @@ def test_limit_entry_price_is_snapped_before_it_reaches_the_sdk():
     c.place_order(symbol="AAA", exchange="NSE", transaction_type="BUY", quantity=10,
                   order_type="LIMIT", price=2253.98)
     assert captured["price"] == 2254.0          # was sent off-tick and rejected before
+
+
+def test_tick_size_is_per_symbol_not_a_hardcoded_005():
+    """Groww's instrument master: BAJFINANCE/MANKIND/NETWEB/TDPOWERSYS/RELIANCE tick 0.10,
+    63MOONS 0.05. A 0.05-aligned price like 4399.95 is INVALID on a 0.10 grid — that is what
+    "choose price in multiples of the tick size" was reporting (verified 2026-07-31)."""
+    from instrument_master import DEFAULT_TICK, round_to_tick, tick_size_for
+    assert tick_size_for("NETWEB") == 0.10
+    assert tick_size_for("63MOONS") == 0.05
+    assert round_to_tick(4399.95, "NETWEB") == 4399.9        # was rejected as 4399.95
+    assert round_to_tick(1126.85, "BAJFINANCE") == 1126.8
+    assert round_to_tick(1112.55, "TDPOWERSYS") == 1112.5
+    assert round_to_tick(888.4, "63MOONS") == 888.4          # already valid on its finer grid
+    # unknown symbol falls back to the COARSER tick: a 0.10 price is also a valid 0.05 price,
+    # so rounding to 0.05 under uncertainty is the bug, not the fix
+    assert DEFAULT_TICK == 0.10
+    assert round_to_tick(100.05, "NOTALISTEDSYMBOL") == 100.0
+    assert round_to_tick(None, "NETWEB") is None
+
+
+def test_sl_m_payload_uses_the_symbols_own_tick():
+    captured, sdk = _capture_sdk()
+    c = GrowwClient(mode="live")
+    c._sdk = sdk
+    c.place_order(symbol="NETWEB", exchange="NSE", transaction_type="SELL", quantity=10,
+                  order_type="SL_M", price=None, trigger_price=4399.95)
+    assert captured["price"] == 4399.9 and captured["trigger_price"] == 4399.9

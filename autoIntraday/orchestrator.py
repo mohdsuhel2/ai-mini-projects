@@ -161,9 +161,16 @@ def _txn(side: str) -> str:
     return "BUY" if side == "LONG" else "SELL"
 
 
-def _tick(px: float) -> float:
-    """Round to the NSE tick size (₹0.05) — broker rejects off-tick limit prices."""
-    return round(round(px / 0.05) * 0.05, 2)
+def _tick(px: float, symbol: str | None = None) -> float:
+    """Round to the SYMBOL'S OWN exchange tick — the broker rejects off-tick prices.
+
+    Was hard-coded to ₹0.05, but Groww's instrument master gives most large NSE names a 0.10 tick
+    (BAJFINANCE, MANKIND, NETWEB, TDPOWERSYS, RELIANCE) and only some 0.05. A 0.05-aligned price
+    such as 4399.95 is INVALID on a 0.10 grid, which is what "choose price in multiples of the
+    tick size" meant. Unknown symbols fall back to the coarser 0.10, which is always safe.
+    """
+    from instrument_master import round_to_tick
+    return round_to_tick(px, symbol)
 
 
 def _passes_entry_gate(decision, rr_gate: bool = True) -> bool:
@@ -1142,7 +1149,7 @@ class Orchestrator:
         price drifted past ARM_REARM_DRIFT_PCT (a trailed level). No-op if already correct."""
         if desired_px is None:
             return
-        tpx = _tick(desired_px)
+        tpx = _tick(desired_px, position.symbol)
         cur_id = (position.broker_stop_order_id if which == "stop"
                   else position.broker_target_order_id)
         cur_px = (position.broker_stop_price if which == "stop"
