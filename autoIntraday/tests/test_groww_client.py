@@ -622,3 +622,56 @@ def test_is_token_invalid_error_ignores_rate_limit_and_unrelated():
     assert not is_token_invalid_error("insufficient funds")
     assert not is_token_invalid_error("")
     assert not is_token_invalid_error(None)
+
+
+# ---- SL / SL_M limit price (2026-07-31) -----------------------------------------------------
+# Groww rejected every resting stop with "Difference between limit price and trigger price is
+# beyond permissible range". Cause: place_order sent price=0.0 for SL_M (order_type != MARKET but
+# price is None), so the exchange compared a limit of 0 against a trigger of e.g. 842.10. The
+# rejection is ASYNC — Groww returns status NEW, so nothing in our logs ever showed it and the
+# position was recorded as protected while it was not.
+
+def test_sl_m_sends_the_trigger_as_its_limit_price_not_zero():
+    captured = {}
+
+    class _SDK:
+        def place_order(self, **kw):
+            captured.update(kw)
+            return {"groww_order_id": "X1", "order_status": "NEW"}
+
+    c = GrowwClient(mode="live")
+    c._sdk = _SDK()
+    c.place_order(symbol="AAA", exchange="NSE", transaction_type="SELL", quantity=10,
+                  order_type="SL_M", price=None, trigger_price=842.10)
+    assert captured["trigger_price"] == 842.10
+    assert captured["price"] == 842.10          # NOT 0.0 — that is what the exchange rejected
+
+
+def test_sl_limit_keeps_an_explicitly_supplied_price():
+    captured = {}
+
+    class _SDK:
+        def place_order(self, **kw):
+            captured.update(kw)
+            return {"groww_order_id": "X1", "order_status": "NEW"}
+
+    c = GrowwClient(mode="live")
+    c._sdk = _SDK()
+    c.place_order(symbol="AAA", exchange="NSE", transaction_type="SELL", quantity=10,
+                  order_type="SL", price=840.0, trigger_price=842.10)
+    assert captured["price"] == 840.0           # caller's explicit limit is respected
+
+
+def test_market_order_still_carries_no_limit_price():
+    captured = {}
+
+    class _SDK:
+        def place_order(self, **kw):
+            captured.update(kw)
+            return {"groww_order_id": "X1", "order_status": "NEW"}
+
+    c = GrowwClient(mode="live")
+    c._sdk = _SDK()
+    c.place_order(symbol="AAA", exchange="NSE", transaction_type="BUY", quantity=10,
+                  order_type="MARKET", price=1234.0)
+    assert captured["price"] == 0.0

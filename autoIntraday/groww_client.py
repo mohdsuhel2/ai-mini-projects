@@ -412,8 +412,21 @@ class GrowwClient:
             # required and were entirely missing from the original assumption; the
             # response is a raw `groww_order_id` key, not `order_id`.
             # A live MARKET order carries no limit price (paper passes one only to seed the
-            # simulated fill); forward a price to Groww only for non-MARKET orders.
-            live_price = price if (order_type != "MARKET" and price is not None) else 0.0
+            # simulated fill). A stop order (SL/SL_M) with no explicit limit takes the TRIGGER as
+            # its price: sending 0.0 made the exchange compare a limit of 0 against a trigger of
+            # e.g. 842.10 and reject with "Difference between limit price and trigger price is
+            # beyond permissible range" (2026-07-31). Groww returns NEW and rejects downstream, so
+            # this failed silently and positions were recorded as protected while they were not.
+            # A zero gap is always inside the permissible band; for SL_M the field does not
+            # constrain the fill, which still goes at market once the trigger is touched.
+            if order_type == "MARKET":
+                live_price = 0.0
+            elif price is not None:
+                live_price = price
+            elif trigger_price is not None:
+                live_price = trigger_price
+            else:
+                live_price = 0.0
             raw = self._sdk.place_order(
                 trading_symbol=symbol, exchange=exchange, transaction_type=transaction_type,
                 quantity=quantity, order_type=order_type, price=live_price,
