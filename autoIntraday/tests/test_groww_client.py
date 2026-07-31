@@ -655,17 +655,22 @@ def test_limit_requires_a_positive_price_and_sends_no_trigger():
 
 def test_sl_requires_both_price_and_trigger():
     assert build_order_price_fields("SL", 841.0, 842.10) == (841.0, 842.10)
+    assert build_order_price_fields("SL", 841.03, 842.107) == (841.05, 842.10)   # snapped
     with pytest.raises(GrowwClientError, match="SL order requires a positive trigger_price"):
         build_order_price_fields("SL", 841.0, None)
     with pytest.raises(GrowwClientError, match="SL order requires a positive price"):
         build_order_price_fields("SL", None, 842.10)
 
 
-def test_sl_m_sends_the_trigger_and_omits_the_price():
-    """The bug: this used to yield price=0.0. It must be None, which the SDK serialises as null."""
-    assert build_order_price_fields("SL_M", None, 842.10) == (None, 842.10)
-    # even if a caller passes a price, SL_M is a MARKET stop — the limit is not sent
-    assert build_order_price_fields("SL_M", 850.0, 842.10) == (None, 842.10)
+def test_sl_m_mirrors_the_trigger_as_its_price():
+    """price=0.0 was rejected ("beyond permissible range"), and so was price=null — Groww
+    evaluates null as 0 server-side, so the gap is the stock's full price either way. The trigger
+    itself gives a zero gap, always inside the band. Verified live, not inferred."""
+    assert build_order_price_fields("SL_M", None, 842.10) == (842.10, 842.10)
+    # a caller-supplied limit is ignored: SL_M is a market stop, both fields mirror the trigger
+    assert build_order_price_fields("SL_M", 850.0, 842.10) == (842.10, 842.10)
+    # off-tick triggers are snapped
+    assert build_order_price_fields("SL_M", None, 842.107) == (842.10, 842.10)
     for bad in (None, 0, -1):
         with pytest.raises(GrowwClientError, match="SL_M order requires a positive trigger_price"):
             build_order_price_fields("SL_M", None, bad)
@@ -695,7 +700,7 @@ def test_stop_loss_for_an_existing_position_sends_a_null_price():
                   order_type="SL_M", price=None, trigger_price=842.10)
     assert captured["order_type"] == "SL_M"
     assert captured["trigger_price"] == 842.10
-    assert captured["price"] is None            # NOT 0.0 — that is what Groww rejected
+    assert captured["price"] == 842.10          # NOT 0.0 and NOT null — both were rejected live
     assert captured["transaction_type"] == "SELL" and captured["quantity"] == 10
 
 
@@ -721,3 +726,25 @@ def test_invalid_order_fails_before_reaching_the_sdk():
         c.place_order(symbol="AAA", exchange="NSE", transaction_type="SELL", quantity=10,
                       order_type="SL_M", price=None, trigger_price=None)
     assert captured == {}                        # nothing was sent
+
+
+def test_every_outgoing_price_is_snapped_to_the_tick_grid():
+    """Groww rejects off-tick prices with "choose price in multiples of the tick size". Every
+    LIMIT entry placed on 2026-07-30/31 went out off-tick — 2253.98, 560.9348, 852.396, 442.764,
+    1126.3876 — because only the bracket legs were rounded, never the entry."""
+    from groww_client import tick_round
+    for raw in (2253.98, 560.9348, 852.396, 442.764, 1126.3876, 4350.528):
+        snapped = tick_round(raw)
+        assert abs(snapped / 0.05 - round(snapped / 0.05)) < 1e-9, f"{raw} -> {snapped} off-tick"
+    assert tick_round(None) is None
+    # float noise must not survive: round(x/0.05)*0.05 alone gives 4350.550000000001
+    assert tick_round(4350.528) == 4350.55
+
+
+def test_limit_entry_price_is_snapped_before_it_reaches_the_sdk():
+    captured, sdk = _capture_sdk()
+    c = GrowwClient(mode="live")
+    c._sdk = sdk
+    c.place_order(symbol="AAA", exchange="NSE", transaction_type="BUY", quantity=10,
+                  order_type="LIMIT", price=2253.98)
+    assert captured["price"] == 2254.0          # was sent off-tick and rejected before

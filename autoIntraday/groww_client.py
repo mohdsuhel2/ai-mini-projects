@@ -186,6 +186,25 @@ def _retry(fn: Callable[[], Any], attempts: int = 3, backoff_seconds: float = 0.
 # growwapi 1.5.0 SDK (see build_order_price_fields) — NOT from the published docs.
 _ORDER_TYPES = ("MARKET", "LIMIT", "SL", "SL_M")
 
+# NSE tick size. 0.05 is safe universally: where the true tick is 0.01, a 0.05-aligned price is
+# still valid, so rounding to 0.05 can never produce an off-tick price.
+_TICK = 0.05
+
+
+def tick_round(px: Optional[float]) -> Optional[float]:
+    """Snap a price to the NSE tick grid. Groww rejects off-tick prices with "choose price in
+    multiples of the tick size".
+
+    Applied HERE rather than at each call site because this is the single choke point every order
+    passes through. The bracket legs were already tick-rounded in the orchestrator, but LIMIT
+    ENTRY prices were not — every resting entry on 2026-07-30/31 went out off-tick (2253.98,
+    560.9348, 852.396, 442.764, 1126.3876). The final round(_, 2) matters: round(x/0.05)*0.05
+    alone yields values like 4350.550000000001, which is off-tick as far as the exchange cares.
+    """
+    if px is None:
+        return None
+    return round(round(float(px) / _TICK) * _TICK, 2)
+
 
 def build_order_price_fields(order_type: str, price: Optional[float],
                              trigger_price: Optional[float]) -> tuple[Optional[float],
@@ -231,18 +250,27 @@ def build_order_price_fields(order_type: str, price: Optional[float],
     if otype == "LIMIT":
         if price is None or price <= 0:
             raise GrowwClientError("LIMIT order requires a positive price")
-        return float(price), None
+        return tick_round(price), None
     if otype == "SL":
         if trigger_price is None or trigger_price <= 0:
             raise GrowwClientError("SL order requires a positive trigger_price")
         if price is None or price <= 0:
             raise GrowwClientError("SL order requires a positive price (use SL_M for a "
                                    "market stop)")
-        return float(price), float(trigger_price)
-    # SL_M
+        return tick_round(price), tick_round(trigger_price)
+    # SL_M. price MIRRORS the trigger rather than being null.
+    #
+    # Sending null was the better-evidenced reading of the SDK (place_smart_order omits absent
+    # fields and documents a stop-loss leg's price as optional), but it was REJECTED live on
+    # 2026-07-31 with the same "difference between the limit price and trigger price is beyond
+    # permissible range". Groww evaluates a null price as 0 server-side, so the gap is the full
+    # price of the stock either way. Both null and 0 are therefore unusable, which leaves the
+    # trigger itself: a zero gap is always inside the permissible band. Verified against the live
+    # API, not inferred.
     if trigger_price is None or trigger_price <= 0:
         raise GrowwClientError("SL_M order requires a positive trigger_price")
-    return None, float(trigger_price)
+    t = tick_round(trigger_price)
+    return t, t
 
 
 class GrowwClient:
