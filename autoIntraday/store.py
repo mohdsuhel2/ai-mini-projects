@@ -105,6 +105,15 @@ class Config:
     pyramid_confirm_cycles: int = 2
     pyramid_min_quality: float = 80.0
     pyramid_min_confidence: float = 75.0
+    # Position rotation: when the book is full, screen anyway and replace the WEAKEST holding with
+    # a clearly better candidate. Ranked by persisted engine quality, never by P&L — a losing
+    # position is not a bad position (BALKRISIND was the most underwater holding on 2026-07-30 and
+    # closed +3.20%). See docs/superpowers/specs/2026-07-31-position-rotation-design.md.
+    rotation_enabled: bool = True
+    rotation_margin: float = 15.0
+    rotation_min_hold_minutes: int = 20
+    rotation_confirm_cycles: int = 2
+    rotation_screen_every: int = 3
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -112,6 +121,8 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "compare_enabled", "live_strategy", "paper_strategy", "compare_strategies",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
+                  "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
+                  "rotation_confirm_cycles", "rotation_screen_every",
                   "rr_gate_pre_margin", "rr_gate_enabled", "exit_mode", "arm_exit_enabled",
                   "arm_exit_band_pct", "adopt_fallback_stop_pct", "pyramid_enabled",
                   "pyramid_add_pct", "pyramid_max_adds", "pyramid_full_pct",
@@ -169,6 +180,12 @@ class Position:
     # STRONG same-side entry, reset on any miss and after each add (orchestrator._maybe_pyramid).
     pyramid_count: int = 0
     pyramid_signal_count: int = 0
+    # Position rotation: last_quality is the engine's most recent trade_quality for this holding
+    # (the rotation ranking key); weakest_streak counts consecutive cycles it ranked lowest of all
+    # holdings. Rotation needs rotation_confirm_cycles in a row, so one noisy read cannot evict a
+    # position — the same discipline the SIGNAL exit gate uses.
+    last_quality: float | None = None
+    weakest_streak: int = 0
     # Armed broker exit order ids + their limit price (LIVE-only): a resting SELL LIMIT placed at
     # the broker when price neared the partial / full profit level. The price lets a detected fill
     # be booked deterministically (a LIMIT fills at its price or better). Cleared on fill or cancel.
@@ -186,6 +203,10 @@ class Position:
     # cancels a user's own resting exit order: the bot must REPLACE that protection with its own
     # broker bracket, never merely remove it.
     force_bracket: bool = False
+    # The entry's ORIGINAL structural stop (Gate K). Set at open (or backfilled by the first stop
+    # ever written for adopted positions) and never moved by trailing — |entry - initial_stop| is
+    # the 1R the exit engine measures progress against.
+    initial_stop: float | None = None
     strategy_id: str = DEFAULT_STRATEGY_ID
 
 
@@ -300,6 +321,7 @@ CREATE TABLE IF NOT EXISTS positions (
     broker_target_order_id TEXT,
     broker_target_price REAL,
     force_bracket INTEGER NOT NULL DEFAULT 0,
+    initial_stop REAL,
     strategy_id TEXT NOT NULL DEFAULT 'intraday-v1'
 );
 CREATE TABLE IF NOT EXISTS decisions (
@@ -394,10 +416,21 @@ class Store:
         """Additive migrations for DBs created before a column existed (CREATE TABLE IF NOT
         EXISTS does not add columns to existing tables)."""
         cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(positions)")}
+        if "initial_stop" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN initial_stop REAL")
+            # backfill open rows so Gate K has a 1R reference for positions already running
+            self._conn.execute("UPDATE positions SET initial_stop = stop_loss "
+                               "WHERE status IN ('OPEN', 'PENDING')")
         if "trigger_kind" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN trigger_kind TEXT")
         if "entry_quality" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN entry_quality REAL")
+        if "last_quality" not in cols:
+            # The engine's most recent trade_quality for this holding — the rotation ranking key.
+            self._conn.execute("ALTER TABLE positions ADD COLUMN last_quality REAL")
+        if "weakest_streak" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN weakest_streak "
+                               "INTEGER NOT NULL DEFAULT 0")
         if "booked_pnl" not in cols:
             self._conn.execute(
                 "ALTER TABLE positions ADD COLUMN booked_pnl REAL NOT NULL DEFAULT 0")
@@ -504,7 +537,12 @@ class Store:
                          ("pyramid_full_pct", "REAL NOT NULL DEFAULT 40.0"),
                          ("pyramid_confirm_cycles", "INTEGER NOT NULL DEFAULT 2"),
                          ("pyramid_min_quality", "REAL NOT NULL DEFAULT 80.0"),
-                         ("pyramid_min_confidence", "REAL NOT NULL DEFAULT 75.0")):
+                         ("pyramid_min_confidence", "REAL NOT NULL DEFAULT 75.0"),
+                         ("rotation_enabled", "INTEGER NOT NULL DEFAULT 1"),
+                         ("rotation_margin", "REAL NOT NULL DEFAULT 15.0"),
+                         ("rotation_min_hold_minutes", "INTEGER NOT NULL DEFAULT 20"),
+                         ("rotation_confirm_cycles", "INTEGER NOT NULL DEFAULT 2"),
+                         ("rotation_screen_every", "INTEGER NOT NULL DEFAULT 3")):
             if col not in ccols:
                 self._conn.execute(f"ALTER TABLE config ADD COLUMN {col} {ddl}")
         vcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(swing_verdicts)")}
@@ -557,7 +595,12 @@ class Store:
                       pyramid_full_pct=r["pyramid_full_pct"],
                       pyramid_confirm_cycles=r["pyramid_confirm_cycles"],
                       pyramid_min_quality=r["pyramid_min_quality"],
-                      pyramid_min_confidence=r["pyramid_min_confidence"])
+                      pyramid_min_confidence=r["pyramid_min_confidence"],
+                      rotation_enabled=bool(r["rotation_enabled"]),
+                      rotation_margin=r["rotation_margin"],
+                      rotation_min_hold_minutes=r["rotation_min_hold_minutes"],
+                      rotation_confirm_cycles=r["rotation_confirm_cycles"],
+                      rotation_screen_every=r["rotation_screen_every"])
 
     def update_config(self, **fields) -> Config:
         for key in fields:
@@ -616,6 +659,8 @@ class Store:
             pyramid_count=(r["pyramid_count"] or 0) if "pyramid_count" in r.keys() else 0,
             pyramid_signal_count=(
                 (r["pyramid_signal_count"] or 0) if "pyramid_signal_count" in r.keys() else 0),
+            last_quality=(r["last_quality"] if "last_quality" in r.keys() else None),
+            weakest_streak=((r["weakest_streak"] or 0) if "weakest_streak" in r.keys() else 0),
             armed_partial_order_id=r["armed_partial_order_id"],
             armed_full_order_id=r["armed_full_order_id"],
             armed_partial_price=r["armed_partial_price"],
@@ -625,6 +670,7 @@ class Store:
             broker_target_order_id=r["broker_target_order_id"],
             broker_target_price=r["broker_target_price"],
             force_bracket=bool(r["force_bracket"]),
+            initial_stop=(r["initial_stop"] if "initial_stop" in r.keys() else None),
             strategy_id=(r["strategy_id"] if "strategy_id" in r.keys() else DEFAULT_STRATEGY_ID))
 
     def open_position(self, symbol: str, exchange: str, side: str, quantity: int,
@@ -639,10 +685,10 @@ class Store:
         cycle activates it (fill) or cancels it (see activate_position/cancel_position)."""
         cur = self._conn.execute(
             "INSERT INTO positions (symbol, exchange, side, quantity, entry_price, "
-            "target_price, stop_loss, status, entry_order_id, oco_order_id, mode, opened_at, "
-            "trigger_kind, entry_quality, strategy_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (symbol, exchange, side, quantity, entry_price, target_price, stop_loss,
+            "target_price, stop_loss, initial_stop, status, entry_order_id, oco_order_id, "
+            "mode, opened_at, trigger_kind, entry_quality, strategy_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (symbol, exchange, side, quantity, entry_price, target_price, stop_loss, stop_loss,
              status, entry_order_id, oco_order_id, mode, _utc_now(), trigger_kind,
              entry_quality, strategy_id))
         self._conn.commit()
@@ -700,12 +746,28 @@ class Store:
         """Adjust the stop/target of an OPEN position (trailing). Caller enforces the ratchet
         rule; this just persists the new levels the exit engine reads next cycle."""
         cur = self._conn.execute(
-            "UPDATE positions SET stop_loss = ?, target_price = ? "
+            "UPDATE positions SET stop_loss = ?, target_price = ?, "
+            "initial_stop = COALESCE(initial_stop, ?) "
             "WHERE id = ? AND status = 'OPEN'",
-            (stop_loss, target_price, position_id))
+            (stop_loss, target_price, stop_loss, position_id))
         self._conn.commit()
         if cur.rowcount == 0:
             raise StoreError(f"unknown open position id (or not open): {position_id}")
+
+    def set_position_quality(self, position_id: int, quality: float | None) -> None:
+        """Record the engine's latest trade_quality for an OPEN position — the rotation ranking
+        key. Rotation must never rank on P&L: a losing position is not a bad position."""
+        self._conn.execute(
+            "UPDATE positions SET last_quality = ? WHERE id = ? AND status = 'OPEN'",
+            (quality, position_id))
+        self._conn.commit()
+
+    def set_weakest_streak(self, position_id: int, count: int) -> None:
+        """Consecutive cycles this position ranked lowest-quality of all holdings."""
+        self._conn.execute(
+            "UPDATE positions SET weakest_streak = ? WHERE id = ? AND status = 'OPEN'",
+            (count, position_id))
+        self._conn.commit()
 
     def set_reverse_signal_count(self, position_id: int, count: int) -> None:
         """Track consecutive conviction-clearing reverse (exit) signals on an OPEN position, so a

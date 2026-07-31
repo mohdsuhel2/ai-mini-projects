@@ -2815,3 +2815,179 @@ def test_full_exit_target_refuses_wrong_side_desk_data():
                  stop_loss=102.0, target1=99.0, risk_reward=2.0, raw_response="{}")
     ind = {"institutional_desk": {"risk_model": {"targets": [101.0, 103.0, 106.0]}}}
     assert _full_exit_target(d, ind) == 99.0         # long-side desk garbage on a short -> keep t1
+
+
+# ---- position rotation (2026-07-31) ---------------------------------------------------------
+# When the book is full the cycle used to stop screening entirely, so the bot was blind to new
+# opportunity for the rest of the session. Rotation replaces the WEAKEST holding with a clearly
+# better candidate — ranked on engine quality, never on P&L.
+# See docs/superpowers/specs/2026-07-31-position-rotation-design.md
+
+def _full_book(store, qualities, opened_minutes_ago=60):
+    """Open len(qualities) positions and stamp each with a last_quality."""
+    from datetime import datetime, timedelta, timezone as _tz
+    when = (datetime.now(_tz.utc) - timedelta(minutes=opened_minutes_ago)).isoformat()
+    ids = []
+    for i, q in enumerate(qualities):
+        pid = store.open_position(symbol=f"SYM{i}", exchange="NSE", side="LONG", quantity=10,
+                                  entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                                  mode="paper")
+        store.set_position_quality(pid, q)
+        store._conn.execute("UPDATE positions SET opened_at = ? WHERE id = ?", (when, pid))
+        store._conn.commit()
+        ids.append(pid)
+    return ids
+
+
+def test_rotation_config_defaults_are_enabled():
+    cfg = Store(":memory:").get_config()
+    assert cfg.rotation_enabled is True
+    assert cfg.rotation_margin == 15.0
+    assert cfg.rotation_min_hold_minutes == 20
+    assert cfg.rotation_confirm_cycles == 2
+    assert cfg.rotation_screen_every == 3
+
+
+def test_rank_holdings_orders_by_quality_and_tracks_the_weakest_streak():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0)
+    ids = _full_book(store, [70.0, 34.0, 55.0])
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision()), {})
+    ranked = orch._rank_holdings(store.get_config())
+    assert [p.last_quality for p in ranked] == [34.0, 55.0, 70.0]
+    assert store.get_position(ids[1]).weakest_streak == 1        # the q34 one
+    assert store.get_position(ids[0]).weakest_streak == 0
+    orch._rank_holdings(store.get_config())                      # weakest again next cycle
+    assert store.get_position(ids[1]).weakest_streak == 2
+
+
+def test_rank_holdings_ignores_pnl_entirely():
+    """BALKRISIND was the most underwater holding on 2026-07-30 and closed +3.20%. Rotation must
+    rank on the engine's quality read, never on how far a position happens to be down."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    deep_loser = store.open_position(symbol="DEEP", exchange="NSE", side="LONG", quantity=10,
+                                     entry_price=1000.0, target_price=1100.0, stop_loss=900.0,
+                                     mode="paper")
+    store.set_position_quality(deep_loser, 85.0)                 # underwater but well-rated
+    flat_but_weak = store.open_position(symbol="WEAK", exchange="NSE", side="LONG", quantity=10,
+                                        entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                                        mode="paper")
+    store.set_position_quality(flat_but_weak, 30.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision()), {})
+    assert orch._rank_holdings(store.get_config())[0].symbol == "WEAK"
+
+
+def test_rank_holdings_skips_positions_with_no_quality_read():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    store.open_position(symbol="NOQ", exchange="NSE", side="LONG", quantity=10,
+                        entry_price=100.0, mode="paper")         # never scored
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision()), {})
+    assert orch._rank_holdings(store.get_config()) == []
+
+
+def test_rotation_due_respects_the_screen_cadence_and_the_switch():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision()), {})
+    cfg = store.get_config()
+    assert orch._rotation_due(3, cfg) is True                    # every 3rd run
+    assert orch._rotation_due(4, cfg) is False
+    store.update_config(rotation_enabled=False)
+    assert orch._rotation_due(3, store.get_config()) is False
+
+
+def test_rotation_waits_for_a_persistent_weakest():
+    """One noisy low read must not evict a position — BALKRISIND scored 78/40/54/34 in 30 min."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    _full_book(store, [70.0, 34.0])
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(tq=95)), {})
+    screened, entries = orch._maybe_rotate(3, store.get_config())   # streak reaches 1 only
+    assert (screened, entries) == (0, 0)
+    assert len(store.get_open_positions()) == 2
+
+
+def test_rotation_blocked_when_the_weakest_is_too_young():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    _full_book(store, [70.0, 34.0], opened_minutes_ago=5)
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(tq=95)), {})
+    orch._rank_holdings(store.get_config())                       # build the streak to 2
+    screened, entries = orch._maybe_rotate(3, store.get_config())
+    assert (screened, entries) == (0, 0)
+    assert len(store.get_open_positions()) == 2
+
+
+def test_rotation_blocked_when_the_candidate_margin_is_not_met():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    _full_book(store, [70.0, 40.0])
+    # candidate q54 vs weakest q40 -> +14, under the 15-point margin
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(tq=54)),
+                 {"NEW": _indic("NEW", last=100)}, candidates=[{"symbol": "NEW"}])
+    orch._rank_holdings(store.get_config())
+    screened, entries = orch._maybe_rotate(3, store.get_config())
+    assert (screened, entries) == (0, 0)
+    assert len(store.get_open_positions()) == 2
+
+
+def test_rotation_disabled_leaves_the_full_book_untouched():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    store.update_config(rotation_enabled=False)
+    _full_book(store, [70.0, 34.0])
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(tq=99)),
+                 {"NEW": _indic("NEW", last=100)}, candidates=[{"symbol": "NEW"}])
+    screened, entries = orch._screen_and_enter(3)
+    assert (screened, entries) == (0, 0)
+    assert len(store.get_open_positions()) == 2
+
+
+def test_rotation_replaces_the_weakest_holding_with_a_clearly_better_candidate():
+    """The positive case: all four brakes released -> weakest is closed and the newcomer opened."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    ids = _full_book(store, [70.0, 34.0])
+    weakest_id = ids[1]
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="BUY_NOW", tq=85, rr=2.5)),
+                 {"SYM1": _indic("SYM1", last=100), "NEW": _indic("NEW", last=100)},
+                 candidates=[{"symbol": "NEW"}])
+    orch._rank_holdings(store.get_config())                  # streak -> 2 (confirm_cycles)
+    run_id = store.start_run("paper")
+    screened, entries = orch._maybe_rotate(run_id, store.get_config())
+    assert (screened, entries) == (1, 1)
+    closed = store.get_position(weakest_id)
+    assert closed.status == "CLOSED" and closed.exit_reason == "ROTATED"
+    symbols = {p.symbol for p in store.get_open_positions()}
+    assert "NEW" in symbols and "SYM1" not in symbols        # rotated out of the weak one
+    assert "SYM0" in symbols                                 # the strong holding is untouched
+
+
+def test_rotation_abandoned_when_the_exit_fails():
+    """If the outgoing position will not close, do NOT open the newcomer — never hold both."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    _full_book(store, [70.0, 34.0])
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="BUY_NOW", tq=85, rr=2.5)),
+                 {"SYM1": _indic("SYM1", last=100), "NEW": _indic("NEW", last=100)},
+                 candidates=[{"symbol": "NEW"}])
+    orch._rank_holdings(store.get_config())
+    def _boom(*a, **kw):
+        raise RuntimeError("broker refused the exit")
+    orch._close_position = _boom
+    screened, entries = orch._maybe_rotate(store.start_run("paper"), store.get_config())
+    assert (screened, entries) == (0, 0)
+    assert len(store.get_open_positions()) == 2              # book untouched
+    assert "NEW" not in {p.symbol for p in store.get_open_positions()}

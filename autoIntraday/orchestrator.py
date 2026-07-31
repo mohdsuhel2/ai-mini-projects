@@ -943,6 +943,10 @@ class Orchestrator:
         self.store.record_decision(run_id=run_id, symbol=position.symbol,
                                    action=decision.action, score=decision.trade_quality,
                                    position_id=position.id, raw_json=decision.raw_response)
+        # Rotation's ranking key. Recorded every cycle so the weakest holding is identified from
+        # the engine's own current read rather than from P&L.
+        if decision.trade_quality is not None:
+            self.store.set_position_quality(position.id, float(decision.trade_quality))
         if convicted_exit:
             confirmed = position.reverse_signal_count + 1
             if confirmed >= EXIT_CONFIRM_CYCLES:
@@ -1984,6 +1988,108 @@ class Orchestrator:
                     out.append(cand)
         return out
 
+    def _rotation_due(self, run_id: int, cfg) -> bool:
+        """Screen-when-full cadence. Counted off the run id so it needs no extra state; rotation
+        is not time-critical the way a stop is, so ~every 15 min on the 5-minute grid is plenty."""
+        every = max(1, int(getattr(cfg, "rotation_screen_every", 3)))
+        return bool(getattr(cfg, "rotation_enabled", False)) and (run_id % every == 0)
+
+    def _rank_holdings(self, cfg) -> list:
+        """Open positions ordered weakest-quality first, and maintain each one's weakest_streak.
+
+        Ranking is on the engine's trade_quality ONLY. Never on P&L: BALKRISIND was the most
+        underwater holding on 2026-07-30 and closed +3.20%, so 'losing' is not 'bad'. A position
+        with no quality read yet is not rankable and is never evicted.
+        """
+        held = [p for p in self.store.get_open_positions() if p.last_quality is not None]
+        if not held:
+            return []
+        ranked = sorted(held, key=lambda p: p.last_quality)
+        weakest_id = ranked[0].id
+        for p in held:
+            streak = (p.weakest_streak + 1) if p.id == weakest_id else 0
+            if streak != p.weakest_streak:
+                self.store.set_weakest_streak(p.id, streak)
+        # Re-read so callers see the streak we just wrote, not the pre-increment snapshot the
+        # rows were loaded with — otherwise the eligibility check is always one cycle behind.
+        return [self.store.get_position(p.id) for p in ranked]
+
+    def _maybe_rotate(self, run_id: int, cfg) -> tuple[int, int]:
+        """Replace the weakest holding with a clearly better candidate. Returns (screened, entries).
+
+        Four independent brakes must ALL release — persisted weakness, a quality margin, a minimum
+        hold, and the candidate independently clearing the normal entry gate. Every rejection is
+        logged with the brake that stopped it, so 'why didn't it rotate?' is always answerable.
+        """
+        if self._daily_loss_breached(cfg):
+            return 0, 0
+        ranked = self._rank_holdings(cfg)
+        if not ranked:
+            log.info("rotation: no holding has a quality read yet — nothing rankable")
+            return 0, 0
+        weakest = ranked[0]
+        if weakest.weakest_streak < cfg.rotation_confirm_cycles:
+            log.info("rotation: %s weakest for %d/%d cycles — not yet persistent",
+                     weakest.symbol, weakest.weakest_streak, cfg.rotation_confirm_cycles)
+            return 0, 0
+        held_min = _held_minutes(weakest)
+        if held_min is not None and held_min < cfg.rotation_min_hold_minutes:
+            log.info("rotation: %s held %dm < %dm minimum — too young to displace",
+                     weakest.symbol, held_min, cfg.rotation_min_hold_minutes)
+            return 0, 0
+        if weakest.broker_stop_order_id:
+            # _cancel_leg surfaces a failed cancel loudly rather than returning a flag; if the leg
+            # will not die we must not rotate, or the old stop outlives the position it guarded.
+            try:
+                self._cancel_leg(weakest, "stop")
+            except Exception:
+                log.exception("rotation: %s broker stop would not cancel — leaving it alone",
+                              weakest.symbol)
+                return 0, 0
+
+        held = ({p.symbol for p in self.store.get_open_positions()}
+                | {p.symbol for p in self.store.get_pending_positions()}
+                | self._external_order_symbols)
+        best, best_dec = None, None
+        for cand in self._gather_candidates(top=SLOT_HEADROOM):
+            symbol = cand["symbol"] if isinstance(cand, dict) else cand
+            if symbol in held:
+                continue
+            try:
+                dec = self.engine.decide(symbol, self.get_indicators(symbol), position=None,
+                                         book=self._book_context())
+            except DecisionEngineError:
+                log.exception("rotation: candidate %s failed to decide", symbol)
+                continue
+            if not _passes_entry_gate(dec) or dec.trade_quality is None:
+                continue
+            if best_dec is None or dec.trade_quality > best_dec.trade_quality:
+                best, best_dec = symbol, dec
+        if best_dec is None:
+            log.info("rotation: no candidate cleared the entry gate")
+            return 0, 0
+        needed = (weakest.last_quality or 0) + cfg.rotation_margin
+        if best_dec.trade_quality < needed:
+            log.info("rotation: best candidate %s q%.0f < %.0f needed (%s q%.0f + %.0f margin)",
+                     best, best_dec.trade_quality, needed, weakest.symbol,
+                     weakest.last_quality or 0, cfg.rotation_margin)
+            return 0, 0
+
+        # Close FIRST — the slot and the margin must actually be free before we buy. If the exit
+        # fails, abandon the rotation and leave the book exactly as it was.
+        reason = f"rotated out: quality {weakest.last_quality:.0f} vs {best} {best_dec.trade_quality:.0f}"
+        try:
+            self._close_position(weakest, _ltp(self.get_indicators(weakest.symbol)), "ROTATED")
+        except Exception:
+            log.exception("rotation: exit of %s FAILED — not entering %s", weakest.symbol, best)
+            return 0, 0
+        self.store.record_decision(run_id=run_id, symbol=weakest.symbol, action="EXIT",
+                                   reason=reason, position_id=weakest.id)
+        log.warning("ROTATION %s -> %s (%s)", weakest.symbol, best, reason)
+        entered = self._place_entry(run_id, best, best_dec, self.get_indicators(best),
+                                    self.client.mode)
+        return 1, (1 if entered else 0)
+
     def _screen_and_enter(self, run_id: int) -> tuple[int, int]:
         cfg = self.store.get_config()
         committed = self.store.count_committed_positions()   # OPEN + resting PENDING
@@ -1991,9 +2097,12 @@ class Orchestrator:
         # Free MARGIN: pool minus committed NOTIONAL / LEVERAGE (see _place_entry accounting).
         free_capital = cfg.total_pool - self.store.committed_capital() / LEVERAGE
         if free_slots <= 0 or free_capital < cfg.capital_per_position:
-            # Book full (open + resting orders fill every slot / the pool): do NOT screen the
-            # market — exits and pending fills were already handled this cycle. Screening now
-            # would waste an expensive market scan + LLM calls on trades we can't take.
+            # Book full (open + resting orders fill every slot / the pool): exits and pending fills
+            # were already handled this cycle. Normally we do NOT screen — it would waste an
+            # expensive market scan + LLM calls on trades we can't take. With rotation on we screen
+            # every Nth cycle anyway, to see whether something is worth displacing a holding for.
+            if self._rotation_due(run_id, cfg):
+                return self._maybe_rotate(run_id, cfg)
             log.info("book full (%d/%d committed incl. pending, free_capital=%.0f) — skipping "
                      "market screen", committed, cfg.max_open_positions, free_capital)
             return 0, 0

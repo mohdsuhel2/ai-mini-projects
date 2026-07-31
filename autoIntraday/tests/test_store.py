@@ -699,3 +699,31 @@ def test_adopt_fallback_stop_pct_defaults_and_updates():
     cfg = store.update_config(adopt_fallback_stop_pct=0.75)
     assert cfg.adopt_fallback_stop_pct == pytest.approx(0.75)
     assert store.get_config().adopt_fallback_stop_pct == pytest.approx(0.75)
+
+
+# ---- initial_stop: the entry's ORIGINAL structural stop, immutable through trailing ----------
+
+def test_open_position_records_initial_stop():
+    store = Store(":memory:")
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, stop_loss=97.0, target_price=110.0, mode="paper")
+    p = store.get_position(pid)
+    assert p.initial_stop == 97.0
+    # trailing moves stop_loss but never initial_stop
+    store.update_position_levels(pid, stop_loss=99.0, target_price=110.0)
+    p = store.get_position(pid)
+    assert p.stop_loss == 99.0 and p.initial_stop == 97.0
+
+
+def test_first_stop_backfills_initial_stop_for_adopted_positions():
+    """A position opened without a stop (adopted / engine returned none) gets its initial_stop
+    from the FIRST stop ever written; later trails leave it alone."""
+    store = Store(":memory:")
+    pid = store.open_position(symbol="BBB", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, mode="paper")
+    assert store.get_position(pid).initial_stop is None
+    store.update_position_levels(pid, stop_loss=98.0, target_price=None)
+    assert store.get_position(pid).initial_stop == 98.0
+    store.update_position_levels(pid, stop_loss=99.5, target_price=None)
+    p = store.get_position(pid)
+    assert p.stop_loss == 99.5 and p.initial_stop == 98.0
