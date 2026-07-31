@@ -2996,3 +2996,46 @@ def test_rotation_abandoned_when_the_exit_fails():
     assert (screened, entries) == (0, 0)
     assert len(store.get_open_positions()) == 2              # book untouched
     assert "NEW" not in {p.symbol for p in store.get_open_positions()}
+
+
+def test_htf_conflict_gate_flag_vetoes_the_flip():
+    """2026-07-31 engine change: HTF conflict moved from the short-side no-trade filter to
+    validated_gates.htf_conflict — the exit veto must honour the flag form too."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="EEE", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    engine = _FakeEngine(_decision(action="SELL_NOW", tq=70, conf=70, stop=105.0, target1=90.0))
+    ind = _indic("EEE", last=101, live=101, high=102, low=100)
+    ind.update({"institutional_desk": {"validated_gates": {"finopb_veto": False,
+                                                           "htf_conflict": True},
+                                       "no_trade_filters_failed": []},
+                "intraday_structure": {"directional_bias": "short"}})
+    orch = _orch(store, _FakeClient(), engine, {"EEE": ind})
+    orch.run_cycle()
+    orch.run_cycle()
+    assert store.get_position(pid).status == "OPEN"
+
+
+# ---- candidate pool: gainers lead, corpses dropped (audit fix 1, 2026-07-31) -----------------
+
+def test_gather_candidates_drops_corpses_and_leads_with_gainers():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=10000.0)
+    ups = [{"symbol": f"U{i}", "ltp": 100.0, "change_pct": 2.0 + i} for i in range(4)]
+    downs = [{"symbol": "FRESH", "ltp": 100.0, "change_pct": -1.5},
+             {"symbol": "CORPSE", "ltp": 100.0, "change_pct": -5.2},
+             {"symbol": "FRESH2", "ltp": 100.0, "change_pct": -2.9}]
+    calls = []
+    def gc(direction="up", top=15, **kw):
+        calls.append(direction)
+        return ups if direction == "up" else downs
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="WAIT")), {}, candidates=None)
+    orch.get_candidates = gc
+    out = orch._gather_candidates(top=6)
+    syms = [c["symbol"] for c in out]
+    assert "CORPSE" not in syms                        # already down >3% -> dropped
+    assert syms[:3] == ["U0", "U1", "FRESH"]           # 2 gainers per fresh loser
+    assert set(syms) == {"U0", "U1", "U2", "U3", "FRESH", "FRESH2"}

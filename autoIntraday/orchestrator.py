@@ -381,10 +381,15 @@ def _reverse_flip_vetoed(side: str, indicators: dict) -> bool:
     bias = ((indicators or {}).get("intraday_structure") or {}).get("directional_bias")
     if bias == "neutral":
         return True                                  # Gate E: neutral is a non-label, not a flip
+    # HTF conflict: since 2026-07-31 the engine reports it as validated_gates.htf_conflict
+    # (it is no longer a short-side no-trade filter — HTF-bullish shorts are the best ENTRY
+    # cohort — but a conflicted flip is still not a credible reason to abandon a position).
+    if gates.get("htf_conflict"):
+        return True
     if side == "LONG":                               # reverse read flips to the SHORT side
         if gates.get("finopb_veto"):
             return True
-        return any("short vs bullish HTF" in f for f in filters)
+        return any("short vs bullish HTF" in f for f in filters)   # pre-07-31 payloads
     # SHORT position: reverse read flips to the LONG side
     return any("long vs bearish HTF" in f for f in filters)
 
@@ -1980,9 +1985,14 @@ class Orchestrator:
         return False
 
     def _gather_candidates(self, top: int) -> list:
-        """Screen BOTH directions and interleave: top gainers alone gave the engine only
-        already-extended longs (which the prompt then rightly refuses to chase) and made
-        SHORT_NOW unreachable. Interleaving gives shorts a fair look within the same budget."""
+        """Screen BOTH directions; gainers lead 2:1 and deep-red losers are dropped.
+
+        Audit 2026-07-31 (15,439 walk-forward states): the best SHORT cohort is a GAINER
+        rolling over (+3%-up names shorted: +0.27% med, 60% win) while names already down >3%
+        (the top of every losers list) are the corpse cohort Gate I rejects — feeding them to
+        the engine wastes screen slots and LLM calls on candidates the gates will kill. The
+        engine labels the side either way, so shorts don't need the losers list — toppers come
+        from the gainers screen. Losers still get a look for FRESH weakness (0 to -3%)."""
         # Screener failures are transient (external endpoint) and must never fail the cycle —
         # exits were already managed; the only cost of a miss is no new entries this cycle.
         try:
@@ -1995,11 +2005,19 @@ class Orchestrator:
         except Exception as e:
             log.warning("down-direction screen failed (%s) — continuing without losers", e)
             downs = []
-        if not ups and not downs:
+        fresh_downs = []
+        for cand in downs:
+            chg = cand.get("change_pct")
+            if chg is not None and chg < -3.0:
+                log.info("screen: dropped %s (%.1f%% — corpse cohort, Gate I)",
+                         cand.get("symbol"), chg)
+                continue
+            fresh_downs.append(cand)
+        if not ups and not fresh_downs:
             log.warning("both screens failed — no candidates this cycle")
         out, seen = [], set()
-        for pair in zip_longest(ups, downs):
-            for cand in pair:
+        for trio in zip_longest(ups[0::2], ups[1::2], fresh_downs):   # 2 gainers : 1 fresh loser
+            for cand in trio:
                 if cand and cand["symbol"] not in seen:
                     seen.add(cand["symbol"])
                     out.append(cand)
