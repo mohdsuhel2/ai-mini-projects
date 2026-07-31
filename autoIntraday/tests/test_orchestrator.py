@@ -193,7 +193,7 @@ class _FakeEngine:
         self.decision = decision
         self.calls = []
 
-    def decide(self, symbol, indicators, position=None):
+    def decide(self, symbol, indicators, position=None, book=None):
         self.calls.append((symbol, position))
         return self.decision
 
@@ -879,18 +879,18 @@ def test_pending_reserves_slot_and_blocks_screen():
 def test_trail_ratchets_long_stop_up_and_updates_target():
     store = Store(":memory:")
     _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
-         capital_per_position=20000.0)
+         capital_per_position=20000.0, profit_book_enabled=False)
     pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
-                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0,
                               mode="paper")
     client = _FakeClient()
-    # HOLD (no exit) with a tighter stop and higher target -> both move
-    engine = _FakeEngine(_decision(action="HOLD", stop=98.0, target1=112.0))
-    orch = _orch(store, client, engine, {"AAA": _indic("AAA", last=101, high=102, low=100)})
+    # at +1R (risk 3, ltp 103.2): HOLD with a tighter stop and higher target -> both move
+    engine = _FakeEngine(_decision(action="HOLD", stop=101.0, target1=112.0))
+    orch = _orch(store, client, engine, {"AAA": _indic("AAA", last=103.2, high=103.5, low=100)})
     summary = orch.run_cycle()
     p = store.get_position(pid)
     assert p.status == "OPEN"
-    assert p.stop_loss == 98.0                       # ratcheted up
+    assert p.stop_loss == 101.0                      # ratcheted up
     assert p.target_price == 112.0
     # the trail is logged as an ADJUSTED operation so the activity tally can show it
     recs = store.get_decisions_for_run(summary["run_id"])
@@ -1202,16 +1202,17 @@ def test_trail_target_ratchets_only_away_from_entry():
     # is ignored, so a winner's reward can't be shrunk mid-trade into an early TARGET exit.
     store = Store(":memory:")
     _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
-         capital_per_position=20000.0)
+         capital_per_position=20000.0, profit_book_enabled=False)
     pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
-                              entry_price=100.0, target_price=112.0, stop_loss=95.0, mode="paper")
-    # engine now proposes a NEARER target (108 < 112) — must be ignored; stop 96 still ratchets up
-    engine = _FakeEngine(_decision(action="HOLD", stop=96.0, target1=108.0))
-    orch = _orch(store, _FakeClient(), engine, {"AAA": _indic("AAA", last=101, high=102, low=100)})
+                              entry_price=100.0, target_price=112.0, stop_loss=97.0, mode="paper")
+    # at +1R: engine proposes a NEARER target (108 < 112) — ignored; stop 101 still ratchets up
+    engine = _FakeEngine(_decision(action="HOLD", stop=101.0, target1=108.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=103.2, high=103.5, low=100)})
     orch.run_cycle()
     p = store.get_position(pid)
     assert p.target_price == 112.0     # target NOT pulled in
-    assert p.stop_loss == 96.0         # stop still ratcheted up
+    assert p.stop_loss == 101.0        # stop still ratcheted up
 
 
 def test_trail_never_loosens_stop():
@@ -1296,28 +1297,28 @@ def test_trail_pushes_new_levels_to_broker_oco():
     from orchestrator import _tick
     store = Store(":memory:")
     _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
-         capital_per_position=20000.0)
+         capital_per_position=20000.0, profit_book_enabled=False)
     pid = store.open_position(symbol="A", exchange="NSE", side="LONG", quantity=10,
-                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0,
                               mode="live", oco_order_id="OCO-9")
     client = _FakeClient(mode="live",
                          broker_positions=[{"symbol": "A", "quantity": 10, "product": "MIS",
                                             "avg_price": 100.0}])
-    engine = _FakeEngine(_decision(action="HOLD", stop=98.0, target1=112.0))
-    orch = _orch(store, client, engine, {"A": _indic("A", last=101, high=102, low=100)})
+    engine = _FakeEngine(_decision(action="HOLD", stop=101.0, target1=112.0))
+    orch = _orch(store, client, engine, {"A": _indic("A", last=103.2, high=103.5, low=100)})
     orch.run_cycle()
     p = store.get_position(pid)
-    assert p.stop_loss == 98.0 and p.target_price == 112.0        # DB updated
+    assert p.stop_loss == 101.0 and p.target_price == 112.0       # DB updated
     assert client.modified_ocos == [{"order_id": "OCO-9", "target": _tick(112.0),
-                                     "stop_loss": _tick(98.0)}]   # broker updated too
+                                     "stop_loss": _tick(101.0)}]  # broker updated too
 
 
 def test_trail_broker_modify_failure_keeps_cycle_alive():
     store = Store(":memory:")
     _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
-         capital_per_position=20000.0)
+         capital_per_position=20000.0, profit_book_enabled=False)
     pid = store.open_position(symbol="A", exchange="NSE", side="LONG", quantity=10,
-                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0,
                               mode="live", oco_order_id="OCO-9")
 
     class BoomModify(_FakeClient):
@@ -1327,12 +1328,12 @@ def test_trail_broker_modify_failure_keeps_cycle_alive():
     client = BoomModify(mode="live",
                         broker_positions=[{"symbol": "A", "quantity": 10, "product": "MIS",
                                            "avg_price": 100.0}])
-    engine = _FakeEngine(_decision(action="HOLD", stop=98.0, target1=112.0))
-    orch = _orch(store, client, engine, {"A": _indic("A", last=101, high=102, low=100)})
+    engine = _FakeEngine(_decision(action="HOLD", stop=101.0, target1=112.0))
+    orch = _orch(store, client, engine, {"A": _indic("A", last=103.2, high=103.5, low=100)})
     summary = orch.run_cycle()
     assert summary["status"] == "SUCCESS"                # cycle survives
     assert summary["errors"] == 1                        # surfaced -> job notification
-    assert store.get_position(pid).stop_loss == 98.0     # DB still trailed (cycle exits honor it)
+    assert store.get_position(pid).stop_loss == 101.0    # DB still trailed (cycle exits honor it)
 
 
 def test_trail_no_broker_call_when_levels_unchanged():
@@ -2490,15 +2491,327 @@ def test_convicted_two_cycle_reversal_still_exits():
 
 
 def test_neutral_hold_still_trails_normally():
-    """REGRESSION GUARD: the fix must not freeze legitimate trailing on same-side/neutral reads."""
+    """REGRESSION GUARD: the fix must not freeze legitimate post-+1R trailing on neutral reads."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, profit_book_enabled=False)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0, mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=101.0, target1=112.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=103.2, live=103.2, high=103.5, low=100)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.stop_loss == 101.0 and p.target_price == 112.0
+
+
+# ---- trailing noise floor: a stop may never be parked inside noise range of the tape ---------
+# 2026-07-30 post-mortem "trailing-stop compression": same-side/HOLD re-quotes walked stops to
+# 0.07-0.17% of the tape (ADANIPORTS 0.10%, PREMIERENE 0.07%, BALKRISIND 3.84%->0.17% -> noise
+# stop-out 30 min before a +3.2% close). A trailed stop must keep MIN_STOP_DISTANCE_PCT of
+# breathing room from the LIVE price: ratchet AT MOST to that floor, never inside it.
+
+def test_hold_read_cannot_park_a_long_stop_inside_noise_of_the_tape():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, profit_book_enabled=False)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0, mode="paper")
+    # at +1R (ltp 103.2): HOLD quoting a stop 0.19% below the tape -> clamp to the 0.4% floor
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=103.0, target1=110.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=103.2, live=103.2, high=103.5, low=99.0)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "OPEN"
+    assert abs(p.stop_loss - 103.2 * 0.996) < 1e-6   # ratcheted, but only to the floor
+
+
+def test_hold_read_cannot_park_a_short_stop_inside_noise_of_the_tape():
+    """The PREMIERENE live case: SHORT with a stop re-quoted just above the tape."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, profit_book_enabled=False)
+    pid = store.open_position(symbol="PREMIERENE", exchange="NSE", side="SHORT", quantity=152,
+                              entry_price=984.29, target_price=962.0, stop_loss=990.0,
+                              mode="paper")
+    # at +1R (risk ~5.7, ltp 978.0): a stop re-quoted 0.1% above the tape -> clamp to the floor
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=979.0, target1=962.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"PREMIERENE": _indic("PREMIERENE", last=978.0, live=978.0,
+                                       high=990.0, low=976.0)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "OPEN"
+    floor = 978.0 * 1.004
+    assert abs(p.stop_loss - floor) < 1e-6           # clamped to 0.4% above the tape
+
+
+def test_stop_already_at_the_floor_does_not_churn():
+    """A quote inside the floor when the stop already sits AT the floor -> no level write."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=104.0, stop_loss=99.6, mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=99.9, target1=104.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=100.0, live=100.0, high=100.5, low=99.0)})
+    orch.run_cycle()
+    assert store.get_position(pid).stop_loss == 99.6  # unchanged
+
+
+def test_wide_trail_outside_the_floor_still_ratchets_normally():
+    """REGRESSION GUARD: a legitimate post-+1R structural trail (outside the floor) is untouched."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, profit_book_enabled=False)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0, mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=102.0, target1=112.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=103.2, live=103.2, high=103.5, low=99.0)})
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.stop_loss == 102.0 and p.target_price == 112.0   # ~1.2% off the tape -> fine
+
+
+# ---- gates-aware exits: a gate-vetoed reverse read is not a credible exit signal -------------
+# 2026-07-30 BALKRISIND: the engine's own analytics vetoed every bearish flip (FINOPB veto +
+# "short vs bullish HTF" filter, seven flips in 4h) yet the flips still fed the SIGNAL-exit
+# counter. A reverse read that the v2 desk itself vetoes must not count toward EXIT_CONFIRM_CYCLES.
+# Fails OPEN: v1 indicators carry no institutional_desk -> behavior unchanged.
+
+def _desk(finopb=False, filters=(), bias="short"):
+    return {"institutional_desk": {"validated_gates": {"finopb_veto": finopb},
+                                   "no_trade_filters_failed": list(filters)},
+            "intraday_structure": {"directional_bias": bias}}
+
+
+def test_finopb_vetoed_sell_now_does_not_exit_a_long():
+    """Convicted-looking SELL_NOW (q70/c70) but the desk says the short side is FINOPB-vetoed:
+    the flip must not count, both cycles, and the position rides its structural stop."""
     store = Store(":memory:")
     _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
          capital_per_position=20000.0)
     pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
                               entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
-    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=98.0, target1=112.0))
-    orch = _orch(store, _FakeClient(), engine,
-                 {"AAA": _indic("AAA", last=101, live=101, high=102, low=100)})
+    engine = _FakeEngine(_decision(action="SELL_NOW", tq=70, conf=70, stop=105.0, target1=90.0))
+    ind = _indic("AAA", last=101, live=101, high=102, low=100)
+    ind.update(_desk(finopb=True, bias="short"))
+    orch = _orch(store, _FakeClient(), engine, {"AAA": ind})
+    orch.run_cycle()
+    orch.run_cycle()                                   # would exit on cycle 2 without the veto
+    p = store.get_position(pid)
+    assert p.status == "OPEN"
+    assert p.reverse_signal_count == 0                 # vetoed flips never accumulate
+
+
+def test_htf_conflict_vetoed_buy_now_does_not_exit_a_short():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BBB", exchange="NSE", side="SHORT", quantity=10,
+                              entry_price=100.0, target_price=92.0, stop_loss=104.0, mode="paper")
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=70, conf=70, stop=95.0, target1=108.0))
+    ind = _indic("BBB", last=99, live=99, high=100, low=98)
+    ind.update(_desk(filters=["long vs bearish HTF"], bias="long"))
+    orch = _orch(store, _FakeClient(), engine, {"BBB": ind})
+    orch.run_cycle()
+    orch.run_cycle()
+    assert store.get_position(pid).status == "OPEN"
+
+
+def test_clean_gates_reverse_read_still_exits_after_confirmation():
+    """REGRESSION GUARD: a desk-clean flip must still exit on the 2nd convicted cycle."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="CCC", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    engine = _FakeEngine(_decision(action="SELL_NOW", tq=70, conf=70, stop=105.0, target1=90.0))
+    ind = _indic("CCC", last=101, live=101, high=102, low=100)
+    ind.update(_desk(finopb=False, filters=(), bias="short"))
+    orch = _orch(store, _FakeClient(), engine, {"CCC": ind})
+    orch.run_cycle()
+    assert store.get_position(pid).status == "OPEN"
     orch.run_cycle()
     p = store.get_position(pid)
-    assert p.stop_loss == 98.0 and p.target_price == 112.0
+    assert p.status == "CLOSED" and p.exit_reason == "SIGNAL"
+
+
+def test_neutral_bias_flip_does_not_exit():
+    """A SELL_NOW while the engine label is `neutral` is a Gate-E non-label — not a credible flip."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="DDD", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0, mode="paper")
+    engine = _FakeEngine(_decision(action="SELL_NOW", tq=70, conf=70, stop=105.0, target1=90.0))
+    ind = _indic("DDD", last=101, live=101, high=102, low=100)
+    ind.update(_desk(bias="neutral"))
+    orch = _orch(store, _FakeClient(), engine, {"DDD": ind})
+    orch.run_cycle()
+    orch.run_cycle()
+    assert store.get_position(pid).status == "OPEN"
+
+
+# ---- Gate K trailing: before +1R the ORIGINAL structural stop stands -------------------------
+# The skill's exit doctrine (A/B: trail-after-+1R +54% vs fixed-2R +24%; half-at-+1R net NEG):
+# hold the entry's structural stop until price has earned +1R, then lock breakeven and ratchet.
+# Per-cycle re-quotes tightening the stop pre-+1R are the trailing-compression bug in slow motion.
+
+def test_pre_1r_requote_cannot_tighten_the_structural_stop():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0, mode="paper")
+    # +1% of a 3% risk -> pre-+1R; HOLD re-quotes a 99.5 stop (would pass the noise floor)
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=99.5, target1=110.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"AAA": _indic("AAA", last=101.0, live=101.0, high=101.5, low=99.5)})
+    orch.run_cycle()
+    assert store.get_position(pid).stop_loss == 97.0     # the structural stop stands
+
+
+def test_pre_1r_requote_cannot_tighten_a_short_stop():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="BBB", exchange="NSE", side="SHORT", quantity=10,
+                              entry_price=100.0, target_price=94.0, stop_loss=103.0, mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=100.5, target1=94.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"BBB": _indic("BBB", last=99.0, live=99.0, high=100.5, low=98.8)})
+    orch.run_cycle()
+    assert store.get_position(pid).stop_loss == 103.0
+
+
+def test_at_1r_stop_locks_breakeven_even_without_an_engine_requote():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, profit_book_enabled=False)
+    pid = store.open_position(symbol="CCC", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0, mode="paper")
+    # +3.2% > 3% risk -> at/after +1R; engine still quotes the old 97 stop
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=97.0, target1=110.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"CCC": _indic("CCC", last=103.2, live=103.2, high=103.5, low=99.5)})
+    orch.run_cycle()
+    assert store.get_position(pid).stop_loss == 100.0    # breakeven locked
+
+
+def test_post_1r_structural_requote_beyond_breakeven_is_honoured():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0, profit_book_enabled=False)
+    pid = store.open_position(symbol="DDD", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=97.0, mode="paper")
+    engine = _FakeEngine(_decision(action="HOLD", tq=60, conf=60, stop=101.5, target1=110.0))
+    orch = _orch(store, _FakeClient(), engine,
+                 {"DDD": _indic("DDD", last=103.2, live=103.2, high=103.5, low=99.5)})
+    orch.run_cycle()
+    assert store.get_position(pid).stop_loss == 101.5    # ratchets past breakeven normally
+
+
+# ---- practical-T1 ladder vs the geometric R:R re-gate ----------------------------------------
+# 2026-07-31: the engine's target1 is now the PRACTICAL first objective (~0.6%), not the trade's
+# full reward, so geometry-to-target1 alone would reject nearly every honest trade. The re-gate
+# must judge the best achievable reward — the desk risk_model's FINAL capped target — before
+# rejecting. Fails open (old behaviour) when the desk block is absent (v1 indicators).
+
+def test_rr_regate_accepts_when_final_target_clears_the_floor():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=10000.0)
+    # T1 geometry: (101-100)/(100-98) = 0.5 < 1.5 — but the desk final target 106 gives 3.0
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, conf=75,
+                                   entry=100.0, stop=98.0, target1=101.0))
+    ind = _indic()
+    ind["institutional_desk"] = {"risk_model": {"targets": [101.0, 103.0, 106.0]}}
+    orch = _orch(store, _FakeClient(), engine, {"RELIANCE": ind},
+                 candidates=_cands("RELIANCE"))
+    run_id = store.start_run("paper")
+    screened, entries = orch._screen_and_enter(run_id)
+    assert entries == 1                                  # accepted via the final target
+
+
+def test_rr_regate_still_rejects_when_even_final_target_is_thin():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=10000.0)
+    # T1 geometry 0.5; final target 102 -> (102-100)/2 = 1.0 < 1.5 -> reject
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, conf=75,
+                                   entry=100.0, stop=98.0, target1=101.0))
+    ind = _indic()
+    ind["institutional_desk"] = {"risk_model": {"targets": [101.0, 101.5, 102.0]}}
+    orch = _orch(store, _FakeClient(), engine, {"RELIANCE": ind},
+                 candidates=_cands("RELIANCE"))
+    run_id = store.start_run("paper")
+    screened, entries = orch._screen_and_enter(run_id)
+    assert entries == 0
+    recs = store.get_decisions_for_run(run_id)
+    assert any("R:R" in (r.reason or "") for r in recs)
+
+
+def test_rr_regate_fails_open_without_desk_block():
+    """v1 indicators (no institutional_desk): geometry-to-target1 alone decides, as before."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=10000.0)
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, conf=75,
+                                   entry=100.0, stop=98.0, target1=101.0))
+    orch = _orch(store, _FakeClient(), engine, {"RELIANCE": _indic()},
+                 candidates=_cands("RELIANCE"))
+    run_id = store.start_run("paper")
+    screened, entries = orch._screen_and_enter(run_id)
+    assert entries == 0                                  # 0.5 < 1.5, no desk rescue
+
+
+# ---- bracket leg at the ceiling, not the practical T1 ----------------------------------------
+# Exit A/B 2026-07-31 (n=2,643, practical ladder): a full exit at practical T1 averages
+# +0.009%/trade vs +0.103% for trail-to-ceiling — a fixed leg at T1 cuts the edge ~10x. The
+# broker/full-exit target must ride at the desk risk_model's FINAL capped target (T3 ceiling);
+# target1 stays the skill's practical first objective for reporting.
+
+def test_entry_bracket_leg_rides_at_the_desk_final_target():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=10000.0)
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, conf=75,
+                                   entry=100.0, stop=98.0, target1=101.0))
+    ind = _indic()
+    ind["institutional_desk"] = {"risk_model": {"targets": [101.0, 103.0, 106.0]}}
+    orch = _orch(store, _FakeClient(), engine, {"RELIANCE": ind},
+                 candidates=_cands("RELIANCE"))
+    run_id = store.start_run("paper")
+    _, entries = orch._screen_and_enter(run_id)
+    assert entries == 1
+    p = store.get_open_positions()[0]
+    # ceiling 106 upgraded pre-margin, then the standard 10% move-shave: 100 + 6*0.9 = 105.4
+    assert abs(p.target_price - 105.4) < 1e-6
+
+
+def test_entry_bracket_falls_back_to_target1_without_desk():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=10000.0)
+    engine = _FakeEngine(_decision(action="BUY_NOW", tq=80, rr=2.0, conf=75,
+                                   entry=100.0, stop=98.0, target1=104.0))
+    orch = _orch(store, _FakeClient(), engine, {"RELIANCE": _indic()},
+                 candidates=_cands("RELIANCE"))
+    run_id = store.start_run("paper")
+    _, entries = orch._screen_and_enter(run_id)
+    assert entries == 1
+    p = store.get_open_positions()[0]
+    assert abs(p.target_price - 103.6) < 1e-6        # 100 + 4*0.9, unchanged behaviour
+
+
+def test_full_exit_target_refuses_wrong_side_desk_data():
+    from orchestrator import _full_exit_target
+    from decision_engine import Decision
+    d = Decision(action="SHORT_NOW", confidence=70, trade_quality=70, entry=100.0,
+                 stop_loss=102.0, target1=99.0, risk_reward=2.0, raw_response="{}")
+    ind = {"institutional_desk": {"risk_model": {"targets": [101.0, 103.0, 106.0]}}}
+    assert _full_exit_target(d, ind) == 99.0         # long-side desk garbage on a short -> keep t1

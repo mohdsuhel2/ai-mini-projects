@@ -61,17 +61,61 @@ def build_system_blocks() -> list[dict]:
     return [{"type": "text", "text": ENGINE_PROMPT, "cache_control": {"type": "ephemeral"}}]
 
 
-def _position_line(position: dict | None) -> str:
+def _book_line(book: dict | None) -> str:
+    """The day's damage so far. The engine is stateless — without this it cannot know the book is
+    already deep in the red, and sizes the next trade as if nothing had happened."""
+    if not book:
+        return ""
+    bits = []
+    realized = book.get("realized_pnl_today")
+    if realized is not None:
+        bits.append(f"realized P&L today {realized:+,.0f}")
+    n = book.get("open_positions")
+    if n is not None:
+        bits.append(f"{n} position(s) open")
+    return (" Book so far: " + ", ".join(bits) + ".") if bits else ""
+
+
+def _position_line(position: dict | None, book: dict | None = None) -> str:
+    """One sentence describing what we hold — the ONLY thing that differs between a flat call and
+    a held call, so everything the engine can know about the trade has to be in here.
+
+    Optional fields degrade gracefully: callers that pass only the original
+    side/quantity/entry_price/unrealized_pnl_pct still render a clean line.
+    """
     if not position:
-        return "Current position: no position held (flat)."
-    return (f"Current position: {position.get('side', '?')} "
-            f"{position.get('quantity', '?')} @ {position.get('entry_price', '?')}, "
-            f"unrealized P&L {position.get('unrealized_pnl_pct', '?')}%.")
+        return "Current position: no position held (flat)." + _book_line(book)
+
+    out = (f"Current position: {position.get('side', '?')} "
+           f"{position.get('quantity', '?')} @ {position.get('entry_price', '?')}")
+
+    held = position.get("held_minutes")
+    if held is not None:
+        out += f", held {held} min"
+    out += "."
+
+    pnl = position.get("unrealized_pnl_pct")
+    if pnl is not None:
+        out += f" Unrealized P&L {pnl:+.2f}% on price"
+        margin = position.get("unrealized_pnl_margin_pct")
+        if margin is not None:
+            # At 5x MIS a 1% price move is 5% of the capital actually at risk. Showing only the
+            # price number made every position look far less damaged than it was.
+            out += f" = {margin:+.2f}% on margin"
+        out += "."
+
+    stop, target = position.get("stop_loss"), position.get("target_price")
+    if stop is not None or target is not None:
+        out += (f" Levels you set previously: stop {stop if stop is not None else 'none'}, "
+                f"target {target if target is not None else 'none'} — re-quote only to ratchet "
+                f"toward profit, never to loosen.")
+    return out + _book_line(book)
 
 
-def build_user_message(symbol: str, indicators: dict, position: dict | None) -> str:
+def build_user_message(symbol: str, indicators: dict, position: dict | None,
+                       book: dict | None = None) -> str:
     return (f"Decide the intraday trade for {symbol}.\n\n"
-            f"{_position_line(position)}\n\n"
+            f"{_position_line(position, book)}\n\n"
             f"Indicator JSON:\n{json.dumps(indicators, ensure_ascii=False, default=str)}")
 
 
@@ -134,7 +178,8 @@ class DecisionEngine:
         return "".join(b.text for b in response.content
                        if getattr(b, "type", None) == "text" and getattr(b, "text", None))
 
-    def decide(self, symbol: str, indicators: dict, position: dict | None = None) -> Decision:
+    def decide(self, symbol: str, indicators: dict, position: dict | None = None,
+               book: dict | None = None) -> Decision:
         kwargs: dict[str, Any] = {
             "model": self.model,
             "max_tokens": 8000,
@@ -142,7 +187,7 @@ class DecisionEngine:
             "system": build_system_blocks(),
             "output_config": {"format": {"type": "json_schema", "schema": DECISION_SCHEMA}},
             "messages": [{"role": "user",
-                          "content": build_user_message(symbol, indicators, position)}],
+                          "content": build_user_message(symbol, indicators, position, book)}],
         }
         if self.use_web_search:
             kwargs["tools"] = [_WEB_SEARCH_TOOL]

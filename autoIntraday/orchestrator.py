@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+from dataclasses import replace
 from datetime import datetime, timezone
 from itertools import zip_longest
 from typing import Any, Callable
@@ -222,6 +223,27 @@ def _geometric_rr(entry, stop, target, side) -> float | None:
     return reward / risk
 
 
+def _full_exit_target(decision, indicators) -> float | None:
+    """The bracket/full-exit target: the desk risk_model's FINAL capped target (the Gate F
+    ceiling), NOT the practical T1 the skill quotes as target1.
+
+    Exit A/B 2026-07-31 (n=2,643 on the practical ladder): a full exit at practical T1 averages
+    +0.009%/trade vs +0.103% for trail-to-ceiling — a fixed leg at T1 cuts the edge ~10x. The
+    ceiling leg stays out of the way (~11% hit) so winners exit via the Gate K trail, while a
+    gift spike still books. Fails open to target1 when the desk block is absent, and never
+    brings the leg CLOSER to entry than target1 (wrong-side desk data is ignored).
+    """
+    t1 = decision.target1
+    fin = (((indicators or {}).get("institutional_desk") or {}).get("risk_model") or {}) \
+        .get("targets") or []
+    if not fin or t1 is None:
+        return t1
+    t3 = fin[-1]
+    if not isinstance(t3, (int, float)):
+        return t1
+    return max(t1, t3) if _position_side(decision.action) == "LONG" else min(t1, t3)
+
+
 def _trend_blocks(side: str, indicators: dict) -> str | None:
     """Return a veto reason if this entry fights the aggregate tape, else None. Uses the indicator
     tool's `higher_timeframe.overall_bias` (e.g. 'strong bearish' / 'neutral' / 'bullish'): a LONG
@@ -312,6 +334,19 @@ def _should_square_off(indicators: dict) -> bool:
 LIVE_MAX_DRIFT_PCT = 20.0     # a live tick further than this from the closed bar is a bad tick
 
 
+def _held_minutes(position) -> int | None:
+    """How long the position has been open, in minutes. None when unparseable — the prompt line
+    simply omits it rather than printing a bogus number."""
+    from datetime import datetime, timezone as _tz
+    try:
+        opened = datetime.fromisoformat(position.opened_at)
+        if opened.tzinfo is None:
+            opened = opened.replace(tzinfo=_tz.utc)
+        return max(0, int((datetime.now(_tz.utc) - opened).total_seconds() // 60))
+    except Exception:
+        return None
+
+
 def _opposes(action: str, side: str) -> bool:
     """True when a decision's action is a directional call AGAINST an open position.
 
@@ -322,6 +357,29 @@ def _opposes(action: str, side: str) -> bool:
     opposite = (("SELL_NOW", "SHORT_NOW") if side == "LONG"
                 else ("BUY_NOW", "BUY_ON_PULLBACK", "BUY_ON_BREAKOUT"))
     return action in opposite
+
+
+def _reverse_flip_vetoed(side: str, indicators: dict) -> bool:
+    """True when the engine's OWN analytics veto the direction a reverse read is flipping to —
+    the flip is then not a credible exit signal and must not feed the confirmation counter.
+
+    BALKRISIND 2026-07-30: seven bearish flips in four hours, every one FINOPB-vetoed AND
+    filtered "short vs bullish HTF" by the v2 desk — yet they still counted as exit signals.
+    A vetoed flip is the mirror of Ledger Gate C: a veto is not permission, in either direction.
+    Fails OPEN: v1 indicators carry no `institutional_desk`, so nothing changes there.
+    """
+    desk = (indicators or {}).get("institutional_desk") or {}
+    gates = desk.get("validated_gates") or {}
+    filters = desk.get("no_trade_filters_failed") or []
+    bias = ((indicators or {}).get("intraday_structure") or {}).get("directional_bias")
+    if bias == "neutral":
+        return True                                  # Gate E: neutral is a non-label, not a flip
+    if side == "LONG":                               # reverse read flips to the SHORT side
+        if gates.get("finopb_veto"):
+            return True
+        return any("short vs bullish HTF" in f for f in filters)
+    # SHORT position: reverse read flips to the LONG side
+    return any("long vs bearish HTF" in f for f in filters)
 
 
 def _stop_is_sane(side: str, stop: float, ltp: float) -> bool:
@@ -780,6 +838,27 @@ class Orchestrator:
                                            position_id=position.id)
         return exits
 
+    def _book_context(self) -> dict:
+        """Day-level state attached to EVERY decide() call, held or flat.
+
+        The engine is stateless and single-stock: without this it cannot know the book is already
+        deep in the red, or that four other names are open. On 2026-07-30 it kept sizing fresh
+        entries as if nothing had happened while the day ran to -17.5k. Best-effort — a store
+        hiccup must never block a decision."""
+        try:
+            from datetime import timedelta as _td
+
+            from trading_calendar import IST as _IST
+            # DB stamps are UTC but the trading day is IST — an IST day starts at 18:30 UTC the
+            # previous evening.
+            ist_midnight = datetime.now(_IST).replace(hour=0, minute=0, second=0, microsecond=0)
+            start = ist_midnight.astimezone(timezone.utc).isoformat()
+            return {"realized_pnl_today": round(self.store.realized_pnl_since(start), 2),
+                    "open_positions": len(self.store.get_open_positions())}
+        except Exception:
+            log.debug("book context unavailable", exc_info=True)
+            return {}
+
     def _manage_one(self, run_id: int, position) -> int:
         """Exit-or-trail a single open position. Returns 1 if it exited, else 0."""
         indicators = self.get_indicators(position.symbol)
@@ -826,12 +905,22 @@ class Orchestrator:
         elif self._bracket_live(position):
             self._cancel_bracket(position)
             position = self.store.get_position(position.id)
+        price_pct = round(
+            self._realized_pnl(position.side, position.entry_price, _ltp(indicators), 1)
+            / position.entry_price * 100, 2)
         ctx = {"side": position.side, "quantity": position.quantity,
                "entry_price": position.entry_price,
-               "unrealized_pnl_pct": round(
-                   self._realized_pnl(position.side, position.entry_price, _ltp(indicators), 1)
-                   / position.entry_price * 100, 2)}
-        decision = self.engine.decide(position.symbol, indicators, position=ctx)
+               "unrealized_pnl_pct": price_pct,
+               # At LEVERAGE x MIS the price move understates the damage to the capital actually
+               # at risk; the engine used to see only the smaller number.
+               "unrealized_pnl_margin_pct": round(price_pct * LEVERAGE, 2),
+               "held_minutes": _held_minutes(position),
+               # Its own previous levels, so a re-quote has something to anchor to. The engine is
+               # stateless — without these it re-derives a stop from scratch every cycle.
+               "stop_loss": position.stop_loss,
+               "target_price": position.target_price}
+        decision = self.engine.decide(position.symbol, indicators, position=ctx,
+                                      book=self._book_context())
         exit_actions = ("SELL_NOW",) if position.side == "LONG" else ("BUY_NOW",)
         # A SIGNAL exit must be CONVICTED and CONFIRMED: the reverse read clears the exit floors
         # (quality + confidence) and repeats for EXIT_CONFIRM_CYCLES consecutive cycles. A weak or
@@ -841,6 +930,16 @@ class Orchestrator:
                           and decision.trade_quality >= MIN_EXIT_QUALITY
                           and decision.confidence is not None
                           and decision.confidence >= MIN_EXIT_CONFIDENCE)
+        if convicted_exit and _reverse_flip_vetoed(position.side, indicators):
+            # The engine's own gates veto the side this flip points to (FINOPB / HTF conflict /
+            # neutral label) — not a credible reversal, however confident the wording. Ride the
+            # structural stop instead of feeding the confirmation counter.
+            convicted_exit = False
+            self.store.record_decision(
+                run_id=run_id, symbol=position.symbol, action="HOLD",
+                reason=f"{decision.action} vetoed by engine gates (FINOPB/HTF/neutral) — "
+                       f"not counted as an exit signal",
+                position_id=position.id)
         self.store.record_decision(run_id=run_id, symbol=position.symbol,
                                    action=decision.action, score=decision.trade_quality,
                                    position_id=position.id, raw_json=decision.raw_response)
@@ -1260,6 +1359,56 @@ class Orchestrator:
             else:  # SHORT
                 if position.target_price is None or decision.target1 < position.target_price:
                     new_target = decision.target1
+        # Gate K (the skill's exit doctrine, wired 2026-07-30): BEFORE +1R the entry's ORIGINAL
+        # structural stop stands — per-cycle re-quotes may not tighten it (that is trailing
+        # compression in slow motion). AT/AFTER +1R: lock at least breakeven, then ratchet
+        # normally. 1R = |entry - initial_stop|; positions without an initial_stop (legacy rows)
+        # fall through to the old behaviour, still bounded by the noise floor below.
+        if indicators is not None and position.initial_stop is not None and position.entry_price:
+            ltp = _ltp(indicators)
+            risk = abs(position.entry_price - position.initial_stop)
+            if ltp and risk > 0:
+                profit = (ltp - position.entry_price if position.side == "LONG"
+                          else position.entry_price - ltp)
+                if profit < risk:
+                    if new_stop != position.stop_loss:
+                        log.info("%s: pre-+1R (%.2f of %.2f risk) — structural stop %s stands, "
+                                 "re-quote %s refused (Gate K)", position.symbol, profit, risk,
+                                 position.stop_loss, new_stop)
+                        new_stop = position.stop_loss
+                else:
+                    be = position.entry_price
+                    if position.side == "LONG":
+                        cand = max(new_stop if new_stop is not None else be, be)
+                        if position.stop_loss is None or cand > position.stop_loss:
+                            new_stop = cand
+                    else:
+                        cand = min(new_stop if new_stop is not None else be, be)
+                        if position.stop_loss is None or cand < position.stop_loss:
+                            new_stop = cand
+        # Noise floor (post-mortem 2026-07-30, "trailing-stop compression"): same-side/HOLD
+        # re-quotes walked stops to 0.07-0.17% of the tape (BALKRISIND 3.84%->0.17% in 36 min ->
+        # noise-stopped 30 min before a +3.2% close). A stop inside MIN_STOP_DISTANCE_PCT of the
+        # LIVE price is a guaranteed noise stop-out, whichever side quoted it — ratchet AT MOST
+        # to the floor, never inside it (and, as always, never loosen).
+        if new_stop != position.stop_loss and indicators is not None:
+            ltp = _ltp(indicators)
+            # a WRONG-side stop is a defect, not a trailing intent — leave it to the clamp below
+            if ltp and _stop_is_sane(position.side, new_stop, ltp):
+                if position.side == "LONG":
+                    floor = ltp * (1 - MIN_STOP_DISTANCE_PCT / 100.0)
+                    capped = min(new_stop, floor)
+                else:  # SHORT
+                    floor = ltp * (1 + MIN_STOP_DISTANCE_PCT / 100.0)
+                    capped = max(new_stop, floor)
+                if capped != new_stop:
+                    tighter = (position.stop_loss is None
+                               or (capped > position.stop_loss if position.side == "LONG"
+                                   else capped < position.stop_loss))
+                    log.info("%s: stop %s is inside the %.1f%% noise floor of price %.2f — "
+                             "capped to %.2f", position.symbol, new_stop,
+                             MIN_STOP_DISTANCE_PCT, ltp, capped)
+                    new_stop = capped if tighter else position.stop_loss
         # Last-line clamp: a stop on the wrong side of the tape is an instruction to exit at once.
         # Refuse it, keep the level we had, and log it as the defect it is.
         if new_stop != position.stop_loss and indicators is not None:
@@ -1373,6 +1522,11 @@ class Orchestrator:
                                               f"(< {MIN_STOP_DISTANCE_PCT}% from entry)",
                                        raw_json=decision.raw_response)
             return False
+        # Bracket leg at the CEILING (2026-07-31): target1 is the skill's practical first
+        # objective; the FULL-EXIT leg rides at the desk's final capped target so winners exit
+        # via the Gate K trail, not a fixed 0.6R leg. Upgraded pre-margin so the R:R gate and
+        # the standard target shave both see the real reward.
+        decision = replace(decision, target1=_full_exit_target(decision, indicators))
         raw = decision                                                      # pre-margin levels
         decision = _with_level_margins(decision, **_margins_from_cfg(cfg))   # config breathing space
         # P0 guard #2 — re-gate on the ACTUAL geometry (recomputed from entry/stop/target, not the
@@ -1394,13 +1548,26 @@ class Orchestrator:
                                        raw_json=decision.raw_response)
             return False
         if cfg.rr_gate_enabled and actual_rr < MIN_RISK_REWARD:
-            self.store.record_decision(run_id=run_id, symbol=symbol, action=decision.action,
-                                       score=decision.trade_quality,
-                                       reason=f"rejected: "
-                                              f"{'pre' if cfg.rr_gate_pre_margin else 'post'}-margin "
-                                              f"R:R {round(actual_rr, 2)} < {MIN_RISK_REWARD}",
-                                       raw_json=decision.raw_response)
-            return False
+            # Practical-T1 ladder (2026-07-31): the engine's target1 is now the FIRST objective
+            # (~0.6%, ~62% hit-before-stop), not the trade's full reward — so geometry-to-target1
+            # alone under-states the trade. Before rejecting, judge the best achievable reward:
+            # the desk risk_model's FINAL capped target (Gate F ceiling). Fails open to the old
+            # behaviour when the desk block is absent (v1 indicators).
+            fin = (((indicators.get("institutional_desk") or {}).get("risk_model") or {})
+                   .get("targets") or [])
+            rr_final = (_geometric_rr(rr_levels.entry, rr_levels.stop_loss, fin[-1], side)
+                        if fin else None)
+            if rr_final is None or rr_final < MIN_RISK_REWARD:
+                self.store.record_decision(
+                    run_id=run_id, symbol=symbol, action=decision.action,
+                    score=decision.trade_quality,
+                    reason=f"rejected: "
+                           f"{'pre' if cfg.rr_gate_pre_margin else 'post'}-margin "
+                           f"R:R {round(actual_rr, 2)} < {MIN_RISK_REWARD}"
+                           + (f" (final-target R:R {round(rr_final, 2)} also thin)"
+                              if rr_final is not None else ""),
+                    raw_json=decision.raw_response)
+                return False
         max_risk_amount = cfg.total_pool * MAX_RISK_PER_TRADE_PCT / 100.0
         qty = _size_quantity(decision.entry, decision.stop_loss, cfg.capital_per_position,
                              max_risk_amount, LEVERAGE)
@@ -1597,9 +1764,12 @@ class Orchestrator:
             return False                       # let the normal resolve path expire it at close
         cfg = self.store.get_config()
         try:
-            decision = _with_level_margins(
-                self.engine.decide(position.symbol, indicators, position=None),
-                **_margins_from_cfg(cfg))
+            fresh = self.engine.decide(position.symbol, indicators, position=None,
+                                       book=self._book_context())
+            # same ceiling upgrade as the entry path — the resting order's target leg must not
+            # be refreshed down to the practical T1 (see _full_exit_target)
+            fresh = replace(fresh, target1=_full_exit_target(fresh, indicators))
+            decision = _with_level_margins(fresh, **_margins_from_cfg(cfg))
         except Exception:
             log.exception("refresh pending: engine failed for %s — leaving as-is",
                           position.symbol)
@@ -1848,7 +2018,8 @@ class Orchestrator:
             screened += 1
             try:
                 indicators = self.get_indicators(symbol)
-                decision = self.engine.decide(symbol, indicators, position=None)
+                decision = self.engine.decide(symbol, indicators, position=None,
+                                              book=self._book_context())
             except Exception as e:
                 self.store.record_decision(run_id=run_id, symbol=symbol, action="SKIP",
                                            reason=f"decision error: {e}")

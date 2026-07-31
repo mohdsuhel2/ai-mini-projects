@@ -47,13 +47,14 @@ class ClaudeCliEngine:
         self.model = model
         self.claude_bin = claude_bin or os.environ.get("CLAUDE_BIN", "claude")
 
-    def decide(self, symbol: str, indicators: dict, position: dict | None = None):
+    def decide(self, symbol: str, indicators: dict, position: dict | None = None,
+               book: dict | None = None):
         argv = [self.claude_bin, "-p", "--output-format", "json", "--model", self.model,
                 "--append-system-prompt", ENGINE_PROMPT,
                 "--json-schema", json.dumps(DECISION_SCHEMA)]
         if self.use_web_search:
             argv += ["--allowedTools", "WebSearch"]
-        user_message = build_user_message(symbol, indicators, position)
+        user_message = build_user_message(symbol, indicators, position, book)
         try:
             rc, out, err = self.runner(argv, user_message)
         except Exception as e:

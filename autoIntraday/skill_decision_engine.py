@@ -50,7 +50,10 @@ in the user message, but:
    stops ratchet toward profit, never loosen. If flat, decide the fresh entry action.
 3. Derive trade_quality and confidence honestly on the skill's calibrated bands; no edge is
    WAIT / NO_TRADE, not a forced trade.
-4. Output ONLY the structured decision object matching the enforced JSON schema — the seven
+4. Levels follow the skill's TARGET LADDER: target1 = the PRACTICAL first objective
+   (institutional_desk.risk_model.targets[0]); risk_reward = risk_model.rr_to_final_est — the
+   geometry to the FINAL capped target, never a narrative number and never the R:R to target1.
+5. Output ONLY the structured decision object matching the enforced JSON schema — the seven
    fields action/confidence/trade_quality/entry/stop_loss/target1/risk_reward. No prose, no
    trade summary, no explanation.
 """
@@ -79,13 +82,14 @@ class SkillDecisionEngine:
                 self._system_prompt = f.read() + _decision_addendum()
         return self._system_prompt
 
-    def decide(self, symbol: str, indicators: dict, position: dict | None = None):
+    def decide(self, symbol: str, indicators: dict, position: dict | None = None,
+               book: dict | None = None):
         argv = [self.claude_bin, "-p", "--output-format", "json", "--model", self.model,
                 "--append-system-prompt", self._system(),
                 "--json-schema", json.dumps(DECISION_SCHEMA)]
         if self.use_web_search:
             argv += ["--allowedTools", "WebSearch"]
-        user_message = build_user_message(symbol, indicators, position)
+        user_message = build_user_message(symbol, indicators, position, book)
         try:
             rc, out, err = self.runner(argv, user_message)
         except Exception as e:

@@ -20,7 +20,7 @@ class _FakeEngine:
         self.seen = []                       # (symbol, indicators-object-id) it was handed
         self.strategy_context = []           # which strategy's context was active during decide
 
-    def decide(self, symbol, indicators, position=None):
+    def decide(self, symbol, indicators, position=None, book=None):
         from compare_orchestrator import _current_strategy
         self.seen.append((symbol, id(indicators)))
         self.strategy_context.append(_current_strategy.get())

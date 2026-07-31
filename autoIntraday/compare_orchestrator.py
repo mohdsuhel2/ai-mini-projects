@@ -83,12 +83,12 @@ class PrecomputedDecisionEngine:
         self._d = decisions_by_symbol
         self._fallback = fallback
 
-    def decide(self, symbol, indicators, position=None):
+    def decide(self, symbol, indicators, position=None, book=None):
         if position is None:
             cached = self._d.get(symbol) or self._d.get(str(symbol).upper())
             if cached is not None:
                 return cached
-        return self._fallback.decide(symbol, indicators, position)
+        return self._fallback.decide(symbol, indicators, position, book)
 
 
 class CompareOrchestrator:

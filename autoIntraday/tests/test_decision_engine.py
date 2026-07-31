@@ -180,3 +180,55 @@ def test_decide_wraps_sdk_error():
     eng = DecisionEngine(client_factory=lambda: Boom())
     with pytest.raises(DecisionEngineError, match="decision call failed"):
         eng.decide("RELIANCE", {"symbol": "RELIANCE"})
+
+
+# ---- richer position context (2026-07-31) ---------------------------------------------------
+# The skill is stateless: each call is one stock with no memory of prior reads. It previously saw
+# only side/qty/entry/unrealized% — not how long it had held, not the stop it had itself set, not
+# the day's realized damage. So it re-quoted levels with nothing to anchor to and could not know
+# the book was already deep in the red.
+
+def test_position_line_reports_both_price_and_margin_pnl():
+    """At 5x MIS a -0.85% price move is -4.25% of the capital at risk. The skill was only ever
+    shown the smaller-looking number."""
+    line = _position_line({"side": "LONG", "quantity": 66, "entry_price": 2253.98,
+                           "unrealized_pnl_pct": -0.85, "unrealized_pnl_margin_pct": -4.25})
+    assert "-0.85%" in line and "-4.25%" in line
+    assert "margin" in line.lower()
+
+
+def test_position_line_includes_holding_time_and_current_levels():
+    line = _position_line({"side": "LONG", "quantity": 66, "entry_price": 2253.98,
+                           "unrealized_pnl_pct": -0.85, "held_minutes": 40,
+                           "stop_loss": 2213.70, "target_price": 2294.80})
+    assert "40" in line
+    assert "2213.7" in line and "2294.8" in line
+
+
+def test_position_line_includes_the_days_book():
+    # `book` is a separate argument so the SAME day-level context is attached whether we are
+    # holding or flat — one place to build it, not two.
+    line = _position_line({"side": "LONG", "quantity": 66, "entry_price": 2253.98,
+                           "unrealized_pnl_pct": -0.85},
+                          book={"realized_pnl_today": -17543.0, "open_positions": 3})
+    assert "17,543" in line
+    assert "3 position(s) open" in line
+
+
+def test_position_line_degrades_gracefully_when_extras_are_absent():
+    """Old callers pass only the original four fields — the line must still render."""
+    line = _position_line({"side": "SHORT", "quantity": 10, "entry_price": 100.0,
+                           "unrealized_pnl_pct": 1.0})
+    assert "SHORT" in line and "100" in line
+    assert "None" not in line and "?" not in line.split("unrealized")[0]
+
+
+def test_flat_line_still_reports_the_days_book():
+    """Even flat, the engine should know how much damage the day has already taken."""
+    line = _position_line(None, book={"realized_pnl_today": -17543.0, "open_positions": 2})
+    assert "flat" in line.lower()
+    assert "17,543" in line or "17543" in line
+
+
+def test_flat_line_without_book_is_unchanged():
+    assert "no position held (flat)" in _position_line(None)
