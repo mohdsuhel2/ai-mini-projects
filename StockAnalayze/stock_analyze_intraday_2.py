@@ -1272,9 +1272,16 @@ def _stop_target_rr(report: Dict[str, Any], side: Optional[str]) -> Dict[str, An
         stop = min(cands)
         ups = sorted(v for v in [pdl.get("R1"), pdl.get("R2"), pdl.get("PDH"), dh] if _num(v) and v > last)
         spent = len(ups) <= 1
-        t1 = ups[0] if ups else last + (proj or 2 * atr)
+        # T1 = PRACTICAL first objective (target-achievability study 2026-07-31, n=2,643):
+        # the raw nearest-pivot T1 hit only 53% before the stop (8-21% when >2% away; live 07-30:
+        # 8 of 9 targets unreachable). Capping T1 at min(1*ATR, 0.5*proj) lifts hit-before-stop
+        # to 62% (shorts 37%->53%). T2 keeps the structural rung; T3 stays the Gate-F ceiling.
+        cap = last + (min(atr, 0.5 * proj) if proj else atr)
+        struct_t1 = ups[0] if ups else None
+        t1 = min(struct_t1, cap) if struct_t1 else cap
         t3 = last + (proj or 3 * atr)
-        targets = [_round(t1), _round(min(t1 + atr, t3) if ups else t1), _round(t3)]
+        t2 = struct_t1 if (struct_t1 and struct_t1 > t1) else min(t1 + atr, t3)
+        targets = [_round(t1), _round(min(t2, t3)), _round(t3)]
     else:
         cands = [last + 1.2 * atr]
         if stdir == "down" and stl and stl > last:
@@ -1284,9 +1291,12 @@ def _stop_target_rr(report: Dict[str, Any], side: Optional[str]) -> Dict[str, An
         stop = max(cands)
         dns = sorted((v for v in [pdl.get("S1"), pdl.get("S2"), pdl.get("PDL"), dl] if _num(v) and v < last), reverse=True)
         spent = len(dns) <= 1
-        t1 = dns[0] if dns else last - (proj or 2 * atr)
+        cap = last - (min(atr, 0.5 * proj) if proj else atr)
+        struct_t1 = dns[0] if dns else None
+        t1 = max(struct_t1, cap) if struct_t1 else cap
         t3 = last - (proj or 3 * atr)
-        targets = [_round(t1), _round(max(t1 - atr, t3) if dns else t1), _round(t3)]
+        t2 = struct_t1 if (struct_t1 and struct_t1 < t1) else max(t1 - atr, t3)
+        targets = [_round(t1), _round(max(t2, t3)), _round(t3)]
     # de-dup while preserving order/direction
     seen, ordered = set(), []
     for t in targets:
@@ -1300,8 +1310,12 @@ def _stop_target_rr(report: Dict[str, Any], side: Optional[str]) -> Dict[str, An
     rr_final = _round(reward_final / risk, 2) if risk else None  # best achievable within the cap
     return {"suggested_stop": _round(stop), "targets": ordered, "risk_per_share": _round(risk),
             "rr_to_t1_est": rr_t1, "rr_to_final_est": rr_final, "ladder_spent_blue_sky": spent,
-            "note": "ATR/VWAP/SuperTrend structural stop; T3 = ATR-projection ceiling (Gate F). "
-                    "rr_to_final = best achievable R:R to the T3 ceiling; the no-trade filter gates on it."}
+            "note": "ATR/VWAP/SuperTrend structural stop. T1 = PRACTICAL first objective "
+                    "(min(nearest pivot, 1*ATR, 0.5*proj) — ~62% hit-before-stop, 2026-07-31 study); "
+                    "T2 = structural pivot rung; T3 = ATR-projection CEILING (Gate F), a bound not a "
+                    "forecast. rr_to_t1 sizes the trade honestly; rr_to_final = best achievable within "
+                    "the ceiling — R:R screens should use rr_to_final (a hard T1-R:R floor was "
+                    "A/B-disproven 2026-07-24)."}
 
 
 def _trade_quality(report: Dict[str, Any], side: Optional[str], regime: Dict[str, Any],
@@ -1345,7 +1359,15 @@ def _trade_quality(report: Dict[str, Any], side: Optional[str], regime: Dict[str
 
     vo = 15 if (rvol and rvol >= 2) else 10 if (rvol and rvol >= 1.2) else 5 if (rvol and rvol >= 0.8) else 0
     if struct.get("blowoff_top") and side == "long":
-        vo = min(vo, 4)
+        # Gate G carve-out (A/B 2026-07-30): in a STRONG trend (ADX>40) holding VWAP, a volume
+        # climax is continuation, not distribution — flagged longs ran +0.145%/tr as immediate
+        # entries (63MOONS +4.95% was benched to grade C by this dock). Only dock the climax
+        # when the trend behind it is NOT strong.
+        adx = _num(((report.get("institutional") or {}).get("adx") or {}).get("adx"))
+        strong_trend = (adx is not None and adx > 40 and above
+                        and struct.get("directional_bias") in ("long", "long-on-pullback"))
+        if not strong_trend:
+            vo = min(vo, 4)
     b["volume"] = vo
 
     b["structure"] = 10 if ((side == "long" and s.startswith("uptrend")) or (side == "short" and s.startswith("downtrend"))) \
@@ -1437,6 +1459,17 @@ def _checklist(report: Dict[str, Any], side: Optional[str], tqs: Dict[str, Any],
     }
 
 
+def _stale_extended_breakout(report: Dict[str, Any], side: Optional[str]) -> bool:
+    """Gate D staleness (v1 parity): the breakout in the trade's direction fired long ago
+    (fresh:false) AND price is extended past the level — the clean entry has passed. Chasing it
+    is the one entry-type mistake the 07-30 live day confirmed twice (63MOONS 13:50, AVALON)."""
+    brk = report.get("breakout") or {}
+    if brk.get("fresh") or not brk.get("extended_past_level"):
+        return False
+    return (side == "long" and brk.get("direction") == "up") or \
+           (side == "short" and brk.get("direction") == "down")
+
+
 def _validated_gates(report: Dict[str, Any], side: Optional[str]) -> Dict[str, Any]:
     """Deterministic application of the A/B-validated HARD gates — these OVERRIDE the soft score."""
     out: Dict[str, Any] = {"finopb_veto": False, "corpse_reject": False, "topper_preferred": False, "notes": []}
@@ -1496,12 +1529,23 @@ def institutional_desk_block(report: Dict[str, Any], capital: Optional[float] = 
             verdict = "NO TRADE — " + filters[0]
         elif gates["corpse_reject"]:
             verdict = "SHORT THE BOUNCE ONLY — corpse (Gate I), not SHORT NOW"
+        elif _stale_extended_breakout(report, side):
+            # Gate D (ported from v1, 2026-07-30: it refused the 63MOONS 13:50 and AVALON late
+            # chases that this engine graded A — right both times): the breakout fired long ago
+            # and price is extended past it — the clean entry has PASSED.
+            rz = (report.get("breakout") or {}).get("retest_zone")
+            verdict = (f"WAIT — stale extended breakout (Gate D): clean entry passed; "
+                       f"only a retest hold of ₹{rz} re-arms it")
         elif tqs["grade"] in ("A+", "A"):
             verdict = ("BUY NOW" if side == "long" else "SHORT NOW") + f" (grade {tqs['grade']})"
             if gates["topper_preferred"]:
                 verdict += " · preferred topper (Gate I)"
         elif tqs["grade"] == "B":
-            verdict = ("BUY ON PULLBACK" if side == "long" else "SHORT ON BREAKDOWN") + " (grade B, conditional)"
+            # Long side: IMMEDIATE entry at reduced size — NOT a resting VWAP limit. A/B 2026-07-30
+            # (1,484 signals): limit-at-VWAP loses vs immediate in EVERY cohort (fills are
+            # adversely selected — the strong moves never come back to the limit).
+            verdict = ("BUY NOW (grade B — half size, immediate; do not rest a VWAP limit)"
+                       if side == "long" else "SHORT ON BREAKDOWN (grade B, conditional)")
         else:
             verdict = f"WAIT (grade {tqs['grade']})"
 
