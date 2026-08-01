@@ -600,8 +600,11 @@ def main() -> None:
                 raise
             LOG.info("No AV key; auto mode will use Yahoo daily.")
 
+    # asof MUST be in kw: it was previously passed only to the single-symbol path, so
+    # --universe/--discover/--screen silently returned CURRENT data while accepting the flag.
+    # A backtest through those modes was therefore contaminated with future bars and looked great.
     kw = dict(source=args.source, apikey=apikey, min_interval=args.min_interval,
-              want_benchmark=args.benchmark)
+              want_benchmark=args.benchmark, asof=args.asof)
 
     if args.discover:
         # Stage-2 hits Yahoo per-symbol; force yahoo unless the user overrode source.
@@ -628,7 +631,7 @@ def main() -> None:
     if not args.symbol:
         p.error("one of -s/--symbol, --screen, or --universe is required")
 
-    report = analyze_one(args.symbol, asof=args.asof, **kw)
+    report = analyze_one(args.symbol, **kw)
     print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
     sys.exit(0 if "error" not in report else 1)
 
