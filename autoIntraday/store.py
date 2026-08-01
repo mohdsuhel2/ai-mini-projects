@@ -124,6 +124,16 @@ class Config:
     radar_exit_enabled: bool = False
     radar_stop_pct: float = 1.0
     radar_stop_floor_pct: float = 0.5
+    # Publish the 8-state trend lifecycle to the skill as prompt context.
+    # OFF by default. Paired A/B on 2026-08-01 over 36 point-in-time decisions (3 symbols x 12
+    # sessions, 11:00 IST, identical payloads bar this one key): it changed 3 of 36 calls, only
+    # one of which touched P&L — KALYANKJIL 2026-07-16, WAIT -> SHORT_NOW into a +2.59% rally.
+    # Net -2.59%. That is the exact failure the calibration predicted: the states describe how far
+    # through its life a trend is, they do NOT predict direction, but in a prompt they read as if
+    # they do. `mature_trend` was the sample's BEST bucket (+0.681%, 33% down) while
+    # `healthy_trend` was negative (-0.153%) — ordering backwards for the second measurement
+    # running. Needs a stage-to-direction study before it informs a live decision.
+    lifecycle_context_enabled: bool = False
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -132,6 +142,7 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
                   "radar_exit_enabled", "radar_stop_pct", "radar_stop_floor_pct",
+                  "lifecycle_context_enabled",
                   "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
                   "rotation_confirm_cycles", "rotation_screen_every",
                   "rr_gate_pre_margin", "rr_gate_enabled", "exit_mode", "arm_exit_enabled",
@@ -555,6 +566,7 @@ class Store:
                          ("rotation_confirm_cycles", "INTEGER NOT NULL DEFAULT 2"),
                          ("rotation_screen_every", "INTEGER NOT NULL DEFAULT 3"),
                          ("radar_exit_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                         ("lifecycle_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("radar_stop_pct", "REAL NOT NULL DEFAULT 1.0"),
                          ("radar_stop_floor_pct", "REAL NOT NULL DEFAULT 0.5")):
             if col not in ccols:
@@ -616,6 +628,7 @@ class Store:
                       rotation_confirm_cycles=r["rotation_confirm_cycles"],
                       rotation_screen_every=r["rotation_screen_every"],
                       radar_exit_enabled=bool(r["radar_exit_enabled"]),
+                      lifecycle_context_enabled=bool(r["lifecycle_context_enabled"]),
                       radar_stop_pct=r["radar_stop_pct"],
                       radar_stop_floor_pct=r["radar_stop_floor_pct"])
 

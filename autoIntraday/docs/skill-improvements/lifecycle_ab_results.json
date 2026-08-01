@@ -1,0 +1,1334 @@
+[
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-16",
+  "asof": "2026-07-16 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 16.9,
+  "off": {
+   "action": "WAIT",
+   "conf": 30,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1305.199951171875,
+   "exit": 1292.5999755859375,
+   "move_pct": -0.9653674576546376,
+   "max_up_pct": 0.2758272901418399,
+   "max_dn_pct": -0.9806870392785468
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 19
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-16",
+  "asof": "2026-07-16 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 22.3,
+  "off": {
+   "action": "WAIT",
+   "conf": 45,
+   "quality": 68,
+   "entry": 534.9,
+   "stop": 551.38,
+   "target": 534.0,
+   "rr": 1.43
+  },
+  "on": {
+   "action": "SHORT_NOW",
+   "conf": 58,
+   "quality": 68,
+   "entry": 534.9,
+   "stop": 551.38,
+   "target": 534.0,
+   "rr": 1.43
+  },
+  "actual": {
+   "entry": 534.0999755859375,
+   "exit": 547.9500122070312,
+   "move_pct": 2.5931543258169008,
+   "max_up_pct": 2.7897444476975197,
+   "max_dn_pct": -0.2246678949121064
+  },
+  "off_side": "-",
+  "on_side": "SHORT",
+  "off_pnl": 0.0,
+  "on_pnl": -2.5931543258169008,
+  "secs": 86
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-16",
+  "asof": "2026-07-16 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 0.0,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 80,
+   "quality": 40,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 30,
+   "quality": 40,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1009.5,
+   "exit": 1012.9500122070312,
+   "move_pct": 0.34175455245480435,
+   "max_up_pct": 0.6191183754333829,
+   "max_dn_pct": -0.23278609073179793
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 16
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-17",
+  "asof": "2026-07-17 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 15.5,
+  "off": {
+   "action": "WAIT",
+   "conf": 30,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 60,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1320.5999755859375,
+   "exit": 1328.199951171875,
+   "move_pct": 0.5754941486020749,
+   "max_up_pct": 0.5906443262399875,
+   "max_dn_pct": -0.3104630972084019
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 18
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-17",
+  "asof": "2026-07-17 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 21.6,
+  "off": {
+   "action": "WAIT",
+   "conf": 55,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 30,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 559.5499877929688,
+   "exit": 574.0,
+   "move_pct": 2.5824345495969694,
+   "max_up_pct": 3.1900700581729247,
+   "max_dn_pct": -0.5986910301170407
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 14
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-17",
+  "asof": "2026-07-17 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 0.0,
+  "off": {
+   "action": "BUY_NOW",
+   "conf": 83,
+   "quality": 83,
+   "entry": 1024.0,
+   "stop": 1013.18,
+   "target": 1028.25,
+   "rr": 1.67
+  },
+  "on": {
+   "action": "BUY_NOW",
+   "conf": 83,
+   "quality": 83,
+   "entry": 1024.0,
+   "stop": 1013.18,
+   "target": 1028.25,
+   "rr": 1.67
+  },
+  "actual": {
+   "entry": 1023.5999755859375,
+   "exit": 1028.300048828125,
+   "move_pct": 0.4591709021385083,
+   "max_up_pct": 0.7278305412153676,
+   "max_dn_pct": -0.4396248639439516
+  },
+  "off_side": "LONG",
+  "on_side": "LONG",
+  "off_pnl": 0.4591709021385083,
+  "on_pnl": 0.4591709021385083,
+  "secs": 20
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-20",
+  "asof": "2026-07-20 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 11.5,
+  "off": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 40,
+   "entry": 1316.8,
+   "stop": 1339.96,
+   "target": 1323.72,
+   "rr": 3.53
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 42,
+   "quality": 58,
+   "entry": 1331.9,
+   "stop": 1339.96,
+   "target": 1323.72,
+   "rr": 3.53
+  },
+  "actual": {
+   "entry": 1332.5,
+   "exit": 1321.800048828125,
+   "move_pct": -0.802998211772983,
+   "max_up_pct": 0.10506749824108817,
+   "max_dn_pct": -0.8855571353189493
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 26
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-20",
+  "asof": "2026-07-20 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 16.9,
+  "off": {
+   "action": "WAIT",
+   "conf": 40,
+   "quality": 58,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 45,
+   "quality": 58,
+   "entry": 563.2,
+   "stop": 575.0,
+   "target": 557.78,
+   "rr": 3.53
+  },
+  "actual": {
+   "entry": 566.7000122070312,
+   "exit": 569.25,
+   "move_pct": 0.4499713672208584,
+   "max_up_pct": 0.9264160732154756,
+   "max_dn_pct": -0.3617412650098607
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 30
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-20",
+  "asof": "2026-07-20 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 10.8,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 30,
+   "quality": 53,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 62,
+   "quality": 53,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1019.5,
+   "exit": 1033.5999755859375,
+   "move_pct": 1.3830285027893576,
+   "max_up_pct": 1.481115800484306,
+   "max_dn_pct": -0.23050275487371258
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 17
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-21",
+  "asof": "2026-07-21 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 5.4,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 88,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1315.9000244140625,
+   "exit": 1303.199951171875,
+   "move_pct": -0.9651244780425113,
+   "max_up_pct": 0.08359112132605148,
+   "max_dn_pct": -0.9955145028415509
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 20
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-21",
+  "asof": "2026-07-21 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 5.4,
+  "off": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 560.7999877929688,
+   "exit": 576.7000122070312,
+   "move_pct": 2.8352397931813673,
+   "max_up_pct": 3.548506570476071,
+   "max_dn_pct": -0.07132014757709036
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 14
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-21",
+  "asof": "2026-07-21 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 16.2,
+  "off": {
+   "action": "BUY_NOW",
+   "conf": 82,
+   "quality": 80,
+   "entry": 1051.55,
+   "stop": 1043.35,
+   "target": 1058.24,
+   "rr": 3.46
+  },
+  "on": {
+   "action": "BUY_NOW",
+   "conf": 82,
+   "quality": 80,
+   "entry": 1051.55,
+   "stop": 1043.35,
+   "target": 1058.24,
+   "rr": 3.46
+  },
+  "actual": {
+   "entry": 1056.5,
+   "exit": 1063.449951171875,
+   "move_pct": 0.6578278440014198,
+   "max_up_pct": 1.1121628017037386,
+   "max_dn_pct": -0.473260766682442
+  },
+  "off_side": "LONG",
+  "on_side": "LONG",
+  "off_pnl": 0.6578278440014198,
+  "on_pnl": 0.6578278440014198,
+  "secs": 21
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-22",
+  "asof": "2026-07-22 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 5.4,
+  "off": {
+   "action": "SHORT_NOW",
+   "conf": 80,
+   "quality": 80,
+   "entry": 1291.2,
+   "stop": 1300.08,
+   "target": 1289.87,
+   "rr": 1.7
+  },
+  "on": {
+   "action": "SHORT_NOW",
+   "conf": 80,
+   "quality": 80,
+   "entry": 1291.2,
+   "stop": 1300.08,
+   "target": 1289.87,
+   "rr": 1.7
+  },
+  "actual": {
+   "entry": 1289.9000244140625,
+   "exit": 1286.5999755859375,
+   "move_pct": -0.2558375661419224,
+   "max_up_pct": 0.2015641163444849,
+   "max_dn_pct": -0.2946002601907984
+  },
+  "off_side": "SHORT",
+  "on_side": "SHORT",
+  "off_pnl": 0.2558375661419224,
+  "on_pnl": 0.2558375661419224,
+  "secs": 39
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-22",
+  "asof": "2026-07-22 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 25.7,
+  "off": {
+   "action": "WAIT",
+   "conf": 30,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 593.9500122070312,
+   "exit": 595.2000122070312,
+   "move_pct": 0.2104554212155301,
+   "max_up_pct": 1.2543163656732823,
+   "max_dn_pct": -0.4209108424310602
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 14
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-22",
+  "asof": "2026-07-22 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 10.8,
+  "off": {
+   "action": "WAIT",
+   "conf": 45,
+   "quality": 68,
+   "entry": 1058.0,
+   "stop": 1068.35,
+   "target": 1056.34,
+   "rr": 3.54
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 45,
+   "quality": 68,
+   "entry": 1058.0,
+   "stop": 1068.35,
+   "target": 1056.34,
+   "rr": 3.54
+  },
+  "actual": {
+   "entry": 1063.0,
+   "exit": 1071.0999755859375,
+   "move_pct": 0.7619920588840545,
+   "max_up_pct": 1.396987355215193,
+   "max_dn_pct": -0.27751186941439326
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 28
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-23",
+  "asof": "2026-07-23 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 18.9,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 88,
+   "quality": 57,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 78,
+   "quality": 57,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1284.9000244140625,
+   "exit": 1275.5999755859375,
+   "move_pct": -0.7237955211625114,
+   "max_up_pct": 0.14008301997140196,
+   "max_dn_pct": -1.3152793285819429
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 21
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-23",
+  "asof": "2026-07-23 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 11.5,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 80,
+   "quality": 50,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 80,
+   "quality": 50,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 594.7999877929688,
+   "exit": 585.3499755859375,
+   "move_pct": -1.5887714191279545,
+   "max_up_pct": 0.1849422736499178,
+   "max_dn_pct": -1.8577653025801513
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 21
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-23",
+  "asof": "2026-07-23 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 10.8,
+  "off": {
+   "action": "WAIT",
+   "conf": 45,
+   "quality": 63,
+   "entry": 1003.75,
+   "stop": 1040.48,
+   "target": 1006.28,
+   "rr": 1.9
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 63,
+   "quality": 63,
+   "entry": 1014.78,
+   "stop": 1040.48,
+   "target": 1006.28,
+   "rr": 1.9
+  },
+  "actual": {
+   "entry": 1013.6500244140625,
+   "exit": 1006.8499755859375,
+   "move_pct": -0.6708477940456569,
+   "max_up_pct": 0.32062348164778603,
+   "max_dn_pct": -1.4798006845282432
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 24
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-24",
+  "asof": "2026-07-24 11:00",
+  "lifecycle_stage": "strong_trend",
+  "lifecycle_prob": 4.1,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 60,
+   "quality": 51,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 60,
+   "quality": 51,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1273.5,
+   "exit": 1278.0,
+   "move_pct": 0.35335689045936397,
+   "max_up_pct": 0.7773870760944248,
+   "max_dn_pct": -0.0706732951756969
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 22
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-24",
+  "asof": "2026-07-24 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 10.8,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 78,
+   "quality": 40,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 45,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 576.0999755859375,
+   "exit": 573.4000244140625,
+   "move_pct": -0.46866017814511174,
+   "max_up_pct": 0.7637605624939213,
+   "max_dn_pct": -0.5814920548348088
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 18
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-24",
+  "asof": "2026-07-24 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 11.5,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 55,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 78,
+   "quality": 55,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 994.0,
+   "exit": 995.2999877929688,
+   "move_pct": 0.13078348017794267,
+   "max_up_pct": 0.9305835010060363,
+   "max_dn_pct": -0.5633778255470322
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 14
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-27",
+  "asof": "2026-07-27 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 0.0,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 80,
+   "quality": 40,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 62,
+   "quality": 40,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1281.5999755859375,
+   "exit": 1280.0,
+   "move_pct": -0.12484204247944088,
+   "max_up_pct": 0.17946698438983938,
+   "max_dn_pct": -0.28089697678806674
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 22
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-27",
+  "asof": "2026-07-27 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 16.9,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 74,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 62,
+   "quality": 55,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 570.75,
+   "exit": 564.4500122070312,
+   "move_pct": -1.1038086365254052,
+   "max_up_pct": 0.3241306326653526,
+   "max_dn_pct": -1.2790166960961455
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 36
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-27",
+  "asof": "2026-07-27 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 0.0,
+  "off": {
+   "action": "WAIT",
+   "conf": 55,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1007.5499877929688,
+   "exit": 1006.9000244140625,
+   "move_pct": -0.06450929351207578,
+   "max_up_pct": 0.22331398216068757,
+   "max_dn_pct": -0.7394186191546139
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 26
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-28",
+  "asof": "2026-07-28 11:00",
+  "lifecycle_stage": "strong_trend",
+  "lifecycle_prob": 15.5,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 92,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 90,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1277.199951171875,
+   "exit": 1269.5999755859375,
+   "move_pct": -0.595049786759251,
+   "max_up_pct": 0.15659255218142867,
+   "max_dn_pct": -0.8690867530767511
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 34
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-28",
+  "asof": "2026-07-28 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 8.8,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 62,
+   "quality": 70,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 62,
+   "quality": 45,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 576.5,
+   "exit": 608.4500122070312,
+   "move_pct": 5.542066297837164,
+   "max_up_pct": 5.9843885516045106,
+   "max_dn_pct": -0.3729443909908933
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 28
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-28",
+  "asof": "2026-07-28 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 10.1,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 85,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 90,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1000.0,
+   "exit": 993.4500122070312,
+   "move_pct": -0.654998779296875,
+   "max_up_pct": 0.270001220703125,
+   "max_dn_pct": -1.06500244140625
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 24
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-29",
+  "asof": "2026-07-29 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 16.9,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 78,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 45,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1270.699951171875,
+   "exit": 1275.0999755859375,
+   "move_pct": 0.346267772341116,
+   "max_up_pct": 0.8892775054963825,
+   "max_dn_pct": -0.1337806907372002
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 19
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-29",
+  "asof": "2026-07-29 11:00",
+  "lifecycle_stage": "early_exhaustion",
+  "lifecycle_prob": 48.0,
+  "off": {
+   "action": "BUY_NOW",
+   "conf": 83,
+   "quality": 83,
+   "entry": 623.35,
+   "stop": 607.35,
+   "target": 624.32,
+   "rr": 1.87
+  },
+  "on": {
+   "action": "BUY_NOW",
+   "conf": 83,
+   "quality": 83,
+   "entry": 623.35,
+   "stop": 607.35,
+   "target": 624.32,
+   "rr": 1.87
+  },
+  "actual": {
+   "entry": 621.5499877929688,
+   "exit": 629.7000122070312,
+   "move_pct": 1.3112419876319232,
+   "max_up_pct": 1.5203945607957992,
+   "max_dn_pct": -0.12066607911346569
+  },
+  "off_side": "LONG",
+  "on_side": "LONG",
+  "off_pnl": 1.3112419876319232,
+  "on_pnl": 1.3112419876319232,
+  "secs": 28
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-29",
+  "asof": "2026-07-29 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 9.5,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 70,
+   "quality": 70,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 70,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1006.7000122070312,
+   "exit": 1011.9500122070312,
+   "move_pct": 0.5215059040766477,
+   "max_up_pct": 0.7946756633548916,
+   "max_dn_pct": -0.25827322832683586
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 17
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-30",
+  "asof": "2026-07-30 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 16.9,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 78,
+   "quality": 45,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 40,
+   "quality": 72,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1285.199951171875,
+   "exit": 1294.5999755859375,
+   "move_pct": 0.731405599999544,
+   "max_up_pct": 0.9103698791397481,
+   "max_dn_pct": -0.08558789509247311
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 22
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-30",
+  "asof": "2026-07-30 11:00",
+  "lifecycle_stage": "late_trend",
+  "lifecycle_prob": 29.1,
+  "off": {
+   "action": "WAIT",
+   "conf": 0,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 639.6500244140625,
+   "exit": 631.4500122070312,
+   "move_pct": -1.2819529264526635,
+   "max_up_pct": 1.446103282568192,
+   "max_dn_pct": -1.5789941742510942
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 15
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-30",
+  "asof": "2026-07-30 11:00",
+  "lifecycle_stage": "healthy_trend",
+  "lifecycle_prob": 5.4,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 60,
+   "quality": 30,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 72,
+   "quality": 40,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 999.5999755859375,
+   "exit": 1012.0999755859375,
+   "move_pct": 1.2505002306220396,
+   "max_up_pct": 1.4005602582966843,
+   "max_dn_pct": -0.06002156868659497
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 18
+ },
+ {
+  "symbol": "RELIANCE",
+  "day": "2026-07-31",
+  "asof": "2026-07-31 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 16.9,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 85,
+   "quality": 0,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "WAIT",
+   "conf": 62,
+   "quality": 10,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1297.199951171875,
+   "exit": 1307.699951171875,
+   "move_pct": 0.8094357381461836,
+   "max_up_pct": 0.9327858550502501,
+   "max_dn_pct": -0.07708911791868416
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 14
+ },
+ {
+  "symbol": "KALYANKJIL",
+  "day": "2026-07-31",
+  "asof": "2026-07-31 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 5.4,
+  "off": {
+   "action": "SHORT_NOW",
+   "conf": 80,
+   "quality": 80,
+   "entry": 626.0,
+   "stop": 638.15,
+   "target": 623.03,
+   "rr": 1.75
+  },
+  "on": {
+   "action": "SHORT_NOW",
+   "conf": 80,
+   "quality": 80,
+   "entry": 626.0,
+   "stop": 638.15,
+   "target": 623.03,
+   "rr": 1.75
+  },
+  "actual": {
+   "entry": 625.0,
+   "exit": 611.75,
+   "move_pct": -2.12,
+   "max_up_pct": 0.9440039062500001,
+   "max_dn_pct": -2.3120019531250002
+  },
+  "off_side": "SHORT",
+  "on_side": "SHORT",
+  "off_pnl": 2.12,
+  "on_pnl": 2.12,
+  "secs": 21
+ },
+ {
+  "symbol": "INDUSINDBK",
+  "day": "2026-07-31",
+  "asof": "2026-07-31 11:00",
+  "lifecycle_stage": "mature_trend",
+  "lifecycle_prob": 0.0,
+  "off": {
+   "action": "NO_TRADE",
+   "conf": 62,
+   "quality": 61,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "on": {
+   "action": "NO_TRADE",
+   "conf": 80,
+   "quality": 61,
+   "entry": null,
+   "stop": null,
+   "target": null,
+   "rr": null
+  },
+  "actual": {
+   "entry": 1001.1500244140625,
+   "exit": 1010.7000122070312,
+   "move_pct": 0.9539017689739375,
+   "max_up_pct": 1.553212546947657,
+   "max_dn_pct": -0.4694613287136461
+  },
+  "off_side": "-",
+  "on_side": "-",
+  "off_pnl": 0.0,
+  "on_pnl": 0.0,
+  "secs": 15
+ }
+]

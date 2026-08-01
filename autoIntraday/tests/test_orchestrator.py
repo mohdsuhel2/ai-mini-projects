@@ -3125,7 +3125,7 @@ def _readable_tape():
 def test_lifecycle_is_attached_to_every_indicator_payload():
     """Wrapped once at construction so no decide() call site can forget it."""
     from orchestrator import _with_lifecycle
-    ind = _with_lifecycle(lambda s: _readable_tape())("X")
+    ind = _with_lifecycle(lambda s: _readable_tape(), lambda: True)("X")
     lc = ind["trend_lifecycle"]
     from reversal_radar import LIFECYCLE
     assert lc["stage"] in LIFECYCLE
@@ -3138,7 +3138,7 @@ def test_lifecycle_is_context_only_and_never_overrides_the_directional_call():
     """It adds a key; it does not touch anything the skill's methodology reads."""
     from orchestrator import _with_lifecycle
     base = _readable_tape()
-    out = _with_lifecycle(lambda s: base)("X")
+    out = _with_lifecycle(lambda s: base, lambda: True)("X")
     assert set(out) - set(base) == {"trend_lifecycle"}
     for k in base:
         assert out[k] == base[k]
@@ -3147,12 +3147,12 @@ def test_lifecycle_is_context_only_and_never_overrides_the_directional_call():
 def test_a_lifecycle_failure_never_costs_a_cycle():
     from orchestrator import _with_lifecycle
     thin = {"price": {"ltp": 100.0}}                 # no bars: unreadable, so nothing is claimed
-    assert _with_lifecycle(lambda s: thin)("X") == thin
-    assert "trend_lifecycle" not in _with_lifecycle(lambda s: thin)("X")
+    assert _with_lifecycle(lambda s: thin, lambda: True)("X") == thin
+    assert "trend_lifecycle" not in _with_lifecycle(lambda s: thin, lambda: True)("X")
 
     def boom(_):
         return {"price": None}                        # radar will throw on this
-    assert _with_lifecycle(boom)("X") == {"price": None}
+    assert _with_lifecycle(boom, lambda: True)("X") == {"price": None}
 
 
 def test_the_block_and_derisk_lists_only_name_real_lifecycle_states():
@@ -3163,3 +3163,30 @@ def test_the_block_and_derisk_lists_only_name_real_lifecycle_states():
     for stage in set(_RADAR_BLOCK_STAGES) | set(_RADAR_DERISK_STAGES):
         assert stage in LIFECYCLE, f"{stage} is not a lifecycle state"
     assert "confirmed_reversal" in _RADAR_BLOCK_STAGES
+
+
+def test_lifecycle_context_is_off_unless_the_config_turns_it_on():
+    """Default OFF. The paired A/B changed 3 of 36 decisions and the only one that moved P&L was
+    a SHORT_NOW into a +2.59% rally — stage is trend AGE, not direction, but in a prompt it reads
+    like direction."""
+    from orchestrator import _with_lifecycle
+    from store import Store
+    assert Store(":memory:").get_config().lifecycle_context_enabled is False
+    assert "trend_lifecycle" not in _with_lifecycle(lambda s: _readable_tape())("X")
+    assert "trend_lifecycle" in _with_lifecycle(lambda s: _readable_tape(), lambda: True)("X")
+
+
+def test_the_orchestrator_reads_the_lifecycle_flag_from_config_each_call():
+    """Flipping it in the UI must take effect on the next cycle, not the next restart."""
+    store = Store(":memory:")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")), {})
+    orch.get_indicators = _with_lifecycle_for(orch, store)
+    assert "trend_lifecycle" not in orch.get_indicators("X")
+    store.update_config(lifecycle_context_enabled=True)
+    assert "trend_lifecycle" in orch.get_indicators("X")
+
+
+def _with_lifecycle_for(orch, store):
+    from orchestrator import _with_lifecycle
+    return _with_lifecycle(lambda s: _readable_tape(),
+                           lambda: store.get_config().lifecycle_context_enabled)

@@ -626,6 +626,27 @@ def _settings_dialog() -> None:
                 st.rerun()
 
             st.divider()
+            st.caption("Trend lifecycle context — publish the 8-state lifecycle (strong -> healthy "
+                       "-> mature -> late -> early exhaustion -> distribution -> high reversal "
+                       "risk -> confirmed reversal) plus its measured next-bar transition "
+                       "probabilities to the skill as extra prompt context. It never overrides the "
+                       "directional call. OFF by default.")
+            lc_cfg = _db(lambda s: s.get_config())
+            lc_on = st.checkbox(
+                "Send trend lifecycle to the skill",
+                value=bool(getattr(lc_cfg, "lifecycle_context_enabled", False)),
+                help="OFF by default on measured evidence. A paired A/B over 36 point-in-time "
+                     "decisions (3 symbols x 12 sessions, identical payloads bar this one key) "
+                     "changed 3 calls; the only one that moved P&L was a SHORT_NOW into a +2.59% "
+                     "rally, for -2.59% net. The stage describes how OLD a trend is, not which way "
+                     "it is going — but in a prompt it reads like direction. 'mature_trend' was "
+                     "the best-performing bucket in that sample (+0.68%), not the worst.")
+            if st.button("Save lifecycle context", use_container_width=True):
+                _db(lambda s: s.update_config(lifecycle_context_enabled=lc_on))
+                st.success("Saved.")
+                st.rerun()
+
+            st.divider()
             st.caption("Scale into strength — pyramid extra capital into a position while the engine "
                        "keeps re-affirming a STRONG same-side entry for N consecutive cycles. OFF by "
                        "default. Each add is add% of the per-position capital, up to max-adds; a "

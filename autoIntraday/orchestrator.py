@@ -511,19 +511,26 @@ def _day_low(indicators: dict) -> float:
     return float(indicators["price"]["day_low"])
 
 
-def _with_lifecycle(get_indicators: Callable[[str], dict]) -> Callable[[str], dict]:
-    """Attach the trend-lifecycle reading to every indicator payload.
+def _with_lifecycle(get_indicators: Callable[[str], dict],
+                    enabled: Callable[[], bool] = lambda: False) -> Callable[[str], dict]:
+    """Attach the trend-lifecycle reading to every indicator payload, when enabled.
 
-    The lifecycle is ADDITIONAL context, not a replacement for the skill's directional call. It
+    The lifecycle is ADDITIONAL context, never a replacement for the skill's directional call. It
     answers a question the bullish/bearish label cannot: how far through its life this trend is.
     A trend can be genuinely intact and also finished — that is `mature_trend`, which was 47% of
     the 1,296 calibrated readings and had no binary equivalent.
+
+    OFF by default (`lifecycle_context_enabled`). The paired A/B is in the store.py comment: it
+    changed 3 of 36 decisions, and the one change that touched P&L was a short into a +2.59%
+    rally. Stage describes AGE, not direction — but sitting in a prompt it reads like direction.
 
     Wrapped here rather than at the four `engine.decide` sites so no future call site can forget
     it. Failure is silent by design: the lifecycle must never cost us a cycle.
     """
     def wrapped(symbol: str) -> dict:
         ind = get_indicators(symbol)
+        if not enabled():
+            return ind
         try:
             reading = _radar(ind)
             # A payload with no bars falls back to healthy_trend/0% — publishing that would tell
@@ -552,7 +559,9 @@ class Orchestrator:
         self.store = store
         self.client = client
         self.engine = engine
-        self.get_indicators = _with_lifecycle(get_indicators)
+        self.get_indicators = _with_lifecycle(
+            get_indicators, lambda: bool(getattr(store.get_config(), "lifecycle_context_enabled",
+                                                 False)))
         self.get_candidates = get_candidates
         self.now_provider = now_provider
         self.screen_engine = screen_engine   # non-None -> one-shot skill screening for entries
