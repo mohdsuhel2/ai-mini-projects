@@ -421,3 +421,39 @@ def test_the_skills_documented_payload_parses_and_selects():
     assert (c.symbol, c.confidence, c.confirmation_level, c.stop, c.target, c.rvol) == \
         ("EXAMPLE", 84.0, 1240.5, 1268.0, 1198.0, 2.1)
     assert select(got, _cfg())[0].symbol == "EXAMPLE"
+
+
+# ---- open-anchored triggers for reversal shorts (2026-08-01) ---------------------------------
+# Measured on 6,064 NIFTY stock-days: yesterday's big winners fade next day (-0.092% intraday)
+# while big losers bounce (+0.105%). So the primary setup is shorting a gapped-up winner — and a
+# trigger set at YESTERDAY'S LOW never fires on one, which is why only 53% of signals triggered.
+
+def test_reversal_trigger_reanchors_to_the_open_so_a_gapped_up_winner_can_fade_into_it():
+    from active_short import open_anchored_trigger
+    # planned level is yesterday's low 990; the stock opened at 1020 and will never revisit 990
+    t = open_anchored_trigger(990.0, 1020.0, 1018.0, "reversal_short")
+    assert 1010 < t < 1018, f"expected a level just under the open, got {t}"
+
+
+def test_breakdown_setups_keep_their_structural_level():
+    """Only reversal shorts re-anchor. A breakdown's level is structural and must be respected."""
+    from active_short import open_anchored_trigger
+    assert open_anchored_trigger(990.0, 1020.0, 1018.0, "fresh_breakdown") == 990.0
+    assert open_anchored_trigger(990.0, 1020.0, 1018.0, None) == 990.0
+
+
+def test_reanchoring_never_lowers_a_level_that_is_already_reachable():
+    from active_short import open_anchored_trigger
+    assert open_anchored_trigger(990.0, 992.0, 991.0, "reversal_short") == 990.0
+
+
+def test_reanchoring_does_not_rescue_a_move_that_already_happened():
+    """If price is already BELOW the planned level the breakdown happened without us. The trigger
+    must stay above the tape so validate_short_entry refuses it and the pick is SKIPPED — clamping
+    it lower would chase the move, which is what the gap guard exists to prevent. (Caught by an
+    existing test when an earlier version of this clamped.)"""
+    from active_short import ActiveShortError, open_anchored_trigger, validate_short_entry
+    t = open_anchored_trigger(1030.0, 1020.0, 1018.0, "reversal_short")
+    assert t >= 1018.0
+    with pytest.raises(ActiveShortError):
+        validate_short_entry(t, 1018.0)

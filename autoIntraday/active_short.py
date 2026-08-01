@@ -101,6 +101,33 @@ def gap_too_far(confirmation_level: float, open_price: float, max_gap_pct: float
     return below_pct > max_gap_pct
 
 
+# A reversal short of a gapped-up winner must trigger off TODAY'S action, not yesterday's low —
+# the stock will never trade back there, so the entry never fires. Measured: only 53% of signals
+# ever triggered, and those that did skewed to the weaker breakdown setups.
+REVERSAL_OPEN_TRIGGER_PCT = 0.4
+
+
+def open_anchored_trigger(planned_level: float, open_price: float, last_price: float,
+                          setup_type: Optional[str],
+                          pct: float = REVERSAL_OPEN_TRIGGER_PCT) -> float:
+    """Trigger for a short entry, tightened toward the open for reversal setups.
+
+    For `reversal_short`, take the trigger `pct` below the open (or the planned level, whichever
+    is HIGHER — i.e. the one that actually gets reached) so a gap-up winner can still fade into
+    the entry. Breakdown setups keep the level the scan set, which is structural.
+
+    A level that ends up AT OR ABOVE the tape is deliberately left alone, NOT clamped down: that
+    means price has already fallen through the planned level, so the move happened without us.
+    validate_short_entry then refuses it and the pick is skipped — chasing it lower is precisely
+    what the gap guard exists to prevent.
+    """
+    level = float(planned_level)
+    if setup_type == "reversal_short" and open_price:
+        open_level = float(open_price) * (1 - pct / 100.0)
+        level = max(level, open_level)          # the nearer level is the one that can be hit
+    return round(level, 2)
+
+
 def validate_short_entry(trigger: float, last_price: float) -> None:
     """A SELL stop-ENTRY must sit strictly BELOW the market, or it fires instantly at the open.
 

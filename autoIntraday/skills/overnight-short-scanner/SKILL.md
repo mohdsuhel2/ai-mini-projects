@@ -179,21 +179,36 @@ India VIX, NIFTY trend, breadth. In a strongly advancing market, shorting single
 tape. If the regime is clearly bullish, **return an empty list** and say why. An empty night is a
 correct answer — the consumer simply arms nothing.
 
-### 2. Distribution, not drift
-Close down >0.2% on above-average volume, or repeated distribution days over 5-10 sessions. Price
-falling on *shrinking* volume is disinterest, not distribution, and mean-reverts. Reject it.
+### 2. Short recent STRENGTH, not recent weakness — the single most important rule
 
-For a **reversal** candidate the equivalent is: a rally into resistance on climactic volume with a
-weak close and a large upper wick.
+Measured on 6,064 NIFTY stock-days (2026 H1), next-day **intraday** (open-to-close) return by
+today's move:
 
-### 3. A bearish structure at a level that matters
+| today's move | next-day intraday | intraday down% |
+|---|---|---|
+| big loser (<= -3%) | **+0.105%** | 45.7% |
+| loser (-1 to -3%) | +0.031% | 45.7% |
+| flat | +0.001% | 49.8% |
+| winner (+1 to +3%) | -0.046% | 52.2% |
+| **big winner (>= +3%)** | **-0.092%** | 50.4% |
+
+Monotonic, and it is the documented **short-term reversal** effect (Fama 1965; Jegadeesh 1990):
+yesterday's losers BOUNCE, yesterday's winners FADE.
+
+**So a stock being down today is evidence AGAINST shorting it tomorrow, not for it.** Recent
+strength is a POSITIVE selection criterion. Prefer names up >= +1% today, ideally >= +3%.
+
+A "distribution day" — down on rising volume — selects the bucket that rises. It is no longer a
+primary trigger. Use it only when the name is ALSO extended and rolling over from a prior run, and
+never as the sole thesis.
+
+### 3. A bearish reversal structure at a level that matters
 Bearish engulfing · evening star · dark cloud cover · shooting star · hanging man · doji after a
-strong rally · inside-bar breakdown · outside reversal · failed breakout · gap-fill rejection ·
-trendline or resistance rejection · exhaustion candle · weak close with a large upper wick.
+strong rally · failed breakout · gap-fill rejection · trendline or resistance rejection ·
+exhaustion candle · weak close with a large upper wick.
 
-Market structure: lower highs, break of structure, change of character, liquidity sweep, supply
-zone rejection, premium pricing. The pattern must sit **at resistance** — the same candle mid-range
-is noise.
+Market structure: liquidity sweep, supply-zone rejection, premium pricing. The pattern must sit
+**at resistance** — the same candle mid-range is noise.
 
 ### 4. Volume confirmation — RVOL >= 1.5, non-negotiable
 Read against `volume.surge_vs_20d_avg` (this is volume vs the **20-day average**, not the prior
@@ -224,12 +239,23 @@ Ignore illiquid names, penny stocks, and anything with manipulated-looking price
 illiquid short cannot be exited when it goes wrong.
 
 ### 9. Set the levels
-- **`confirmation_level`** — the price below which the short is live. Normally the signal candle's
-  low, or clearly broken support. **Your single most important output.**
+- **`confirmation_level`** — the price below which the short is live. **Your single most important
+  output.**
+  - For a **reversal short of a recent winner**, anchor it near the PRIOR CLOSE, not the prior low.
+    A stock that gaps up on attention will never trade back to yesterday's low, so a level set
+    there never fires — which is why only 53% of measured signals ever triggered, and those that
+    did skewed to the weaker setups. The executor tightens it to the opening-range low at arm time.
+  - For a **breakdown continuation**, the signal candle's low or clearly broken support is right.
 - **`stop`** — ABOVE the level, at structural invalidation (typically above the signal candle's
   high). More than ~2.5% away means the setup is too loose; drop it.
 - **`target`** (T1) — BELOW the level at the next real support, reachable in ONE session. Size it
   against `volatility.atr14`: a target beyond ~1 ATR of intraday travel is wishful.
+
+**Judge every thesis on the OPEN-to-CLOSE move, never close-to-close.** The position is opened
+after the bell and squared off the same day, so the overnight gap is not ours. This matters
+structurally: on the same 6,064 stock-days, close-to-close averaged **+0.019%** while open-to-close
+averaged **-0.015%**. The entire positive drift is overnight (Lou, Polk & Skouras, "A Tug of War").
+Intraday drift is a mild TAILWIND for shorts — but only if you measure the leg you actually trade.
 - `target2` / `target3` — optional context only. The consumer trades T1; the position is squared
   off the same day.
 

@@ -13,14 +13,20 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional
 
-from active_short import (ActiveShortError, gap_too_far, parse_candidates, position_size,
-                          protective_levels, select, short_pnl, validate_short_entry,
-                          validate_short_stop)
+from active_short import (ActiveShortError, gap_too_far, open_anchored_trigger, parse_candidates,
+                          position_size, protective_levels, select, short_pnl,
+                          validate_short_entry, validate_short_stop)
 
 log = logging.getLogger("autointraday.active_short_job")
 
 _FILLED = ("EXECUTED", "COMPLETE", "COMPLETED", "FILLED")
 _DEAD = ("REJECTED", "CANCELLED", "CANCELED", "FAILED", "EXPIRED")
+
+
+def _setup_type(pick) -> Optional[str]:
+    """The scan's setup_type, carried in the pick's reason blob when present."""
+    r = (getattr(pick, "reason", "") or "").lower()
+    return "reversal_short" if "reversal" in r else None
 
 
 def _mode(store) -> str:
@@ -109,8 +115,11 @@ def arm(store, client, trade_date: str, get_quote: Callable[[str], dict]) -> int
             store.update_pick(pick.id, status="SKIPPED", status_note=note)
             log.info("%s: %s", pick.symbol, note)
             continue
+        # Reversal setups re-anchor to the actual open, which the overnight scan could not know.
+        trigger = open_anchored_trigger(pick.confirmation_level, open_px, last,
+                                        _setup_type(pick))
         try:
-            validate_short_entry(pick.confirmation_level, last)
+            validate_short_entry(trigger, last)
         except ActiveShortError as e:
             store.update_pick(pick.id, status="SKIPPED", status_note=str(e))
             log.info("%s: %s", pick.symbol, e)
@@ -123,17 +132,18 @@ def arm(store, client, trade_date: str, get_quote: Callable[[str], dict]) -> int
         try:
             resp = client.place_order(
                 symbol=pick.symbol, exchange="NSE", transaction_type="SELL", quantity=qty,
-                order_type="SL_M", trigger_price=pick.confirmation_level, product="MIS")
+                order_type="SL_M", trigger_price=trigger, product="MIS")
         except Exception as e:
             store.update_pick(pick.id, status="SKIPPED", status_note=f"entry rejected: {e}")
             log.exception("%s: arm failed", pick.symbol)
             continue
+        note = f"armed {mode} below {trigger:g}"
+        if abs(trigger - (pick.confirmation_level or trigger)) > 0.01:
+            note += f" (re-anchored to the open from {pick.confirmation_level:g})"
         store.update_pick(pick.id, status="ARMED", quantity=qty,
-                          entry_order_id=(resp or {}).get("order_id"),
-                          status_note=f"armed {mode} below {pick.confirmation_level:g}")
+                          entry_order_id=(resp or {}).get("order_id"), status_note=note)
         armed += 1
-        log.info("ARMED short %s x%d below %g (%s)", pick.symbol, qty,
-                 pick.confirmation_level, mode)
+        log.info("ARMED short %s x%d below %g (%s)", pick.symbol, qty, trigger, mode)
     return armed
 
 
