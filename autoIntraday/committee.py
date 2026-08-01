@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import concurrent.futures as futures
 import json
+import math
 import logging
 import os
 import subprocess
@@ -29,7 +30,12 @@ from typing import Any, Optional, Sequence
 
 log = logging.getLogger("autointraday.committee")
 
-VERDICTS = ("bearish", "bullish", "neutral", "reject")
+# "abstain" is distinct from "neutral": neutral means the expert looked and is undecided;
+# abstain means it had no data to judge its mandate at all. Conflating them let data-starved
+# experts silently vote against every trade — in the 2026-08-01 backtest the Options and Macro
+# seats never had data, so a fixed 4-of-6 threshold demanded unanimity from the other four and
+# rejected 5/5 candidates.
+VERDICTS = ("bearish", "bullish", "neutral", "reject", "abstain")
 RISK_MANAGER = "risk_manager"
 
 # Each expert sees the same data and only its own mandate. Kept deliberately narrow: a specialist
@@ -49,11 +55,13 @@ EXPERTS: dict[str, str] = {
                    "distribution, liquidity sweeps, supply zones, order-block rejection, "
                    "premium pricing, traps and where late retail is likely positioned.",
     "options": "You are an OPTIONS specialist. Judge ONLY positioning: PCR, max pain versus spot, "
-               "call and put OI walls, and what writers are defending. If no chain is available "
-               "say so and return neutral with low confidence — never guess positioning.",
+               "call and put OI walls, and what writers are defending. If no option chain is "
+               "available, ABSTAIN — never guess positioning, and do not vote neutral, which "
+               "would count against the trade rather than removing you from the quorum.",
     "macro": "You are a MACRO specialist. Judge ONLY context: index trend and breadth, India VIX, "
              "sector rotation, relative strength versus the market, and global cues. Shorting a "
-             "single name into a strongly advancing tape is a macro objection.",
+             "single name into a strongly advancing tape is a macro objection. If you have no "
+             "index, VIX or sector data at all, ABSTAIN rather than voting neutral.",
     RISK_MANAGER: "You are the RISK MANAGER and you hold a VETO. Judge ONLY tradeability and "
                   "risk: is the risk-reward acceptable, is the stop structurally sound and not "
                   "hair-thin, is the name liquid enough to exit, is there event risk "
@@ -62,9 +70,12 @@ EXPERTS: dict[str, str] = {
                   "fall — only whether this trade may responsibly be taken.",
 }
 
-# A short thesis needs a real majority of the six analysts, not a plurality. Below this the
-# committee is split and a split committee is not an edge.
-MIN_BEARISH_VOTES = 4
+# A short thesis needs a real majority of the analysts who could actually VOTE. Expressed as a
+# fraction so an abstaining expert shrinks the quorum instead of counting against the trade:
+# 4-of-6 and 3-of-4 are the same bar, but a fixed 4 is an impossible bar when two seats abstain.
+MIN_BEARISH_FRACTION = 2 / 3
+# Fewer voters than this is not a committee. Refuse rather than let two experts decide.
+MIN_VOTING_ANALYSTS = 3
 # Spread of confidence among the bearish camp. Wide disagreement means the thesis rests on one
 # loud expert, so the consensus score is discounted.
 DISAGREEMENT_PENALTY = 0.85
@@ -113,6 +124,8 @@ def aggregate(verdicts: Sequence[Verdict]) -> dict[str, Any]:
 
     tally = {k: [v.expert for v in analysts if v.verdict == k] for k in VERDICTS}
     bearish = tally["bearish"]
+    voting = [v for v in analysts if v.verdict != "abstain"]
+    required = max(1, math.ceil(len(voting) * MIN_BEARISH_FRACTION))
 
     # --- the veto, before anything else -------------------------------------------------------
     if rm is None:
@@ -126,10 +139,16 @@ def aggregate(verdicts: Sequence[Verdict]) -> dict[str, Any]:
                        f"{len(bearish)} bearish analyst vote(s) cannot override it.")
 
     # --- consensus ----------------------------------------------------------------------------
-    if len(bearish) < MIN_BEARISH_VOTES:
+    if len(voting) < MIN_VOTING_ANALYSTS:
         return _result("NO_TRADE", 0.0, tally, verdicts,
-                       f"Only {len(bearish)}/{len(analysts)} analysts bearish "
-                       f"({MIN_BEARISH_VOTES} required). A split committee is not an edge.")
+                       f"Only {len(voting)}/{len(analysts)} analysts had data to judge "
+                       f"({', '.join(tally['abstain'])} abstained). Fewer than "
+                       f"{MIN_VOTING_ANALYSTS} voters is not a committee.")
+    if len(bearish) < required:
+        return _result("NO_TRADE", 0.0, tally, verdicts,
+                       f"Only {len(bearish)}/{len(voting)} VOTING analysts bearish "
+                       f"({required} required; {len(tally['abstain'])} abstained for want of "
+                       f"data). A split committee is not an edge.")
 
     confs = [by_expert[e].confidence for e in bearish]
     score = sum(confs) / len(confs)
@@ -142,8 +161,11 @@ def aggregate(verdicts: Sequence[Verdict]) -> dict[str, Any]:
     score -= 5.0 * len(tally["bullish"])
     score = max(0.0, min(100.0, round(score, 1)))
 
-    note = (f"{len(bearish)}/{len(analysts)} analysts bearish; Risk Manager cleared "
-            f"({rm.verdict}, {rm.confidence:.0f}%). Consensus {score:.0f}")
+    note = (f"{len(bearish)}/{len(voting)} voting analysts bearish (needed {required}"
+            + (f"; {len(tally['abstain'])} abstained: {', '.join(tally['abstain'])}"
+               if tally["abstain"] else "")
+            + f"); Risk Manager cleared ({rm.verdict}, {rm.confidence:.0f}%). "
+              f"Consensus {score:.0f}")
     if discounted:
         note += f" (discounted — confidence spread {spread:.0f} points across the bearish camp)"
     if tally["bullish"]:
@@ -170,10 +192,13 @@ def _result(rec: str, score: float, tally: dict, verdicts: Sequence[Verdict],
 # Running the experts for real — one subprocess each, in parallel, no shared context
 # ---------------------------------------------------------------------------------------------
 _SCHEMA_NOTE = (
-    'Return ONLY a JSON object: {"verdict": "bearish|bullish|neutral|reject", '
+    'Return ONLY a JSON object: {"verdict": "bearish|bullish|neutral|reject|abstain", '
     '"confidence": <0-100>, "reasoning": "<one or two sentences of concrete evidence>"}. '
     "Judge ONLY your own mandate. You are one member of a committee and you will NOT see the "
-    "other members' views — do not speculate about them."
+    "other members' views — do not speculate about them. "
+    "Use ABSTAIN when you have no data to judge your mandate at all — that is different from "
+    "neutral, which means you looked and are undecided. Abstaining removes you from the quorum "
+    "rather than counting as a vote against the trade, so do not vote neutral to be safe."
 )
 
 

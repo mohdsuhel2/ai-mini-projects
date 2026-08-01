@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from committee import (EXPERTS, MIN_BEARISH_VOTES, RISK_MANAGER, CommitteeError, Verdict,
-                       aggregate, parse_verdict)
+from committee import (EXPERTS, MIN_BEARISH_FRACTION, MIN_VOTING_ANALYSTS, RISK_MANAGER,
+                       CommitteeError, Verdict, aggregate, parse_verdict)
 
 
 def _v(expert, verdict, conf=80, reason="because"):
@@ -62,8 +62,9 @@ def test_risk_manager_bearish_or_neutral_does_not_block():
 
 # ---- consensus ------------------------------------------------------------------------------
 def test_a_split_committee_is_not_an_edge():
-    assert aggregate(_panel(bearish=MIN_BEARISH_VOTES - 1))["recommendation"] == "NO_TRADE"
-    assert aggregate(_panel(bearish=MIN_BEARISH_VOTES))["recommendation"] == "SHORT"
+    """With all six voting, 2/3 means 4 — the same bar as before."""
+    assert aggregate(_panel(bearish=3))["recommendation"] == "NO_TRADE"
+    assert aggregate(_panel(bearish=4))["recommendation"] == "SHORT"
 
 
 def test_consensus_is_the_mean_confidence_of_the_bearish_camp():
@@ -128,3 +129,52 @@ def test_aggregation_is_deterministic():
     a, b = aggregate(panel), aggregate(panel)
     assert a["recommendation"] == b["recommendation"]
     assert a["consensus_confidence"] == b["consensus_confidence"]
+
+
+# ---- abstention-aware quorum (added after the 2026-08-01 backtest rejected 5/5 candidates) ----
+def _panel_abstain(bearish, abstainers, rm="neutral"):
+    out, i = [], 0
+    for e in ANALYSTS:
+        if e in abstainers:
+            out.append(_v(e, "abstain", 0, "no data for my mandate"))
+        elif i < bearish:
+            out.append(_v(e, "bearish", 80)); i += 1
+        else:
+            out.append(_v(e, "neutral", 50))
+    out.append(_v(RISK_MANAGER, rm, 70))
+    return out
+
+
+def test_abstainers_shrink_the_quorum_instead_of_voting_against():
+    """The bug this fixes: with options+macro blind, a fixed 4-of-6 demanded unanimity from the
+    remaining four. 3 of 4 voting is the same 2/3 bar and should pass."""
+    out = aggregate(_panel_abstain(bearish=3, abstainers={"options", "macro"}))
+    assert out["recommendation"] == "SHORT"
+    assert "3/4 voting analysts bearish" in out["rationale"]
+    assert "abstained" in out["rationale"]
+
+
+def test_the_same_votes_as_neutrals_would_fail():
+    """Proves abstain and neutral are genuinely different, not cosmetic."""
+    assert aggregate(_panel(bearish=3))["recommendation"] == "NO_TRADE"
+
+
+def test_the_bar_stays_two_thirds_of_whoever_voted():
+    assert aggregate(_panel_abstain(bearish=2, abstainers={"options", "macro"}))["recommendation"] == "NO_TRADE"
+    assert aggregate(_panel_abstain(bearish=3, abstainers={"options", "macro"}))["recommendation"] == "SHORT"
+
+
+def test_too_few_voters_is_not_a_committee():
+    out = aggregate(_panel_abstain(bearish=2, abstainers={"options", "macro", "volume", "trend"}))
+    assert out["recommendation"] == "NO_TRADE"
+    assert "not a committee" in out["rationale"]
+    assert MIN_VOTING_ANALYSTS == 3
+
+
+def test_abstain_is_a_valid_parsed_verdict():
+    assert parse_verdict("options", {"verdict": "abstain", "confidence": 0}).verdict == "abstain"
+
+
+def test_the_veto_still_beats_an_abstention_reduced_quorum():
+    out = aggregate(_panel_abstain(bearish=3, abstainers={"options", "macro"}, rm="reject"))
+    assert out["recommendation"] == "REJECTED" and out["vetoed"] is True

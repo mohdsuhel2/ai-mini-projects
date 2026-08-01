@@ -45,7 +45,7 @@ A thesis that cannot be expressed as "short only below X" does not belong in the
 - OPTIONS: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/options_data.py`
 - SCORER: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/adaptive_scoring.py`
 - CONTRADICTIONS: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/contradiction_engine.py`
-- COMMITTEE: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/committee.py`
+- HYPOTHESIS ENGINE: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/hypothesis_engine.py`
   (all run with `/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python`)
 
 Always suppress stderr so stdout is clean JSON: `$PYTHON $SCRIPT ... 2>/dev/null`
@@ -325,41 +325,50 @@ Do not leave context keys out to dodge a penalty. A rule with missing inputs is 
 `unchecked_rules` as a **blind spot, not a pass** — an empty context produces a clean-looking
 result that means nothing.
 
-### Step E — expert committee (MANDATORY for every surviving candidate)
+### Step E — Competing Hypothesis Engine (MANDATORY for every surviving candidate)
 
-The final call is a **committee consensus, not one reasoning chain**. Seven specialists analyse the
-name independently — Trend, Price Action, Volume, Smart Money, Options, Macro, and a **Risk
-Manager who holds an absolute veto**.
+The decision is **not a vote**. Two independent research teams argue opposite cases over the same
+facts and the stronger evidence wins.
 
 ```bash
 /Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python -c "
-import json, sys
-from committee import run_committee
-print(json.dumps(run_committee(open('/tmp/candidate.json').read()), indent=2))
+import json
+from hypothesis_engine import run_engine
+print(json.dumps(run_engine(open('/tmp/candidate.json').read(), rr=<your R:R>), indent=2))
 "
 ```
 
-Write the candidate's full point-in-time data to a file first and pass it in. `run_committee`
-spawns **one subprocess per expert in parallel**, each seeing only the market data and its own
-mandate.
+**Why voting was removed.** Trend, Price Action and Volume read *lagging* evidence, so they favour
+continuation by construction. On 2026-07-22 all three voted bullish on INDUSINDBK — MAs aligned,
+fresh breakout, 2.05x volume — while Smart Money alone flagged premium pricing at 95% of the
+20-day range. The stock fell **5.97%** the next day. A majority vote buries reversal setups every
+time, which is exactly what this skill exists to find.
 
-**Do not roleplay the seven experts yourself in this context.** Experts prompted in one context
-read each other's reasoning and anchor on it — which destroys the independence the committee
-exists to provide. Separate processes are the mechanism, not an implementation detail.
+The engine runs, each in its own process:
+
+1. **Six specialists** with disjoint domains (trend, price action, volume, smart money, options,
+   macro) reporting **evidence, not verdicts**, each field marked `known_positive`,
+   `known_negative` or `unknown`.
+2. **Two hypothesis teams** — Continuation and Reversal — each building only its own case and
+   never seeing the other's reasoning.
+3. **A Risk Manager** that never judges direction.
 
 Read the result:
 
-- **`recommendation: "REJECTED"`** — the Risk Manager vetoed, or the veto seat was empty. **Drop
-  the name.** Six bearish experts cannot override it, and neither can you.
-- **`recommendation: "NO_TRADE"`** — fewer than 4 of 6 analysts bearish. A split committee is not
-  an edge. Drop it.
-- **`recommendation: "SHORT"`** — carry `consensus_confidence` forward.
+- **`decision: "SHORT"`** — reversal beat continuation by the required margin with positive
+  expected value. Use `confidence` and `position_size_pct`.
+- **`decision: "NO_TRADE"`** — the cases were too close, the reversal case too weak alone, or EV
+  was negative.
+- **`decision: "REJECTED"`** — the Risk Manager vetoed on an **objective execution** ground
+  (liquidity, earnings tomorrow, corporate action, invalid stop, unacceptable R:R, cannot size).
+  It may not veto on direction, and never for missing data.
 
-Then take the **lower** of `consensus_confidence` and the contradiction-adjusted confidence from
-Step D as the candidate's final `confidence`. Two independent checks disagreeing is information;
-taking the friendlier number throws it away.
+Carry `reversal_probability`, `continuation_probability`, `expected_value_r`, `risk_score` and
+`position_size_pct` into the candidate. Take the **lower** of this `confidence` and the
+contradiction-adjusted confidence from Step D.
 
-Put the committee's `vote_counts` and `rationale` in the candidate's `committee` field.
+**Unknown is never negative.** A missing option chain or unverifiable event trims confidence
+slightly and nothing more — it must never reject a trade.
 
 ### Confidence bands
 - **85-95** textbook: multiple distribution days or a clean exhaustion reversal, high RVOL at clear
@@ -412,9 +421,10 @@ for the dashboard and for your own audit trail.
                  "volume": 85, "relative_weakness": 72, "market_context": 60,
                  "momentum": 70, "volatility": 65, "news": 80,
                  "resistance_rejection": 84, "mean_reversion": 45},
-      "committee": {"recommendation": "SHORT", "consensus_confidence": 79,
-                    "vote_counts": {"bearish": 4, "bullish": 1, "neutral": 1, "reject": 0},
-                    "rationale": "4/6 analysts bearish; Risk Manager cleared..."},
+      "hypotheses": {"decision": "SHORT", "reversal_probability": 74,
+                     "continuation_probability": 38, "edge": 36,
+                     "expected_value_r": 1.22, "risk_score": "medium",
+                     "position_size_pct": 60, "unknown_findings": 4},
       "contradictions": {"major_count": 0, "minor_count": 1,
                          "confidence_penalty": 7.0,
                          "found": ["vix_collapsing"],
@@ -451,10 +461,13 @@ JSON object.**
   regime, score the factors, and let adaptive_scoring.py weight them.
 - Do not skip the contradiction check, and never publish the raw adaptive score as `confidence` —
   publish `final_adjusted_confidence`.
-- Do not reinstate a name the contradiction engine rejected, or one the Risk Manager vetoed.
-- Do not roleplay the committee yourself — run committee.py so the experts are genuinely
-  independent processes.
-- Do not take the friendlier of the committee and contradiction confidences. Take the lower.
+- Do not reinstate a name the contradiction engine rejected, or one vetoed on objective
+  execution grounds.
+- Do not roleplay the specialists or the hypothesis teams yourself — run hypothesis_engine.py so
+  they are genuinely independent processes.
+- Do not take the friendlier of the engine and contradiction confidences. Take the lower.
+- Do not discount a reversal case because the trend still looks healthy. Institutional
+  distribution BEGINS before trend deterioration — that is the setup, not a counter-argument.
 - Do not omit context keys to avoid a penalty. Unchecked is a blind spot, not a pass.
 - Do not short a stock merely because it has fallen a lot — that is where squeezes start.
 - Do not short into results, ex-dividend or an F&O ban.
