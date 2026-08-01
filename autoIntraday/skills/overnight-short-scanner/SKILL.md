@@ -43,7 +43,8 @@ A thesis that cannot be expressed as "short only below X" does not belong in the
 - SHORTSWING: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_shortswing.py`
 - INTRADAY: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_intraday.py`
 - OPTIONS: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/options_data.py`
-  (run with `/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python`)
+- SCORER: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/adaptive_scoring.py`
+  (both run with `/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python`)
 
 Always suppress stderr so stdout is clean JSON: `$PYTHON $SCRIPT ... 2>/dev/null`
 
@@ -235,33 +236,55 @@ violates it, so an incoherent row is a wasted slot.
 
 ---
 
-## Scoring model
+## Scoring model — ADAPTIVE, never fixed weights
 
-Score each dimension 0-100, then:
+**There is no fixed weight vector.** The importance of every factor depends on the market regime:
+trend decides a downtrend, resistance rejection decides a range, positioning decides expiry week.
 
+### Step A — classify the regime
+
+Pick every regime that applies (they co-occur — expiry week during high volatility is both):
+
+`strong_bull_trend` · `strong_bear_trend` · `sideways_range` · `high_volatility` ·
+`low_volatility` · `expiry_week` · `event_driven` · `earnings_heavy` · `panic_selling` ·
+`momentum_rally`
+
+Classify from evidence, not vibes: NIFTY trend and 20-day posture, India VIX level and direction
+(`market_context`), how close the nearest expiry is (`options_data.py` reports it), how many index
+names report results this week, and whether breadth is collapsing.
+
+### Step B — score each factor 0-100
+
+`price_action` · `trend` · `smart_money` · `options` · `volume` · `relative_weakness` ·
+`market_context` · `momentum` · `volatility` · `news` · `resistance_rejection` · `mean_reversion`
+
+Higher = more bearish. **Score `null`, never 0, when the data was unavailable** — zero is a bearish
+signal, absent is not. Conflating them turns a missing option chain into a short thesis.
+
+### Step C — let the engine compute the score
+
+```bash
+/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python \
+  /Users/mohdsuhel/ai-mini-projects/autoIntraday/adaptive_scoring.py \
+  --regimes expiry_week,high_volatility \
+  --scores '{"price_action":82,"trend":70,"smart_money":75,"options":null,"volume":68,
+             "relative_weakness":60,"market_context":55,"momentum":50,"volatility":58,
+             "news":65,"resistance_rejection":80,"mean_reversion":40}'
 ```
-Final Short Score =
-  0.20 × Price Action
-+ 0.15 × Trend
-+ 0.15 × Smart Money
-+ 0.12 × Options
-+ 0.10 × Volume
-+ 0.08 × Relative Weakness
-+ 0.08 × Market Context
-+ 0.05 × Momentum
-+ 0.04 × Volatility
-+ 0.03 × News
-```
 
-**Options is 12% of this model.** Score it from `options_data.py` — PCR, max pain versus spot, and
-whether price is rejecting a call wall. For a **cash-only name with no chain** (`available: false`)
-score it `null`, list it in `data_gaps`, and renormalise the remaining weights. Never substitute a
-guess: null and zero are different signals, and zero is itself bearish.
+**Do NOT do this arithmetic yourself.** The engine owns it so the weights are applied identically
+every night and can be audited afterwards; mental weighted-averaging gives a different answer each
+run, and this feeds real orders.
 
-`confidence` in the output is the Final Short Score after renormalisation.
+It returns `final_score`, the `weights_applied`, per-factor `contributions`, and an `explanation`
+naming why each weight changed and what was renormalised away. Put `final_score` in `confidence`
+and the `explanation` in `score_explanation`.
 
+`--list-regimes` prints every weight table if you want to see what a regime does before choosing.
+
+### Confidence bands
 - **85-95** textbook: multiple distribution days or a clean exhaustion reversal, high RVOL at clear
-  resistance, bearish regime, tight level
+  resistance, regime aligned, tight level
 - **75-84** solid, one element weaker
 - **70-74** marginal — include only if the list is thin
 - **Below 70** do not output it
@@ -283,8 +306,8 @@ for the dashboard and for your own audit trail.
 {
   "scan_date": "2026-07-31",
   "trade_date": "2026-08-01",
-  "regime": "neutral",
-  "regime_note": "NIFTY +0.1%, India VIX 11.8 (low, -3.3%), breadth mixed",
+  "regimes": ["expiry_week", "high_volatility"],
+  "regime_note": "NIFTY +0.1%, India VIX 11.8 (low, -3.3%), breadth mixed; expiry 2026-08-25",
   "data_gaps": ["futures_oi", "delivery_pct", "iv_gamma", "intraday_timeframes", "weekly_monthly"],
   "candidates": [
     {
@@ -308,7 +331,9 @@ for the dashboard and for your own audit trail.
       "options": {"pcr_oi": 0.71, "max_pain": 1200, "call_wall": 1280, "bearish_tilt": true},
       "scores": {"price_action": 88, "trend": 74, "smart_money": 80, "options": 78,
                  "volume": 85, "relative_weakness": 72, "market_context": 60,
-                 "momentum": 70, "volatility": 65, "news": 80},
+                 "momentum": 70, "volatility": 65, "news": 80,
+                 "resistance_rejection": 84, "mean_reversion": 45},
+      "score_explanation": "Weights adapted to regime — expiry_week: positioning drives price into expiry... Largest contributors: price_action (88 x 20%), ...",
       "primary_reasons": ["Bearish engulfing at the 1265 supply zone on 2.1x RVOL",
                           "Second distribution day in three sessions"],
       "secondary_reasons": ["Closed below SMA20", "RSI rolling over from 58"],
@@ -336,6 +361,8 @@ JSON object.**
 - Do not output a candidate without a `confirmation_level`.
 - Do not invent futures, delivery, IV or intraday-timeframe data. Mark it null.
 - Do not score the options dimension from memory — run options_data.py, or null it.
+- Do not compute the final score yourself, and never apply a fixed weight vector. Classify the
+  regime, score the factors, and let adaptive_scoring.py weight them.
 - Do not short a stock merely because it has fallen a lot — that is where squeezes start.
 - Do not short into results, ex-dividend or an F&O ban.
 - Do not pad the list. The consumer takes the top N; a weak fifth name only loses money.
