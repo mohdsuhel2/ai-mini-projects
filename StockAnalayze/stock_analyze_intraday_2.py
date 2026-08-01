@@ -145,10 +145,47 @@ def _interval_secs(iv: str) -> int:
     return 0
 
 
+# --- Point-in-time backtest cutoff ------------------------------------------------------------
+# When set, every fetch truncates to bars at or before this epoch and the "drop the forming
+# candle" test uses it instead of the wall clock — so a replay sees exactly what the live engine
+# would have seen at that moment, and nothing after. Set via --asof; None in normal operation.
+_ASOF_EPOCH: Optional[float] = None
+
+
+def set_asof(stamp: Optional[str]) -> Optional[float]:
+    """Parse 'YYYY-MM-DD HH:MM' (IST) into the cutoff epoch. Returns None when unset."""
+    global _ASOF_EPOCH
+    if not stamp:
+        _ASOF_EPOCH = None
+        return None
+    txt = stamp.strip()
+    fmt = "%Y-%m-%d %H:%M" if " " in txt else "%Y-%m-%d"
+    dt = datetime.strptime(txt, fmt).replace(tzinfo=IST)
+    if " " not in txt:                       # a bare date means the close of that session
+        dt = dt.replace(hour=15, minute=30)
+    _ASOF_EPOCH = dt.timestamp()
+    return _ASOF_EPOCH
+
+
+def _now_epoch() -> float:
+    return _ASOF_EPOCH if _ASOF_EPOCH is not None else time.time()
+
+
+def _truncate(bars):
+    """Drop daily bars after the cutoff. Daily bars carry a date string, not an epoch, so the
+    comparison is on the IST calendar date of the cutoff."""
+    if _ASOF_EPOCH is None or not bars:
+        return bars
+    cutoff = datetime.fromtimestamp(_ASOF_EPOCH, tz=IST).date().isoformat()
+    return [b for b in bars if str(b.date)[:10] <= cutoff]
+
+
 def fetch_yahoo_live_price(yh_symbol: str) -> Optional[Dict[str, Any]]:
     """The LIVE tick (Yahoo meta.regularMarketPrice) — used to sanity-check an entry/invalidation
     against the tape NOW, since the decision runs on the last CLOSED bar which can lag up to one
     interval. Never used for the label; only for freshness display. Returns None on any failure."""
+    if _ASOF_EPOCH is not None:
+        return None          # the live tick is TODAY's price — pure look-ahead in a replay
     url = ("https://query1.finance.yahoo.com/v8/finance/chart/"
            + urllib.parse.quote(yh_symbol, safe="") + "?interval=1m&range=1d")
     try:
@@ -214,10 +251,17 @@ def fetch_intraday_yahoo(yh_symbol: str, interval: str = "15m", rng: str = "5d")
         )
         epochs.append(int(ts))
 
+    # Point-in-time: discard anything at or after the cutoff before any other logic.
+    if _ASOF_EPOCH is not None:
+        keep = [i for i, e in enumerate(epochs) if e <= _ASOF_EPOCH]
+        bars = [bars[i] for i in keep]
+        epochs = [epochs[i] for i in keep]
+
     # Drop the still-FORMING final bar(s): any bar whose interval window has not closed yet.
+    # In replay this is measured against the cutoff, not the wall clock.
     step = _interval_secs(interval)
     if step:
-        now = time.time()
+        now = _now_epoch()
         while bars and epochs[-1] + step > now:
             bars.pop()
             epochs.pop()
@@ -1038,10 +1082,12 @@ def analyze_intraday(
         if not full:
             return None, None, None
         jobs = {
-            "daily": lambda: fetch_yahoo_chart(yh_symbol, "6mo", "1d"),
-            "m5": lambda: fetch_intraday_yahoo(yh_symbol, "5m", "5d"),
-            "vix": lambda: fetch_yahoo_chart("^INDIAVIX", "5d", "1d"),
-            "nifty": lambda: fetch_intraday_yahoo("^NSEI", "15m", "5d"),
+            "daily": lambda: _truncate(fetch_yahoo_chart(yh_symbol, "6mo", "1d")),
+            "m5": lambda: fetch_intraday_yahoo(yh_symbol, "5m",
+                                               "60d" if _ASOF_EPOCH is not None else "5d"),
+            "vix": lambda: _truncate(fetch_yahoo_chart("^INDIAVIX", "1mo", "1d")),
+            "nifty": lambda: fetch_intraday_yahoo("^NSEI", "15m",
+                                                  "60d" if _ASOF_EPOCH is not None else "5d"),
         }
         res: Dict[str, Any] = {}
         with ThreadPoolExecutor(max_workers=4) as ex:
@@ -1061,6 +1107,8 @@ def analyze_intraday(
             warnings.append(reason)
         yint = interval if interval.endswith("m") else interval.replace("min", "m")
         rng = "1mo" if full else "5d"  # 1mo of 15m ~ enough bars for EMA200 / ADX
+        if _ASOF_EPOCH is not None:
+            rng = "60d"                # replay needs history BEFORE the cutoff, not just recent
         try:
             bars = fetch_intraday_yahoo(yh_symbol, yint, rng)
         except (urllib.error.HTTPError, urllib.error.URLError, RuntimeError, KeyError, ValueError) as e:
@@ -1637,6 +1685,9 @@ def main() -> None:
                    help="account size (INR) for position sizing; default illustrative ₹5,00,000")
     p.add_argument("--risk", type=float, default=None,
                    help="risk %% per trade for position sizing; default 1.0 (halved on VIX half-size tilt)")
+    p.add_argument("--asof", default=None,
+                   help="POINT-IN-TIME replay: 'YYYY-MM-DD HH:MM' IST (bare date = that session's "
+                        "close). Truncates every feed to the cutoff and disables the live tick.")
     p.add_argument("--log-level", default=os.environ.get("LOG_LEVEL", "INFO"),
                    choices=("DEBUG", "INFO", "WARNING", "ERROR"))
     args = p.parse_args()
@@ -1656,10 +1707,18 @@ def main() -> None:
                 raise
             LOG.info("No AV key; auto mode will use Yahoo intraday.")
 
+    if args.asof:
+        set_asof(args.asof)
+        LOG.info("ASOF/BACKTEST mode — every feed truncated to %s; live tick disabled.", args.asof)
+
     report = analyze_intraday(
         args.symbol, source=args.source, interval=args.interval, apikey=apikey,
         min_interval=args.min_interval, outputsize=args.outputsize, full=not args.fast,
     )
+    if args.asof and "error" not in report:
+        report.setdefault("warnings", []).append(
+            f"ASOF/BACKTEST mode — as of {args.asof} IST; live price and news omitted "
+            f"(look-ahead)")
     # v2 addition: append the deterministic institutional-desk analytics (skill interprets these).
     if "error" not in report:
         report["institutional_desk"] = institutional_desk_block(report, args.capital, args.risk)
