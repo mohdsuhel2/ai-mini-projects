@@ -342,10 +342,11 @@ LIVE_MAX_DRIFT_PCT = 20.0     # a live tick further than this from the closed ba
 
 
 # Stages at which a fresh LONG is refused. Below these the radar only informs; it never blocks.
-_RADAR_BLOCK_STAGES = ("distribution", "high_probability_reversal")
+_RADAR_BLOCK_STAGES = ("distribution", "high_reversal_risk", "confirmed_reversal")
 # De-risking an OPEN long starts one stage earlier than blocking a NEW one: tightening a stop is
 # cheap and reversible, refusing an entry forgoes the trade entirely.
-_RADAR_DERISK_STAGES = ("early_exhaustion", "distribution", "high_probability_reversal")
+_RADAR_DERISK_STAGES = ("early_exhaustion", "distribution", "high_reversal_risk",
+                        "confirmed_reversal")
 
 
 def _radar(indicators: dict) -> dict | None:
@@ -510,6 +511,40 @@ def _day_low(indicators: dict) -> float:
     return float(indicators["price"]["day_low"])
 
 
+def _with_lifecycle(get_indicators: Callable[[str], dict]) -> Callable[[str], dict]:
+    """Attach the trend-lifecycle reading to every indicator payload.
+
+    The lifecycle is ADDITIONAL context, not a replacement for the skill's directional call. It
+    answers a question the bullish/bearish label cannot: how far through its life this trend is.
+    A trend can be genuinely intact and also finished — that is `mature_trend`, which was 47% of
+    the 1,296 calibrated readings and had no binary equivalent.
+
+    Wrapped here rather than at the four `engine.decide` sites so no future call site can forget
+    it. Failure is silent by design: the lifecycle must never cost us a cycle.
+    """
+    def wrapped(symbol: str) -> dict:
+        ind = get_indicators(symbol)
+        try:
+            reading = _radar(ind)
+            # A payload with no bars falls back to healthy_trend/0% — publishing that would tell
+            # the skill "healthy" when the truth is "unreadable". Omit it instead: absent evidence
+            # must stay absent, in either direction.
+            if reading and "insufficient_bars" not in reading["unknown_signals"]:
+                ind = dict(ind)
+                ind["trend_lifecycle"] = {
+                    "stage": reading["lifecycle_stage"],
+                    "stage_index": reading["lifecycle_index"],
+                    "reversal_probability": reading["reversal_probability"],
+                    "next_bar_transition_pct": reading["transitions"],
+                    "note": ("Where this trend is in its life, measured over 81 sessions. "
+                             "Context only — it is not a direction and not a decision."),
+                }
+        except Exception:                                   # pragma: no cover - belt and braces
+            log.debug("lifecycle annotation failed for %s", symbol, exc_info=True)
+        return ind
+    return wrapped
+
+
 class Orchestrator:
     def __init__(self, store, client, engine, get_indicators: Callable[[str], dict],
                  get_candidates: Callable[..., list], now_provider: Callable[[], datetime] = _utc_now,
@@ -517,7 +552,7 @@ class Orchestrator:
         self.store = store
         self.client = client
         self.engine = engine
-        self.get_indicators = get_indicators
+        self.get_indicators = _with_lifecycle(get_indicators)
         self.get_candidates = get_candidates
         self.now_provider = now_provider
         self.screen_engine = screen_engine   # non-None -> one-shot skill screening for entries

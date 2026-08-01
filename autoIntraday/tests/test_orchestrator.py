@@ -3046,7 +3046,8 @@ def test_radar_refuses_a_long_into_a_distributing_trend():
     """The radar runs BEFORE the decision is acted on. A LONG into distribution is refused —
     risk reduction that needs no price confirmation."""
     from orchestrator import _RADAR_BLOCK_STAGES
-    assert _RADAR_BLOCK_STAGES == ("distribution", "high_probability_reversal")
+    assert _RADAR_BLOCK_STAGES == ("distribution", "high_reversal_risk",
+                                   "confirmed_reversal")
 
 
 def test_radar_never_opens_a_short_by_itself():
@@ -3109,3 +3110,56 @@ def test_radar_derisk_is_long_only_and_config_gated():
     assert 'position.side != "LONG"' in src, "de-risk must not touch shorts"
     assert "radar_exit_enabled" in src, "must be behind a config flag"
     assert "_should_square_off" in src, "must not fight the square-off window"
+
+
+# ---- Trend Lifecycle wiring (2026-08-01) -----------------------------------------------------
+def _readable_tape():
+    """`_indic` carries no candles, so the radar cannot read it. This one can be read."""
+    bars = [{"t": f"{9 + i // 4:02d}:{(i * 15) % 60:02d}", "o": 100 + i, "h": 101 + i,
+             "l": 99.5 + i, "c": 100.8 + i, "v": 1000} for i in range(12)]
+    d = _indic(last=111.8, high=112.0, low=99.5)
+    d["recent_bars"] = bars
+    return d
+
+
+def test_lifecycle_is_attached_to_every_indicator_payload():
+    """Wrapped once at construction so no decide() call site can forget it."""
+    from orchestrator import _with_lifecycle
+    ind = _with_lifecycle(lambda s: _readable_tape())("X")
+    lc = ind["trend_lifecycle"]
+    from reversal_radar import LIFECYCLE
+    assert lc["stage"] in LIFECYCLE
+    assert lc["stage_index"] == LIFECYCLE.index(lc["stage"])
+    assert isinstance(lc["next_bar_transition_pct"], dict)
+    assert "not a decision" in lc["note"]
+
+
+def test_lifecycle_is_context_only_and_never_overrides_the_directional_call():
+    """It adds a key; it does not touch anything the skill's methodology reads."""
+    from orchestrator import _with_lifecycle
+    base = _readable_tape()
+    out = _with_lifecycle(lambda s: base)("X")
+    assert set(out) - set(base) == {"trend_lifecycle"}
+    for k in base:
+        assert out[k] == base[k]
+
+
+def test_a_lifecycle_failure_never_costs_a_cycle():
+    from orchestrator import _with_lifecycle
+    thin = {"price": {"ltp": 100.0}}                 # no bars: unreadable, so nothing is claimed
+    assert _with_lifecycle(lambda s: thin)("X") == thin
+    assert "trend_lifecycle" not in _with_lifecycle(lambda s: thin)("X")
+
+    def boom(_):
+        return {"price": None}                        # radar will throw on this
+    assert _with_lifecycle(boom)("X") == {"price": None}
+
+
+def test_the_block_and_derisk_lists_only_name_real_lifecycle_states():
+    """The rename to the eight-state lifecycle silently emptied the top of both lists once — the
+    old 'high_probability_reversal' no longer existed, so nothing matched it."""
+    from orchestrator import _RADAR_BLOCK_STAGES, _RADAR_DERISK_STAGES
+    from reversal_radar import LIFECYCLE
+    for stage in set(_RADAR_BLOCK_STAGES) | set(_RADAR_DERISK_STAGES):
+        assert stage in LIFECYCLE, f"{stage} is not a lifecycle state"
+    assert "confirmed_reversal" in _RADAR_BLOCK_STAGES

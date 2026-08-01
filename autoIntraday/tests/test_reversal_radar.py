@@ -33,9 +33,13 @@ def test_it_never_returns_a_trading_decision():
     assert "never" in out["note"].lower()
 
 
-def test_all_five_stages_exist_and_are_ordered():
-    assert STAGES == ("healthy_trend", "late_trend", "early_exhaustion", "distribution",
-                      "high_probability_reversal")
+def test_stages_alias_the_lifecycle_so_older_callers_keep_working():
+    """The original five stages became the eight-state lifecycle; `STAGES` is kept as an alias so
+    nothing that imported it has to change."""
+    from reversal_radar import LIFECYCLE
+    assert STAGES is LIFECYCLE
+    for kept in ("healthy_trend", "late_trend", "early_exhaustion", "distribution"):
+        assert kept in STAGES
 
 
 def test_probability_is_bounded_and_stage_matches_it():
@@ -127,8 +131,9 @@ def test_a_quiet_trend_reads_healthy_and_a_parabolic_top_reads_exhausted():
                   atr=1.0, bb_percent_b=0.98, rvol=2.6,
                   stock_change_pct=3.0, index_change_pct=0.2, sector_change_pct=-0.5)
     assert quiet.probability < hot.probability
-    assert quiet.stage in ("healthy_trend", "late_trend")
-    assert hot.stage in ("distribution", "high_probability_reversal")
+    # a flat, driftless tape is not "healthy" — it is mature: intact but no longer going anywhere.
+    assert quiet.stage in ("strong_trend", "healthy_trend", "mature_trend", "late_trend")
+    assert hot.stage in ("distribution", "high_reversal_risk", "confirmed_reversal")
 
 
 # ---- unknown handling -----------------------------------------------------------------------
@@ -162,3 +167,68 @@ def test_analysis_is_deterministic():
     a = analyse(bars, rsi_series=[80] * 8, rvol=2.1, ema20=95.0, atr=1.0)
     b = analyse(bars, rsi_series=[80] * 8, rvol=2.1, ema20=95.0, atr=1.0)
     assert a.as_dict() == b.as_dict()
+
+
+# ---- Trend Lifecycle (2026-08-01) ------------------------------------------------------------
+# Replaces binary bullish/bearish. A trend AGES rather than flipping — the binary label is what
+# let a trend expert call INDUSINDBK "bullish, 88%, perfect MA alignment" the day before it fell
+# 6%: the trend really was intact, and also finished.
+
+def test_all_eight_lifecycle_states_exist_in_order():
+    from reversal_radar import LIFECYCLE
+    assert LIFECYCLE == ("strong_trend", "healthy_trend", "mature_trend", "late_trend",
+                         "early_exhaustion", "distribution", "high_reversal_risk",
+                         "confirmed_reversal")
+
+
+def test_young_states_split_by_trend_quality_not_exhaustion():
+    """`mature` is the state binary had no way to express: not exhausted, but gone ragged."""
+    from reversal_radar import _young_stage
+    assert _young_stage(0.8, 0.7) == "strong_trend"      # clean AND driving
+    assert _young_stage(0.8, 0.2) == "healthy_trend"     # one of the two
+    assert _young_stage(0.3, 0.7) == "healthy_trend"
+    assert _young_stage(0.3, 0.2) == "mature_trend"      # neither
+
+
+def test_confirmed_reversal_requires_price_not_a_bigger_score():
+    """Gated on score alone it was unreachable — 0 of 1,296 measured readings hit it. 'Confirmed'
+    must mean price confirmed: a break of the recent swing low."""
+    from reversal_radar import STAGE_CUTS
+    assert "confirmed_reversal" not in [s for _, s in STAGE_CUTS]
+
+
+def test_transition_rows_sum_to_about_one_hundred():
+    from reversal_radar import LIFECYCLE, TRANSITIONS
+    for s in LIFECYCLE:
+        row = TRANSITIONS.get(s) or {}
+        if row:
+            assert abs(sum(row.values()) - 100) < 1.5, f"{s} sums to {sum(row.values())}"
+        assert set(row) <= set(LIFECYCLE), f"{s} references an unknown state"
+
+
+def test_the_model_never_jumps_from_a_young_state_to_a_failing_one():
+    """The core requirement: no abrupt bullish->bearish switch. Measured transitions show young
+    states never move straight to high_reversal_risk or confirmed_reversal."""
+    from reversal_radar import TRANSITIONS
+    for young in ("strong_trend", "healthy_trend", "mature_trend"):
+        row = TRANSITIONS.get(young) or {}
+        assert row.get("high_reversal_risk", 0) == 0
+        assert row.get("confirmed_reversal", 0) == 0
+
+
+def test_trends_are_sticky_which_is_why_flipping_was_wrong():
+    from reversal_radar import TRANSITIONS
+    assert TRANSITIONS["mature_trend"]["mature_trend"] > 50      # 63% measured
+    assert TRANSITIONS["healthy_trend"]["healthy_trend"] > 40     # 50.7%
+
+
+def test_reading_publishes_lifecycle_and_transitions():
+    out = analyse(_parabolic(), rsi_series=[85, 84, 83, 82, 81, 80, 79, 78], rvol=2.5,
+                  ema20=90.0, atr=1.0, bb_percent_b=0.99).as_dict()
+    from reversal_radar import LIFECYCLE
+    assert out["lifecycle_stage"] in LIFECYCLE
+    assert out["lifecycle_index"] == LIFECYCLE.index(out["lifecycle_stage"])
+    assert isinstance(out["transitions"], dict)
+    # still no trading decision, however many states we add
+    for forbidden in ("action", "decision", "side", "recommendation"):
+        assert forbidden not in out

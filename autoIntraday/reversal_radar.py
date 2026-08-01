@@ -26,11 +26,50 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 
-# Stages, weakest to strongest. Thresholds are on the 0-100 probability.
-STAGES = ("healthy_trend", "late_trend", "early_exhaustion", "distribution",
-          "high_probability_reversal")
-STAGE_CUTS = ((80, "high_probability_reversal"), (65, "distribution"),
-              (45, "early_exhaustion"), (25, "late_trend"), (0, "healthy_trend"))
+# --- Trend Lifecycle -------------------------------------------------------------------------
+# A trend is not bullish-or-bearish; it AGES. These eight states are ordered youngest to oldest,
+# and a stock moves along them rather than flipping. The binary label is what let a trend expert
+# call INDUSINDBK "bullish, 88%, perfect MA alignment" on 2026-07-22, the day before it fell 6%:
+# the trend really was intact, and also finished.
+#
+# Position 0-3 describe a working trend, 4-7 a failing one. `strong` and `mature` are separated
+# from `healthy` by trend QUALITY (how clean the advance is), not by exhaustion.
+LIFECYCLE = ("strong_trend", "healthy_trend", "mature_trend", "late_trend",
+             "early_exhaustion", "distribution", "high_reversal_risk", "confirmed_reversal")
+
+# P(next stage | current stage), in %, MEASURED over 1,296 point-in-time readings across 81
+# sessions on 2026-08-01 — not invented. Two things it shows: trends are sticky (mature->mature
+# 63%), and movement is gradual — no row jumps from a young state to a failing one, which is the
+# smooth progression the binary label could not express.
+TRANSITIONS: dict[str, dict[str, float]] = {
+    "strong_trend":       {"strong_trend": 30.0, "healthy_trend": 33.3, "mature_trend": 8.3,
+                           "late_trend": 20.0, "early_exhaustion": 3.3, "distribution": 5.0},
+    "healthy_trend":      {"strong_trend": 5.3, "healthy_trend": 50.7, "mature_trend": 37.3,
+                           "late_trend": 4.5, "early_exhaustion": 1.9, "distribution": 0.3},
+    "mature_trend":       {"strong_trend": 1.4, "healthy_trend": 26.1, "mature_trend": 63.0,
+                           "late_trend": 5.4, "early_exhaustion": 2.9, "distribution": 1.2},
+    "late_trend":         {"strong_trend": 5.5, "healthy_trend": 14.2, "mature_trend": 28.3,
+                           "late_trend": 33.9, "early_exhaustion": 11.0, "distribution": 5.5,
+                           "high_reversal_risk": 1.6},
+    "early_exhaustion":   {"strong_trend": 3.8, "healthy_trend": 17.3, "mature_trend": 32.7,
+                           "late_trend": 23.1, "early_exhaustion": 15.4, "distribution": 7.7},
+    "distribution":       {"healthy_trend": 10.5, "mature_trend": 10.5, "late_trend": 31.6,
+                           "early_exhaustion": 36.8, "distribution": 5.3,
+                           "high_reversal_risk": 5.3},
+    "high_reversal_risk": {"late_trend": 100.0},
+    "confirmed_reversal": {},
+}
+
+# Exhaustion probability -> lifecycle stage. Cuts for the four exhaustion states are unchanged
+# from the validated radar; the young end is split by quality (see `_young_stage`).
+# `confirmed_reversal` is NOT on this ladder — it is the one state that requires PRICE to confirm
+# (a break of the recent swing low), because "confirmed" cannot mean "a higher exhaustion score".
+# Gated on score alone it was unreachable: 0 of 1296 measured readings ever hit it.
+STAGE_CUTS = ((72, "high_reversal_risk"), (58, "distribution"),
+              (42, "early_exhaustion"), (28, "late_trend"), (0, "_young"))
+
+# Backwards-compatible alias — the entry gate and de-risk gate reference these names.
+STAGES = LIFECYCLE
 
 # Each signal contributes its weight when present. Weights are a starting calibration, not
 # evidence-derived — tune them from the replay, not from intuition.
@@ -75,9 +114,13 @@ class Reading:
     signals: list = field(default_factory=list)      # fired, strongest first
     unknown: list = field(default_factory=list)      # could not evaluate
     evidence: dict = field(default_factory=dict)     # raw numbers behind the calls
+    transitions: dict = field(default_factory=dict)  # P(next stage) — empirical, see TRANSITIONS
 
     def as_dict(self) -> dict[str, Any]:
         return {"reversal_probability": round(self.probability, 1), "reversal_stage": self.stage,
+                "lifecycle_stage": self.stage,
+                "lifecycle_index": LIFECYCLE.index(self.stage) if self.stage in LIFECYCLE else None,
+                "transitions": self.transitions,
                 "signals": self.signals, "unknown_signals": self.unknown,
                 "evidence": self.evidence,
                 "note": "ESTIMATE ONLY — never a trading decision. Use to suppress new longs and "
@@ -92,6 +135,28 @@ def _upper_shadow(c: Candle) -> float:
 def _body_frac(c: Candle) -> float:
     rng = c.h - c.l
     return (abs(c.c - c.o) / rng) if rng > 0 else 0.0
+
+
+def st_mean(v):
+    v = [x for x in v if x is not None]
+    return sum(v) / len(v) if v else 0.0
+
+
+def _young_stage(close_strength: float, drive: float) -> str:
+    """Split a not-yet-exhausted trend by QUALITY, not by exhaustion.
+
+    strong  — closing high in range AND making real progress: a clean, driving advance.
+    healthy — one of the two.
+    mature  — neither: still not exhausted, but the advance has gone ragged. This is the state
+              the binary label had no way to express.
+    """
+    clean = close_strength >= 0.6
+    driving = drive >= 0.5
+    if clean and driving:
+        return "strong_trend"
+    if clean or driving:
+        return "healthy_trend"
+    return "mature_trend"
 
 
 def _slope(vals: Sequence[float]) -> Optional[float]:
@@ -242,16 +307,35 @@ def analyse(candles: Sequence[Candle], *, rsi_series: Optional[Sequence[float]] 
         unknown.append("relative_weakness")
 
     # --- score -----------------------------------------------------------------------------
+    # --- trend quality, which separates the young states ---------------------------------
+    # A trend can be young and RAGGED (mature) or young and CLEAN (strong). Measured on how
+    # consistently the recent bars close in their upper range and make progress.
+    closes_hi = st_mean([( (c.c - c.l) / (c.h - c.l) ) for c in recent if c.h > c.l] or [0.5])
+    span = max(x.h for x in recent) - min(x.l for x in recent)
+    drive = (abs(recent[-1].c - recent[0].c) / span) if span else 0.0
+    ev["close_strength"], ev["drive"] = round(closes_hi, 2), round(drive, 2)
+
     raw = sum(w for w, _ in fired)
     # Normalise against the weight that was actually EVALUABLE, so a thin feed does not read as a
     # healthy trend simply because signals could not be checked.
     checkable = sum(w for n, w in WEIGHTS.items() if n not in unknown)
     prob = min(100.0, (raw / checkable * 100.0)) if checkable else 0.0
     stage = next(s for cut, s in STAGE_CUTS if prob >= cut)
+    if stage == "_young":
+        stage = _young_stage(closes_hi, drive)
+    # The single state that needs price, not score: an exhausting trend that has actually broken
+    # its recent swing low is no longer "at risk" — it has turned.
+    lows = [c.l for c in candles]
+    swing_low = min(lows[-8:-1]) if len(lows) >= 8 else min(lows[:-1] or lows)
+    ev["swing_low"] = round(swing_low, 2)
+    if stage in ("distribution", "high_reversal_risk") and last.c < swing_low:
+        stage = "confirmed_reversal"
+    ev["lifecycle_index"] = LIFECYCLE.index(stage)
 
     return Reading(probability=prob, stage=stage,
                    signals=[n for _, n in sorted(fired, reverse=True)],
-                   unknown=unknown, evidence=ev)
+                   unknown=unknown, evidence=ev,
+                   transitions=dict(TRANSITIONS.get(stage, {})))
 
 
 def from_indicator_json(payload: dict) -> Reading:
