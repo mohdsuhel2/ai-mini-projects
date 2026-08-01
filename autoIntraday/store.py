@@ -114,6 +114,16 @@ class Config:
     rotation_min_hold_minutes: int = 20
     rotation_confirm_cycles: int = 2
     rotation_screen_every: int = 3
+    # Early Reversal Prediction Engine on OPEN longs: at early_exhaustion+ the stop ratchets up to
+    # radar_stop_pct below the tape. NEVER closer than radar_stop_floor_pct — the 2026-07-30
+    # post-mortem had trailed stops at 0.07-0.17% of entry being taken out by noise.
+    # OFF by default. Backtested on 2026-07-31: de-risking at 1% below the tape cut winners
+    # short (BALKRISIND +2,385 vs +4,568 actual) and cost -6,267 across the day. The radar was
+    # right that those trends were exhausting; a 1% trailing stop is simply inside the noise of
+    # the -0.77% average fall that followed. Needs calibration before it goes live.
+    radar_exit_enabled: bool = False
+    radar_stop_pct: float = 1.0
+    radar_stop_floor_pct: float = 0.5
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -121,6 +131,7 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "compare_enabled", "live_strategy", "paper_strategy", "compare_strategies",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
+                  "radar_exit_enabled", "radar_stop_pct", "radar_stop_floor_pct",
                   "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
                   "rotation_confirm_cycles", "rotation_screen_every",
                   "rr_gate_pre_margin", "rr_gate_enabled", "exit_mode", "arm_exit_enabled",
@@ -542,7 +553,10 @@ class Store:
                          ("rotation_margin", "REAL NOT NULL DEFAULT 15.0"),
                          ("rotation_min_hold_minutes", "INTEGER NOT NULL DEFAULT 20"),
                          ("rotation_confirm_cycles", "INTEGER NOT NULL DEFAULT 2"),
-                         ("rotation_screen_every", "INTEGER NOT NULL DEFAULT 3")):
+                         ("rotation_screen_every", "INTEGER NOT NULL DEFAULT 3"),
+                         ("radar_exit_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                         ("radar_stop_pct", "REAL NOT NULL DEFAULT 1.0"),
+                         ("radar_stop_floor_pct", "REAL NOT NULL DEFAULT 0.5")):
             if col not in ccols:
                 self._conn.execute(f"ALTER TABLE config ADD COLUMN {col} {ddl}")
         vcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(swing_verdicts)")}
@@ -600,7 +614,10 @@ class Store:
                       rotation_margin=r["rotation_margin"],
                       rotation_min_hold_minutes=r["rotation_min_hold_minutes"],
                       rotation_confirm_cycles=r["rotation_confirm_cycles"],
-                      rotation_screen_every=r["rotation_screen_every"])
+                      rotation_screen_every=r["rotation_screen_every"],
+                      radar_exit_enabled=bool(r["radar_exit_enabled"]),
+                      radar_stop_pct=r["radar_stop_pct"],
+                      radar_stop_floor_pct=r["radar_stop_floor_pct"])
 
     def update_config(self, **fields) -> Config:
         for key in fields:

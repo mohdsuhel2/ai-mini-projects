@@ -3064,3 +3064,48 @@ def test_a_radar_failure_never_blocks_a_cycle():
     from orchestrator import _radar
     assert _radar({}) is None or isinstance(_radar({}), dict)
     assert _radar(None) is None or isinstance(_radar(None), dict)
+
+
+# ---- radar de-risk on OPEN longs (2026-08-01) ------------------------------------------------
+# On 2026-07-31 the radar flagged AVALON at 11:30 (-2.14% into the close) and DEEPAKFERT at 12:15
+# (-2.84%) — both AFTER entry, so the entry gate could not help. 13 of 14 flags that day preceded
+# a fall vs a 58% baseline. This tightens the stop under a fading long; it never opens a short.
+
+def test_radar_stop_ratchets_up_only():
+    """A looser stop is never an improvement — the trail rule the whole system runs on."""
+    from orchestrator import radar_tightened_stop
+    assert radar_tightened_stop(90.0, 100.0, 1.0, 0.5) == 99.0     # 90 -> 99, tighter
+    assert radar_tightened_stop(99.5, 100.0, 1.0, 0.5) is None     # already tighter, refuse
+    assert radar_tightened_stop(99.0, 100.0, 1.0, 0.5) is None     # equal, refuse
+
+
+def test_radar_stop_never_breaches_the_noise_floor():
+    """2026-07-30: trailed stops reached 0.07-0.17% of entry and were taken out by noise. A
+    radar-driven tighten must not recreate that."""
+    from orchestrator import radar_tightened_stop
+    tight = radar_tightened_stop(90.0, 100.0, 0.05, 0.5)           # asked for 0.05%
+    assert tight == 99.5                                            # clamped to the 0.5% floor
+    assert tight < 100.0
+
+
+def test_radar_stop_handles_a_position_with_no_stop_yet():
+    from orchestrator import radar_tightened_stop
+    assert radar_tightened_stop(None, 100.0, 1.0, 0.5) == 99.0
+    assert radar_tightened_stop(90.0, 0, 1.0, 0.5) is None          # no usable price
+
+
+def test_derisk_starts_one_stage_earlier_than_blocking():
+    """Tightening a stop is cheap and reversible; refusing an entry forgoes the trade."""
+    from orchestrator import _RADAR_BLOCK_STAGES, _RADAR_DERISK_STAGES
+    assert "early_exhaustion" in _RADAR_DERISK_STAGES
+    assert "early_exhaustion" not in _RADAR_BLOCK_STAGES
+    assert set(_RADAR_BLOCK_STAGES) < set(_RADAR_DERISK_STAGES)
+
+
+def test_radar_derisk_is_long_only_and_config_gated():
+    import inspect
+    from orchestrator import Orchestrator
+    src = inspect.getsource(Orchestrator._maybe_radar_derisk)
+    assert 'position.side != "LONG"' in src, "de-risk must not touch shorts"
+    assert "radar_exit_enabled" in src, "must be behind a config flag"
+    assert "_should_square_off" in src, "must not fight the square-off window"

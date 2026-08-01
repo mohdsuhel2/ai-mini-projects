@@ -343,6 +343,9 @@ LIVE_MAX_DRIFT_PCT = 20.0     # a live tick further than this from the closed ba
 
 # Stages at which a fresh LONG is refused. Below these the radar only informs; it never blocks.
 _RADAR_BLOCK_STAGES = ("distribution", "high_probability_reversal")
+# De-risking an OPEN long starts one stage earlier than blocking a NEW one: tightening a stop is
+# cheap and reversible, refusing an entry forgoes the trade entirely.
+_RADAR_DERISK_STAGES = ("early_exhaustion", "distribution", "high_probability_reversal")
 
 
 def _radar(indicators: dict) -> dict | None:
@@ -357,6 +360,24 @@ def _radar(indicators: dict) -> dict | None:
     except Exception:
         log.debug("reversal radar unavailable", exc_info=True)
         return None
+
+
+def radar_tightened_stop(current_stop, price: float, radar_pct: float, floor_pct: float):
+    """Stop implied by an exhaustion reading — ratchet ONLY, and never inside the floor.
+
+    Two rules, both learned the hard way on 2026-07-30: a stop may only move toward profit (a
+    looser stop is never an improvement), and it may never sit closer than floor_pct to the tape.
+    Trailed stops at 0.07-0.17% of entry were taken out by noise that was not an invalidation.
+    Returns None when the reading implies nothing tighter than what is already set.
+    """
+    if not price or price <= 0:
+        return None
+    want = price * (1 - radar_pct / 100.0)
+    ceiling = price * (1 - floor_pct / 100.0)       # nothing closer to price than the floor
+    want = min(want, ceiling)
+    if current_stop is not None and want <= float(current_stop):
+        return None                                  # would loosen or not move — refuse
+    return round(want, 2)
 
 
 def _held_minutes(position) -> int | None:
@@ -868,6 +889,38 @@ class Orchestrator:
                                            position_id=position.id)
         return exits
 
+    def _maybe_radar_derisk(self, run_id: int, position, indicators, cfg) -> None:
+        """Tighten an open LONG's stop when the Early Reversal engine reads exhaustion.
+
+        De-risking, not shorting: the radar may pull the stop up under a fading long, never open
+        a position. On 2026-07-31 it flagged AVALON at 11:30 (-2.14% into the close) and
+        DEEPAKFERT at 12:15 (-2.84%), both AFTER entry — the entry gate could not have helped,
+        this can. 13 of 14 flags that day preceded a fall, against a 58% baseline.
+        """
+        if not getattr(cfg, "radar_exit_enabled", False) or position.side != "LONG":
+            return
+        if _should_square_off(indicators):
+            return
+        radar = _radar(indicators)
+        if not radar or radar["reversal_stage"] not in _RADAR_DERISK_STAGES:
+            return
+        px = _ltp(indicators)
+        new_stop = radar_tightened_stop(position.stop_loss, px, cfg.radar_stop_pct,
+                                        cfg.radar_stop_floor_pct)
+        if new_stop is None or not _stop_is_sane(position.side, new_stop, px):
+            return
+        self.store.update_position_levels(position.id, stop_loss=new_stop,
+                                          target_price=position.target_price)
+        self.store.record_decision(
+            run_id=run_id, symbol=position.symbol, action="ADJUSTED",
+            reason=(f"radar de-risk: {radar['reversal_stage']} "
+                    f"({radar['reversal_probability']:.0f}%) — stop {position.stop_loss}"
+                    f"->{new_stop} · {', '.join(radar['signals'][:3])}"),
+            stop_loss=new_stop, target_price=position.target_price, position_id=position.id)
+        log.warning("RADAR DE-RISK %s: %s (%.0f%%) stop %s -> %s", position.symbol,
+                    radar["reversal_stage"], radar["reversal_probability"],
+                    position.stop_loss, new_stop)
+
     def _book_context(self) -> dict:
         """Day-level state attached to EVERY decide() call, held or flat.
 
@@ -1001,6 +1054,8 @@ class Orchestrator:
         # has SOME stop, then re-sync the broker bracket so a level that just moved is resting at
         # the broker now rather than a cycle from now (_ensure_leg is a no-op when it already is).
         self._maybe_trail(run_id, position, decision, indicators)
+        position = self.store.get_position(position.id)
+        self._maybe_radar_derisk(run_id, position, indicators, cfg)
         position = self.store.get_position(position.id)
         self._ensure_protective_stop(run_id, position, indicators)
         if eager:
