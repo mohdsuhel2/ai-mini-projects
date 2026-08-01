@@ -422,6 +422,22 @@ class GrowwClient:
             start_time=start_time, end_time=end_time, interval_in_minutes=interval_minutes))
         return {"candles": list(raw.get("candles") or [])}
 
+    def get_option_chain(self, underlying: str, expiry_date: str) -> dict[str, Any]:
+        """Full option chain incl. per-strike OI and greeks — the source for PCR, max pain and
+        call-writing resistance in the overnight short scan.
+
+        expiry_date is 'YYYY-MM-DD'. Raises GrowwClientError on a bad/unlisted expiry rather than
+        returning an empty chain, so a caller cannot mistake "no data" for "no open interest".
+        """
+        self._require_auth()
+        if self._sdk is _GATEWAY_READY:
+            return self._via_gateway().get_option_chain(underlying, expiry_date)
+        raw = _retry(lambda: self._sdk.get_option_chain(
+            exchange="NSE", underlying=underlying.upper(), expiry_date=expiry_date))
+        if not raw:
+            raise GrowwClientError(f"empty option chain for {underlying} {expiry_date}")
+        return raw
+
     def get_holdings(self) -> list[dict]:
         self._require_auth()
         if self._sdk is _GATEWAY_READY:

@@ -42,6 +42,8 @@ A thesis that cannot be expressed as "short only below X" does not belong in the
 - PYTHON: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/.venv/bin/python`
 - SHORTSWING: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_shortswing.py`
 - INTRADAY: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_intraday.py`
+- OPTIONS: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/options_data.py`
+  (run with `/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python`)
 
 Always suppress stderr so stdout is clean JSON: `$PYTHON $SCRIPT ... 2>/dev/null`
 
@@ -83,7 +85,30 @@ $PYTHON $INTRADAY -s RELIANCE --source yahoo 2>/dev/null
 Read `market_context` — it carries `india_vix` (level, change, regime) and `nifty` (day change,
 trend). One call is enough; the block is market-wide, not symbol-specific.
 
-### Step 4 — per-name depth (shortlist only)
+### Step 4 — options positioning (shortlist only)
+
+```bash
+/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python \
+  /Users/mohdsuhel/ai-mini-projects/autoIntraday/options_data.py --symbol <SYMBOL>
+```
+
+Returns `{available, pcr_oi, max_pain, call_wall, put_wall, heaviest_call_oi_strikes,
+heaviest_put_oi_strikes, spot, max_pain_vs_spot_pct, bearish_tilt}` for the next monthly expiry
+(override with `--expiry YYYY-MM-DD`). Goes through the Groww gateway, so it works from here.
+
+How to read it for a short:
+- **`pcr_oi` below ~0.8** — calls dominate. Writers are betting price stays below those strikes: a
+  bearish tilt.
+- **`max_pain` below spot** (`bearish_tilt: true`) — the pin is beneath the current price, which
+  pulls it down into expiry.
+- **`call_wall`** — the heaviest call OI strike is a hard ceiling. A stock rejecting there is a
+  high-quality reversal short; that wall is your invalidation reference.
+- **`put_wall`** — heavy put OI is support. A target below it is fighting the positioning.
+
+**Not every underlying has options.** Only F&O names do. `available: false` is normal for a
+cash-only stock — score the options dimension `null` for it, do not treat it as bearish.
+
+### Step 5 — per-name depth and relative strength (shortlist only)
 
 ```bash
 $PYTHON $SHORTSWING -s <SYMBOL> --benchmark 2>/dev/null
@@ -110,9 +135,13 @@ headroom_to_resistance_pct, volume_spike_*, extended_in_20d_range) · `news[]` �
 **Obtainable only by web search:** results/earnings dates, ex-dividend, board meetings, block/bulk
 deals, promoter activity, FII/DII flows, global markets, Gift Nifty, crude, USDINR, sector news.
 
-**NOT available from any tool here:** options OI, PCR, Max Pain, gamma levels, call writing, IV ·
-futures OI, basis, cost of carry, rollovers · delivery percentage · true intraday 5m/15m/30m/1h/4h
-structure for tomorrow · weekly/monthly candles.
+**Available via `options_data.py` (F&O names only):** per-strike open interest, PCR, max pain,
+call/put OI walls, heaviest-OI strikes. `available: false` means the name has no chain — normal
+for cash-only stocks.
+
+**NOT available from any tool here:** IV and gamma levels · futures OI, basis, cost of carry,
+rollovers · delivery percentage · true intraday 5m/15m/30m/1h/4h structure for tomorrow ·
+weekly/monthly candles.
 
 **Hard rule: if a dimension is unavailable, score it `null` and say so. Never invent an OI figure,
 a PCR, a delivery percentage or a gamma level.** A fabricated options read is far worse than an
@@ -224,9 +253,10 @@ Final Short Score =
 + 0.03 × News
 ```
 
-**Options is 12% of this model and is NOT available from the tools.** Score it `null` and
-renormalise the remaining weights over the dimensions you actually have. State in
-`data_gaps` which ones were null. Do not quietly substitute a guess.
+**Options is 12% of this model.** Score it from `options_data.py` — PCR, max pain versus spot, and
+whether price is rejecting a call wall. For a **cash-only name with no chain** (`available: false`)
+score it `null`, list it in `data_gaps`, and renormalise the remaining weights. Never substitute a
+guess: null and zero are different signals, and zero is itself bearish.
 
 `confidence` in the output is the Final Short Score after renormalisation.
 
@@ -255,7 +285,7 @@ for the dashboard and for your own audit trail.
   "trade_date": "2026-08-01",
   "regime": "neutral",
   "regime_note": "NIFTY +0.1%, India VIX 11.8 (low, -3.3%), breadth mixed",
-  "data_gaps": ["options_oi", "futures_oi", "delivery_pct", "intraday_timeframes", "weekly_monthly"],
+  "data_gaps": ["futures_oi", "delivery_pct", "iv_gamma", "intraday_timeframes", "weekly_monthly"],
   "candidates": [
     {
       "symbol": "EXAMPLE",
@@ -275,7 +305,8 @@ for the dashboard and for your own audit trail.
       "gap_probability": {"gap_down": 45, "flat": 40, "gap_up": 15},
       "best_entry_time": "09:20-10:30",
       "invalidation": "sustained trade back above 1268 with volume",
-      "scores": {"price_action": 88, "trend": 74, "smart_money": 80, "options": null,
+      "options": {"pcr_oi": 0.71, "max_pain": 1200, "call_wall": 1280, "bearish_tilt": true},
+      "scores": {"price_action": 88, "trend": 74, "smart_money": 80, "options": 78,
                  "volume": 85, "relative_weakness": 72, "market_context": 60,
                  "momentum": 70, "volatility": 65, "news": 80},
       "primary_reasons": ["Bearish engulfing at the 1265 supply zone on 2.1x RVOL",
@@ -303,7 +334,8 @@ JSON object.**
 ## What NOT to do
 
 - Do not output a candidate without a `confirmation_level`.
-- Do not invent options, futures, delivery or intraday-timeframe data. Mark it null.
+- Do not invent futures, delivery, IV or intraday-timeframe data. Mark it null.
+- Do not score the options dimension from memory — run options_data.py, or null it.
 - Do not short a stock merely because it has fallen a lot — that is where squeezes start.
 - Do not short into results, ex-dividend or an F&O ban.
 - Do not pad the list. The consumer takes the top N; a weak fifth name only loses money.

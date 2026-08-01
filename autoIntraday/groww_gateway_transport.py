@@ -38,6 +38,10 @@ class GrowwGatewayTransport:
                                         "end": end_time, "interval": interval_minutes})
         return self._request("GET", f"/v1/candles?{query}")
 
+    def get_option_chain(self, underlying: str, expiry_date: str) -> dict[str, Any]:
+        query = urllib.parse.urlencode({"underlying": underlying, "expiry": expiry_date})
+        return self._request("GET", f"/v1/option-chain?{query}")
+
     def get_holdings(self) -> list[dict]:
         return self._request("GET", "/v1/holdings")
 

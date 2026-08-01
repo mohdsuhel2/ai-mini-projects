@@ -138,6 +138,13 @@ def get_candles(symbol: str, start: str, end: str, interval: int = 1) -> dict[st
         symbol.upper(), start_time=start, end_time=end, interval_minutes=interval)
 
 
+@app.get("/v1/option-chain", dependencies=[Depends(_require_gateway_token)])
+def get_option_chain(underlying: str, expiry: str) -> dict[str, Any]:
+    """Option chain with per-strike OI and greeks. Feeds the overnight short scan's options
+    dimension, which carries 12% of its score and was previously unavailable."""
+    return _get_live_client().get_option_chain(underlying.upper(), expiry)
+
+
 @app.get("/v1/holdings", dependencies=[Depends(_require_gateway_token)])
 def get_holdings() -> list[dict]:
     return _get_live_client().get_holdings()
