@@ -393,3 +393,31 @@ def test_protect_still_works_when_the_stop_is_sane():
     arm(s, c, "2026-08-01", _quote(100.0))
     assert protect(s, c, "2026-08-01", get_quote=_quote(99.0)) == 1
     assert s.picks_for("2026-08-01")[0].status == "PROTECTED"
+
+
+def test_the_skills_documented_payload_parses_and_selects():
+    """Contract pin between SKILL.md and the consumer. The skill now emits a rich institutional
+    payload (setup_type, scores, gap_probability, targets 2/3, entry_zone...). parse_candidates
+    must keep reading only what it needs and ignore the rest — otherwise a skill edit silently
+    yields zero picks every night, with nothing in the logs to show why."""
+    payload = {
+        "scan_date": "2026-07-31", "trade_date": "2026-08-01", "regime": "neutral",
+        "regime_note": "NIFTY +0.1%, India VIX 11.8", "data_gaps": ["options_oi", "futures_oi"],
+        "candidates": [{
+            "symbol": "EXAMPLE", "company": "Example Industries", "confidence": 84,
+            "setup_type": "reversal_short", "cmp": 1252.0, "confirmation_level": 1240.5,
+            "entry_zone": [1240.5, 1236.0], "stop": 1268.0, "target": 1198.0,
+            "target2": 1180.0, "target3": None, "risk_reward": 2.4, "rvol": 2.1,
+            "expected_move_pct": 3.4,
+            "gap_probability": {"gap_down": 45, "flat": 40, "gap_up": 15},
+            "best_entry_time": "09:20-10:30", "invalidation": "above 1268",
+            "scores": {"price_action": 88, "options": None},
+            "primary_reasons": ["Bearish engulfing"], "secondary_reasons": ["Below SMA20"],
+            "risks": ["Sector strength"],
+            "reason": "Bearish engulfing at the 1265 supply zone on 2.1x RVOL"}]}
+    got = parse_candidates(payload)
+    assert len(got) == 1
+    c = got[0]
+    assert (c.symbol, c.confidence, c.confirmation_level, c.stop, c.target, c.rvol) == \
+        ("EXAMPLE", 84.0, 1240.5, 1268.0, 1198.0, 2.1)
+    assert select(got, _cfg())[0].symbol == "EXAMPLE"
