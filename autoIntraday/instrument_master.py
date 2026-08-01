@@ -86,6 +86,49 @@ def load_tick_sizes(path: str = CACHE_PATH, force: bool = False) -> dict[str, fl
     return out
 
 
+def _rows() -> list[dict]:
+    """Raw master rows, cached. Used for lookups that need more than tick size."""
+    global _rows_cache
+    try:
+        return _rows_cache
+    except NameError:
+        pass
+    load_tick_sizes()                       # ensures the file is present/fresh
+    out = []
+    try:
+        with open(CACHE_PATH, newline="") as f:
+            out = list(csv.DictReader(f))
+    except Exception:
+        log.warning("could not read instrument master rows", exc_info=True)
+    globals()["_rows_cache"] = out
+    return out
+
+
+def option_expiries(underlying: str) -> list[str]:
+    """Listed option expiries for an underlying, ascending 'YYYY-MM-DD'. Empty if not an F&O name.
+
+    Read from the master rather than computed. The old last-Thursday rule is WRONG for 2026 —
+    RELIANCE's August expiry is Tuesday 2026-08-25, not Thursday the 27th, because NSE moved the
+    F&O expiry day. Deriving it from the master also handles holiday shifts and weekly expiries
+    for free, and a guessed date silently returns an empty chain rather than an error.
+    """
+    if not underlying:
+        return []
+    want = underlying.upper()
+    seen = {r.get("expiry_date") for r in _rows()
+            if r.get("underlying_symbol", "").upper() == want
+            and r.get("instrument_type") in ("CE", "PE")
+            and r.get("expiry_date")}
+    return sorted(seen)
+
+
+def next_option_expiry(underlying: str, on_or_after: str | None = None) -> str | None:
+    """The nearest listed expiry not before `on_or_after` (default today), or None."""
+    from datetime import date as _date
+    ref = on_or_after or _date.today().isoformat()
+    return next((e for e in option_expiries(underlying) if e >= ref), None)
+
+
 def tick_size_for(symbol: str | None) -> float:
     """The exchange tick for `symbol`, or DEFAULT_TICK when unknown."""
     if not symbol:

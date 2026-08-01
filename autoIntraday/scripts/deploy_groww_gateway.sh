@@ -49,6 +49,11 @@ req = urllib.request.Request(
     headers={
         "Authorization": f"Bearer {os.environ['HOSTINGER_API_TOKEN']}",
         "Content-Type": "application/json",
+        # Hostinger sits behind Cloudflare, which rejects urllib's default UA with a 403
+        # (error 1010). Without this the deploy fails before it reaches the API at all.
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Accept": "application/json",
     },
     method="POST",
 )

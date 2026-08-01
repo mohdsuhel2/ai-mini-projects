@@ -2,32 +2,40 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datetime import date
+from options_data import fetch, summarise
 
-from options_data import fetch, last_thursday, next_monthly_expiry, summarise
+# Groww's real shape, verified live 2026-08-01: strikes is a DICT keyed by strike, and the
+# underlying price rides along as underlying_ltp.
+_CHAIN = {"underlying_ltp": 105.0, "strikes": {
+    "90": {"CE": {"open_interest": 100, "volume": 3}, "PE": {"open_interest": 700, "volume": 30}},
+    "100": {"CE": {"open_interest": 500, "volume": 10}, "PE": {"open_interest": 100, "volume": 5}},
+    "110": {"CE": {"open_interest": 900, "volume": 20}, "PE": {"open_interest": 50, "volume": 2}},
+}}
 
-_CHAIN = {"option_chain": [
-    {"strike_price": 90, "CE": {"open_interest": 100, "volume": 3},
-     "PE": {"open_interest": 700, "volume": 30}},
-    {"strike_price": 100, "CE": {"open_interest": 500, "volume": 10},
-     "PE": {"open_interest": 100, "volume": 5}},
-    {"strike_price": 110, "CE": {"open_interest": 900, "volume": 20},
-     "PE": {"open_interest": 50, "volume": 2}},
+# The list form is also accepted so a payload change does not break this outright.
+_CHAIN_LIST = {"option_chain": [
+    {"strike_price": 90, "CE": {"open_interest": 100}, "PE": {"open_interest": 700}},
+    {"strike_price": 100, "CE": {"open_interest": 500}, "PE": {"open_interest": 100}},
+    {"strike_price": 110, "CE": {"open_interest": 900}, "PE": {"open_interest": 50}},
 ]}
 
 
-def test_last_thursday_is_the_nse_monthly_expiry():
-    assert last_thursday(2026, 1) == date(2026, 1, 29)
-    assert last_thursday(2026, 7) == date(2026, 7, 30)
-    assert last_thursday(2026, 8) == date(2026, 8, 27)
-    assert last_thursday(2026, 12) == date(2026, 12, 31)   # December wraps the year
+def test_expiry_comes_from_the_instrument_master_not_a_computed_rule():
+    """The last-Thursday rule is WRONG for 2026 — NSE moved the F&O expiry day, so RELIANCE's
+    August expiry is Tuesday the 25th, not Thursday the 27th. A guessed date returns an EMPTY
+    chain rather than an error, which reads as 'no open interest'."""
+    from instrument_master import next_option_expiry, option_expiries
+    exps = option_expiries("RELIANCE")
+    assert exps and all(e[:2] == "20" for e in exps)
+    assert next_option_expiry("RELIANCE", "1900-01-01") == exps[0]
+    assert option_expiries("NOT_AN_FNO_NAME_XYZ") == []
+    assert next_option_expiry("NOT_AN_FNO_NAME_XYZ") is None
 
 
-def test_next_monthly_expiry_rolls_once_this_months_has_passed():
-    assert next_monthly_expiry(date(2026, 8, 1)) == "2026-08-27"
-    assert next_monthly_expiry(date(2026, 8, 27)) == "2026-08-27"   # expiry day itself still counts
-    assert next_monthly_expiry(date(2026, 8, 28)) == "2026-09-24"
-    assert next_monthly_expiry(date(2026, 12, 31)) == "2026-12-31"
+def test_both_dict_and_list_chain_shapes_parse():
+    assert summarise(_CHAIN)["strikes_analysed"] == 3
+    assert summarise(_CHAIN_LIST)["strikes_analysed"] == 3
+    assert summarise(_CHAIN)["max_pain"] == summarise(_CHAIN_LIST)["max_pain"]
 
 
 def test_pcr_and_oi_walls():
@@ -52,17 +60,28 @@ def test_max_pain_below_spot_is_flagged_bearish():
 
 def test_unrecognised_or_empty_chain_reports_unavailable_rather_than_zeros():
     """Zero OI and unknown OI are different signals. Never emit zeros for missing data — the
-    scan's options dimension must be nulled and renormalised, not scored as bearish."""
-    for bad in ({}, {"option_chain": []}, {"junk": 1}):
+    scan's options dimension must be nulled and renormalised, not scored as bearish. The live
+    gateway returned exactly {"underlying_ltp": ..., "strikes": {}} for a wrong expiry."""
+    for bad in ({}, {"option_chain": []}, {"junk": 1}, {"underlying_ltp": 1307.8, "strikes": {}}):
         out = summarise(bad)
         assert out["available"] is False and "note" in out
         assert "total_call_oi" not in out
 
 
 def test_strikes_with_no_open_interest_are_ignored():
-    chain = {"option_chain": [{"strike_price": 100, "CE": {"open_interest": 0},
-                              "PE": {"open_interest": 0}}]}
+    chain = {"strikes": {"100": {"CE": {"open_interest": 0}, "PE": {"open_interest": 0}}}}
     assert summarise(chain)["available"] is False
+
+
+def test_spot_is_taken_from_the_chain_itself():
+    """underlying_ltp rides along with the chain, so no second quote call is needed — and a quote
+    can fail out of hours while the chain still returns, leaving bearish_tilt uncomputed."""
+    class _NoQuote:
+        def get_quote(self, s): raise RuntimeError("market closed")
+        def get_option_chain(self, u, e): return _CHAIN
+
+    out = fetch("RELIANCE", "2026-08-25", client=_NoQuote())
+    assert out["spot"] == 105.0 and out["bearish_tilt"] is True
 
 
 def test_fetch_never_raises_when_the_broker_is_unreachable():

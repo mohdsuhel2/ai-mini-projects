@@ -6,8 +6,8 @@ skill was told to null it out. This closes that gap using Groww's option chain v
 
 CLI so the skill can call it from bash:
 
-    python options_data.py --symbol RELIANCE            # next monthly expiry
-    python options_data.py --symbol RELIANCE --expiry 2026-08-27
+    python options_data.py --symbol RELIANCE            # nearest listed expiry
+    python options_data.py --symbol RELIANCE --expiry 2026-08-25
 
 Everything derived here is arithmetic over the chain — no interpretation, no scoring. The skill
 reads the numbers and decides. If the chain is unavailable the payload says so explicitly rather
@@ -19,42 +19,34 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date, timedelta
 from typing import Any, Optional
 
 log = logging.getLogger("autointraday.options_data")
 
 
-def last_thursday(year: int, month: int) -> date:
-    """NSE monthly expiry is the last Thursday of the month.
-
-    Exchange holidays move it to the previous trading day; that is not modelled here, so treat the
-    result as the nominal expiry and let a rejected chain request tell you it moved.
-    """
-    d = date(year, 12, 31) if month == 12 else date(year, month + 1, 1) - timedelta(days=1)
-    while d.weekday() != 3:                     # Thursday
-        d -= timedelta(days=1)
-    return d
-
-
-def next_monthly_expiry(today: Optional[date] = None) -> str:
-    """The nearest monthly expiry that has not passed, 'YYYY-MM-DD'."""
-    today = today or date.today()
-    this_month = last_thursday(today.year, today.month)
-    if this_month >= today:
-        return this_month.isoformat()
-    nxt = date(today.year + 1, 1, 1) if today.month == 12 else date(today.year, today.month + 1, 1)
-    return last_thursday(nxt.year, nxt.month).isoformat()
-
-
 def _rows(chain: dict) -> list[dict]:
-    """Strike rows out of the chain payload, tolerating the key names Groww may use."""
-    for key in ("option_chain", "options", "data", "chain", "strikes"):
+    """Strike rows out of the chain payload.
+
+    Groww returns {"underlying_ltp": float, "strikes": {<strike>: {...}}} — `strikes` is a DICT
+    keyed by strike, not a list. Verified against the live gateway 2026-08-01. A list form is also
+    accepted so a payload change does not break this outright.
+    """
+    strikes = (chain or {}).get("strikes")
+    if isinstance(strikes, dict) and strikes:
+        out = []
+        for k, v in strikes.items():
+            if isinstance(v, dict):
+                row = dict(v)
+                row.setdefault("strike_price", k)      # the key IS the strike
+                out.append(row)
+        return out
+    if isinstance(strikes, list) and strikes:
+        return strikes
+    for key in ("option_chain", "options", "data", "chain"):
         val = (chain or {}).get(key)
         if isinstance(val, list) and val:
             return val
-    return [v for v in (chain or {}).values() if isinstance(v, list) and v] and \
-        next((v for v in chain.values() if isinstance(v, list) and v), [])
+    return []
 
 
 def _leg(row: dict, side: str) -> dict:
@@ -83,6 +75,11 @@ def summarise(chain: dict, spot: Optional[float] = None) -> dict[str, Any]:
     strikes: list[dict] = []
     for row in rows:
         strike = _num(row, "strike_price", "strike", "strikePrice")
+        if strike is None:                              # dict-keyed payloads carry it as a string
+            try:
+                strike = float(row.get("strike_price"))
+            except (TypeError, ValueError):
+                strike = None
         ce, pe = _leg(row, "CE"), _leg(row, "PE")
         ce_oi = _num(ce, "open_interest", "oi", "openInterest") or 0.0
         pe_oi = _num(pe, "open_interest", "oi", "openInterest") or 0.0
@@ -133,8 +130,19 @@ def summarise(chain: dict, spot: Optional[float] = None) -> dict[str, Any]:
 
 def fetch(symbol: str, expiry: Optional[str] = None, client=None) -> dict[str, Any]:
     """Chain summary for one underlying. Never raises — an unavailable chain is reported, not
-    thrown, so one missing name cannot abort a whole scan."""
-    expiry = expiry or next_monthly_expiry()
+    thrown, so one missing name cannot abort a whole scan.
+
+    The expiry comes from the instrument master, which is authoritative. Computing it was wrong:
+    NSE moved the F&O expiry day, so RELIANCE's August 2026 expiry is Tuesday the 25th, not the
+    last Thursday (the 27th) — and a wrong date returns an EMPTY chain rather than an error, which
+    is exactly the kind of silent nothing that looks like "no open interest".
+    """
+    if expiry is None:
+        from instrument_master import next_option_expiry
+        expiry = next_option_expiry(symbol)
+        if expiry is None:
+            return {"symbol": symbol.upper(), "expiry": None, "available": False,
+                    "note": "no listed option expiry — not an F&O name"}
     result: dict[str, Any] = {"symbol": symbol.upper(), "expiry": expiry}
     try:
         if client is None:
@@ -143,12 +151,17 @@ def fetch(symbol: str, expiry: Optional[str] = None, client=None) -> dict[str, A
             load_settings()
             client = GrowwClient(mode="live")
             client.ensure_ready()
-        spot = None
-        try:
-            spot = float(client.get_quote(symbol.upper())["ltp"])
-        except Exception:
-            pass
         chain = client.get_option_chain(symbol.upper(), expiry)
+        # The chain carries underlying_ltp, so no second quote call is needed — and a quote can
+        # fail out of hours while the chain still returns, which left bearish_tilt uncomputed.
+        spot = None
+        if isinstance(chain, dict) and isinstance(chain.get("underlying_ltp"), (int, float)):
+            spot = float(chain["underlying_ltp"])
+        if spot is None:
+            try:
+                spot = float(client.get_quote(symbol.upper())["ltp"])
+            except Exception:
+                pass
         result.update(summarise(chain, spot))
     except Exception as e:
         result.update({"available": False, "note": f"{type(e).__name__}: {e}"})
@@ -158,7 +171,8 @@ def fetch(symbol: str, expiry: Optional[str] = None, client=None) -> dict[str, A
 def main(argv: Optional[list[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Groww option-chain summary (PCR, max pain, OI walls)")
     p.add_argument("--symbol", required=True, help="underlying, e.g. RELIANCE or NIFTY")
-    p.add_argument("--expiry", default=None, help="YYYY-MM-DD (default: next monthly expiry)")
+    p.add_argument("--expiry", default=None,
+                   help="YYYY-MM-DD (default: nearest listed expiry from the instrument master)")
     args = p.parse_args(argv)
     logging.basicConfig(level="WARNING")
     print(json.dumps(fetch(args.symbol, args.expiry), indent=2, default=str))
