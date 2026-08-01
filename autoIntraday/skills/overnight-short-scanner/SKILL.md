@@ -30,10 +30,62 @@ A candidate whose thesis cannot be expressed as "short only below X" does not be
 
 ---
 
-## Inputs
+## Tooling (absolute paths — do NOT go looking for a tool)
 
-Run the daily-bar tool for each name under consideration. You have NO intraday data for tomorrow —
-do not invent VWAP, opening ranges, or session progress. Reason on daily bars, volume, and news.
+- PYTHON: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/.venv/bin/python`
+- SCRIPT: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_shortswing.py`
+
+Always suppress stderr so stdout is clean JSON: `$PYTHON $SCRIPT ... 2>/dev/null`
+
+You have NO intraday data for tomorrow. Do not invent VWAP, opening ranges or session progress —
+reason on daily bars, volume and news only.
+
+### Step 1 — get the candidate universe (ONE call)
+
+```bash
+$PYTHON $SCRIPT --universe nifty100 --direction down --top 12 2>/dev/null
+```
+
+`--direction down` ranks for weakness, which is exactly this skill's side. Returns
+`{universe, direction, scanned, scored, as_of, picks: [...]}` where **each pick already carries the
+full per-symbol analysis** — price, volume, structure, momentum, volatility, news. You do not need
+a second call per name.
+
+Takes ~2 minutes for nifty100. Use `nifty50` when you need it faster, or
+`--discover bhav --pool 40 --direction down --top 12` for a whole-market EOD sweep.
+
+### Step 2 — deepen only the shortlist (optional)
+
+For a name that needs relative strength versus NIFTY:
+
+```bash
+$PYTHON $SCRIPT -s <SYMBOL> --benchmark 2>/dev/null
+```
+
+`--benchmark` is what populates `market_regime` and `benchmark`; they are empty without it.
+
+### Field map — where each gate below reads from
+
+| Gate | Field |
+|---|---|
+| RVOL / distribution volume | `volume.surge_vs_20d_avg` (`last_volume` is the raw figure) |
+| Down day size | `price.day_change_pct` |
+| Confirmation level | `structure.prior_5d_low`, or `price.low_5d` |
+| At resistance? | `entry_quality.into_resistance`, `headroom_to_resistance_pct`, `structure.prior_5d_high` |
+| Already breaking down | `structure.breakdown_5d`, `short_swing_signals.breakdown_5d` |
+| Stop distance sizing | `volatility.atr14`, `volatility.atr_pct` |
+| Trend / MA posture | `moving_averages.above_sma20`, `sma5_above_sma10` |
+| Oversold check (see below) | `momentum.rsi14`, `bollinger_percent_b` |
+| Events | `news[]` |
+| Regime | `market_regime`, `benchmark` (needs `--benchmark`) |
+
+**RVOL here is volume vs the 20-day average, not vs the prior day.** That is the better measure of
+distribution anyway, but read the >= 1.5 floor against `surge_vs_20d_avg` accordingly.
+
+**Do not short something already exhausted.** `--direction down` ranks by weakness, so its top
+picks skew oversold — `rsi14` in the low 20s with `bollinger_percent_b` near 0 means the fall has
+largely happened and you are shorting into a bounce. Prefer names rolling over from strength
+(RSI 40-55, near resistance) over names already broken.
 
 ---
 
@@ -65,7 +117,10 @@ most false positives. If RVOL is unavailable, the candidate is **not** eligible.
 ### 5. Event exclusion
 Reject outright if the next session carries: results/earnings, ex-dividend, board meeting, a
 corporate action, or an F&O ban / circuit situation. Fresh news overrides the chart, and a
-mechanical short into an event is gambling. Web-search each surviving candidate for same-day news.
+mechanical short into an event is gambling.
+
+Check the tool's `news[]` block first, then web-search each surviving candidate. `news[]` is
+often empty, and its emptiness is NOT evidence that no event is scheduled.
 
 ### 6. Tradeability
 Liquid enough to short and exit: adequate daily turnover, a sane price band, and no circuit-limit
