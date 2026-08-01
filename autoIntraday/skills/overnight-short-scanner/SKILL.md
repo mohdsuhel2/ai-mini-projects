@@ -44,7 +44,8 @@ A thesis that cannot be expressed as "short only below X" does not belong in the
 - INTRADAY: `/Users/mohdsuhel/ai-mini-projects/StockAnalayze/stock_analyze_intraday.py`
 - OPTIONS: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/options_data.py`
 - SCORER: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/adaptive_scoring.py`
-  (both run with `/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python`)
+- CONTRADICTIONS: `/Users/mohdsuhel/ai-mini-projects/autoIntraday/contradiction_engine.py`
+  (all run with `/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python`)
 
 Always suppress stderr so stdout is clean JSON: `$PYTHON $SCRIPT ... 2>/dev/null`
 
@@ -282,6 +283,47 @@ and the `explanation` in `score_explanation`.
 
 `--list-regimes` prints every weight table if you want to see what a regime does before choosing.
 
+### Step D — contradiction check (MANDATORY, before any confidence is accepted)
+
+Now argue against yourself. A scan that only counts supporting evidence will always find some;
+the discipline is in what contradicts the trade. **Professional traders trust contradiction
+analysis more than confirmation.**
+
+```bash
+/Users/mohdsuhel/ai-mini-projects/autoIntraday/.venv/bin/python \
+  /Users/mohdsuhel/ai-mini-projects/autoIntraday/contradiction_engine.py \
+  --confidence 84 \
+  --context '{"pattern_strength":85,"rvol":2.2,"sector_making_highs":false,"pcr_oi":0.8,
+              "vix_change_pct":2.0,"positive_announcement":false,"trend_bearish":true,
+              "rsi_rising":false,"near_support":false,"rsi14":48,"has_catalyst":true,
+              "bullish_divergence":false,"max_pain":95,"spot":100,"pct_below_20d_high":4}'
+```
+
+Fill the context honestly from what you actually gathered:
+
+| Key | Source |
+|---|---|
+| `pattern_strength` | your own 0-100 read of the bearish candle |
+| `rvol` | `volume.surge_vs_20d_avg` |
+| `sector_making_highs` | sector index check / web search |
+| `pcr_oi`, `max_pain`, `spot` | `options_data.py` |
+| `vix_change_pct` | `market_context.india_vix.change_pct` |
+| `positive_announcement` | `news[]` + web search |
+| `trend_bearish`, `rsi_rising`, `rsi14` | `short_swing_signals.trend`, `momentum.*` |
+| `near_support` | `structure.dist_to_5d_low_pct` — is it AT support rather than resistance? |
+| `has_catalyst` | is there fresh news driving the move? |
+| `bullish_divergence` | your read: price lower low, RSI/MACD higher low |
+| `pct_below_20d_high` | from `price.high_20d` vs `price.last` |
+
+**Use `final_adjusted_confidence` as the candidate's `confidence` — not the raw adaptive score.**
+
+**If `rejected` is true, drop the name entirely.** Three or more major contradictions refuses the
+thesis whatever the score said. Do not argue with it and do not reinstate it lower down the list.
+
+Do not leave context keys out to dodge a penalty. A rule with missing inputs is reported in
+`unchecked_rules` as a **blind spot, not a pass** — an empty context produces a clean-looking
+result that means nothing.
+
 ### Confidence bands
 - **85-95** textbook: multiple distribution days or a clean exhaustion reversal, high RVOL at clear
   resistance, regime aligned, tight level
@@ -333,6 +375,10 @@ for the dashboard and for your own audit trail.
                  "volume": 85, "relative_weakness": 72, "market_context": 60,
                  "momentum": 70, "volatility": 65, "news": 80,
                  "resistance_rejection": 84, "mean_reversion": 45},
+      "contradictions": {"major_count": 0, "minor_count": 1,
+                         "confidence_penalty": 7.0,
+                         "found": ["vix_collapsing"],
+                         "unchecked": []},
       "score_explanation": "Weights adapted to regime — expiry_week: positioning drives price into expiry... Largest contributors: price_action (88 x 20%), ...",
       "primary_reasons": ["Bearish engulfing at the 1265 supply zone on 2.1x RVOL",
                           "Second distribution day in three sessions"],
@@ -363,6 +409,10 @@ JSON object.**
 - Do not score the options dimension from memory — run options_data.py, or null it.
 - Do not compute the final score yourself, and never apply a fixed weight vector. Classify the
   regime, score the factors, and let adaptive_scoring.py weight them.
+- Do not skip the contradiction check, and never publish the raw adaptive score as `confidence` —
+  publish `final_adjusted_confidence`.
+- Do not reinstate a name the contradiction engine rejected.
+- Do not omit context keys to avoid a penalty. Unchecked is a blind spot, not a pass.
 - Do not short a stock merely because it has fallen a lot — that is where squeezes start.
 - Do not short into results, ex-dividend or an F&O ban.
 - Do not pad the list. The consumer takes the top N; a weak fifth name only loses money.
