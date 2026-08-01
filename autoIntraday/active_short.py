@@ -115,6 +115,26 @@ def validate_short_entry(trigger: float, last_price: float) -> None:
             "it would fire immediately instead of waiting for confirmation")
 
 
+def validate_short_stop(stop: float, last_price: float) -> None:
+    """A SHORT's protective stop must sit strictly ABOVE the market.
+
+    Below it, the BUY SL_M triggers immediately and covers the short at a loss the instant it is
+    placed. This is the mirror of the long-side clamp added on 2026-07-31 after a short's stop was
+    written onto a long — and the smoke test proved it was needed here too: a bad fill price
+    produced a stop of 99.98 for a stock trading at 243, which would have been placed without
+    complaint.
+
+    Raises rather than returning a flag: a stop on the wrong side of the tape is a defect, and the
+    caller must record the position as UNPROTECTED rather than pretend it is covered.
+    """
+    if stop is None or last_price is None:
+        raise ActiveShortError("cannot validate a short stop without both stop and price")
+    if stop <= last_price:
+        raise ActiveShortError(
+            f"short stop {stop:g} is at or below the market {last_price:g} — it would cover the "
+            "position immediately instead of protecting it")
+
+
 def position_size(capital: float, price: float) -> int:
     return int(capital // price) if price and price > 0 else 0
 

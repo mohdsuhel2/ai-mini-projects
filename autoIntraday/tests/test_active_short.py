@@ -178,3 +178,218 @@ def test_update_pick_rejects_bad_fields_and_statuses():
 def test_set_config_rejects_unknown_keys():
     with pytest.raises(KeyError):
         ActiveShortStore(":memory:").set_config(not_a_key=1)
+
+
+# ---- the jobs: scan -> arm -> protect -> expire / square off ---------------------------------
+from active_short_job import arm, expire_unfilled, protect, scan, square_off
+
+
+class _Client:
+    def __init__(self, fill_status="EXECUTED", fail_on=()):
+        self.orders, self.cancelled = [], []
+        self.fill_status, self.fail_on = fill_status, fail_on
+
+    def place_order(self, **kw):
+        if kw.get("order_type") in self.fail_on:
+            raise RuntimeError(f"broker refused {kw.get('order_type')}")
+        self.orders.append(kw)
+        return {"order_id": f"OID{len(self.orders)}"}
+
+    def get_order_status(self, oid):
+        return {"order_id": oid, "status": self.fill_status, "price": 99.0}
+
+    def cancel_order(self, oid):
+        self.cancelled.append(oid)
+        return {"order_id": oid, "status": "CANCELLED"}
+
+
+def _quote(ltp=100.0, open_px=None):
+    return lambda sym: {"ltp": ltp, "open": open_px if open_px is not None else ltp}
+
+
+def _enabled_store():
+    s = ActiveShortStore(":memory:")
+    s.set_config(active_short_enabled=1)
+    return s
+
+
+_PAYLOAD = {"regime_note": "breadth negative", "candidates": [
+    {"symbol": "AAA", "confidence": 88, "confirmation_level": 99.0, "stop": 101.5,
+     "target": 96.0, "rvol": 2.2, "reason": "bearish engulfing at resistance"},
+    {"symbol": "BBB", "confidence": 60, "confirmation_level": 50.0, "stop": 51.0,
+     "target": 48.0, "rvol": 2.0, "reason": "below the confidence floor"}]}
+
+
+def test_scan_records_only_picks_that_clear_the_bar():
+    s = _enabled_store()
+    assert scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01") == 1
+    picks = s.picks_for("2026-08-01")
+    assert [p.symbol for p in picks] == ["AAA"] and picks[0].rank == 1
+    assert s.sessions()[0]["picks"] == 1
+
+
+def test_scan_handles_an_empty_night_as_a_valid_result():
+    s = _enabled_store()
+    assert scan(s, lambda: {"regime_note": "strongly bullish", "candidates": []},
+                "2026-07-31", "2026-08-01") == 0
+    assert s.picks_for("2026-08-01") == []
+    assert s.sessions()[0]["picks"] == 0        # the session is still recorded
+
+
+def test_scan_survives_a_scanner_failure():
+    s = _enabled_store()
+    def _boom(): raise RuntimeError("skill died")
+    assert scan(s, _boom, "2026-07-31", "2026-08-01") == 0
+
+
+def test_disabled_does_nothing_anywhere():
+    s = ActiveShortStore(":memory:")             # enabled defaults to 0
+    assert scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01") == 0
+    assert arm(s, _Client(), "2026-08-01", _quote()) == 0
+    assert protect(s, _Client(), "2026-08-01") == 0
+
+
+def test_arm_places_a_sell_stop_entry_below_the_market():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client()
+    assert arm(s, c, "2026-08-01", _quote(ltp=100.0)) == 1
+    o = c.orders[0]
+    assert o["transaction_type"] == "SELL" and o["order_type"] == "SL_M"
+    assert o["trigger_price"] == 99.0 and o["trigger_price"] < 100.0
+    assert s.picks_for("2026-08-01")[0].status == "ARMED"
+
+
+def test_arm_skips_a_name_that_gapped_through_its_level():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client()
+    assert arm(s, c, "2026-08-01", _quote(ltp=94.0, open_px=94.0)) == 0   # >3% below 99
+    p = s.picks_for("2026-08-01")[0]
+    assert p.status == "SKIPPED" and "gapped" in p.status_note
+    assert c.orders == []
+
+
+def test_arm_skips_when_the_trigger_is_no_longer_below_the_market():
+    """Price already under the level: a SELL stop-entry there fires instantly, defeating the
+    whole confirmation design."""
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client()
+    assert arm(s, c, "2026-08-01", _quote(ltp=98.5, open_px=98.5)) == 0
+    assert "at or above the market" in s.picks_for("2026-08-01")[0].status_note
+    assert c.orders == []
+
+
+def test_protect_attaches_a_stop_and_target_to_a_filled_entry():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client(fill_status="EXECUTED")
+    arm(s, c, "2026-08-01", _quote(100.0))
+    assert protect(s, c, "2026-08-01") == 1
+    p = s.picks_for("2026-08-01")[0]
+    assert p.status == "PROTECTED" and p.fill_price == 99.0
+    stop = [o for o in c.orders if o["transaction_type"] == "BUY" and o["order_type"] == "SL_M"][0]
+    tgt = [o for o in c.orders if o["order_type"] == "LIMIT"][0]
+    assert stop["trigger_price"] > 99.0 > tgt["price"]     # short: stop above, target below
+
+
+def test_protect_leaves_an_unfilled_entry_alone():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client(fill_status="NEW")
+    arm(s, c, "2026-08-01", _quote(100.0))
+    before = len(c.orders)
+    assert protect(s, c, "2026-08-01") == 0
+    assert len(c.orders) == before                          # nothing extra placed
+    assert s.picks_for("2026-08-01")[0].status == "ARMED"
+
+
+def test_protect_is_idempotent():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client()
+    arm(s, c, "2026-08-01", _quote(100.0))
+    assert protect(s, c, "2026-08-01") == 1
+    n = len(c.orders)
+    assert protect(s, c, "2026-08-01") == 0                 # already PROTECTED
+    assert len(c.orders) == n
+
+
+def test_a_failed_stop_marks_the_position_unprotected_rather_than_claiming_success():
+    """The one place this design can hurt: a filled short with no stop is unbounded risk. It must
+    be recorded loudly, never silently treated as protected."""
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client(fail_on=("SL_M",))
+    # arm needs SL_M too, so place the entry with a working client first
+    ok = _Client()
+    arm(s, ok, "2026-08-01", _quote(100.0))
+    assert protect(s, c, "2026-08-01") == 0
+    p = s.picks_for("2026-08-01")[0]
+    assert p.status == "FILLED" and "UNPROTECTED" in p.status_note
+
+
+def test_expire_cancels_entries_that_never_triggered():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client(fill_status="NEW")
+    arm(s, c, "2026-08-01", _quote(100.0))
+    assert expire_unfilled(s, c, "2026-08-01") == 1
+    assert s.picks_for("2026-08-01")[0].status == "EXPIRED"
+    assert c.cancelled
+
+
+def test_square_off_closes_and_completes_the_session():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client()
+    arm(s, c, "2026-08-01", _quote(100.0))
+    protect(s, c, "2026-08-01")
+    assert square_off(s, c, "2026-08-01", _quote(96.0)) == 1
+    p = s.picks_for("2026-08-01")[0]
+    assert p.status == "CLOSED" and p.exit_price == 96.0
+    assert p.pnl > 0                                        # short filled 99, covered 96
+    assert s.sessions()[0]["completed_at"] is not None
+
+
+def test_live_config_still_runs_paper_until_the_gate_opens():
+    """A mis-set config must never commit real money before the paper period is done."""
+    s = _enabled_store()
+    s.set_config(active_short_mode="live", paper_sessions_required=5)
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    assert s.picks_for("2026-08-01")[0].mode == "paper"
+
+
+def test_short_protective_stop_must_sit_above_the_market():
+    """A BUY stop below the tape covers the short the instant it is placed."""
+    from active_short import validate_short_stop
+    validate_short_stop(101.5, 100.0)                    # fine
+    for bad in (100.0, 99.0):
+        with pytest.raises(ActiveShortError, match="at or below the market"):
+            validate_short_stop(bad, 100.0)
+
+
+def test_protect_refuses_a_stop_on_the_wrong_side_of_the_tape():
+    """Caught by the end-to-end smoke test: a bad broker fill price produced a stop of 99.98 for a
+    stock trading at 243, and it was placed without complaint. The position must be recorded
+    UNPROTECTED instead."""
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client(fill_status="EXECUTED")                  # reports price 99.0 for everything
+    arm(s, c, "2026-08-01", _quote(100.0))
+    before = len(c.orders)
+    # the tape says 243, so a stop derived from a 99.0 "fill" is nonsense
+    assert protect(s, c, "2026-08-01", get_quote=_quote(243.0)) == 0
+    assert len(c.orders) == before                       # nothing placed
+    p = s.picks_for("2026-08-01")[0]
+    assert p.status == "FILLED" and "UNPROTECTED" in p.status_note
+
+
+def test_protect_still_works_when_the_stop_is_sane():
+    s = _enabled_store()
+    scan(s, lambda: _PAYLOAD, "2026-07-31", "2026-08-01")
+    c = _Client(fill_status="EXECUTED")
+    arm(s, c, "2026-08-01", _quote(100.0))
+    assert protect(s, c, "2026-08-01", get_quote=_quote(99.0)) == 1
+    assert s.picks_for("2026-08-01")[0].status == "PROTECTED"
