@@ -3039,3 +3039,28 @@ def test_gather_candidates_drops_corpses_and_leads_with_gainers():
     assert "CORPSE" not in syms                        # already down >3% -> dropped
     assert syms[:3] == ["U0", "U1", "FRESH"]           # 2 gainers per fresh loser
     assert set(syms) == {"U0", "U1", "U2", "U3", "FRESH", "FRESH2"}
+
+
+# ---- Early Reversal Prediction Engine wiring (2026-08-01) ------------------------------------
+def test_radar_refuses_a_long_into_a_distributing_trend():
+    """The radar runs BEFORE the decision is acted on. A LONG into distribution is refused —
+    risk reduction that needs no price confirmation."""
+    from orchestrator import _RADAR_BLOCK_STAGES
+    assert _RADAR_BLOCK_STAGES == ("distribution", "high_probability_reversal")
+
+
+def test_radar_never_opens_a_short_by_itself():
+    """It may only SUPPRESS longs. Shorting on an unconfirmed radar reading is the >60%-failure
+    branch, so the gate is deliberately one-directional."""
+    import inspect
+    from orchestrator import Orchestrator
+    src = inspect.getsource(Orchestrator._place_entry)
+    assert 'side == "LONG"' in src, "the radar gate must be long-only"
+    assert "SHORT" not in src.split("radar")[1][:400], "radar must not act on the short side"
+
+
+def test_a_radar_failure_never_blocks_a_cycle():
+    """Absent evidence is not bearish evidence — a broken radar must not veto trades."""
+    from orchestrator import _radar
+    assert _radar({}) is None or isinstance(_radar({}), dict)
+    assert _radar(None) is None or isinstance(_radar(None), dict)

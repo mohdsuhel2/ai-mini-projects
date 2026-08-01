@@ -1028,8 +1028,21 @@ def build_report(
         },
         "prior_day_levels": pdl or {"note": "no prior-day bars in window"},
         "nearest_levels": near,
+        "recent_bars": [{"t": b.date[11:16], "o": b.open, "h": b.high, "l": b.low,
+                         "c": b.close, "v": b.volume or 0} for b in today_bars[-16:]],
         "indicators": {
             "rsi14": _round(rsi, 2) if rsi is not None else None,
+            # Short trailing series + raw bars for the Early Reversal Prediction Engine
+            # (reversal_radar), which needs history to see divergence — a scalar cannot show
+            # price making a higher high while momentum makes a lower one.
+            "rsi_series": [_round(r, 2) for r in (
+                [rsi_simple(closes[:i + 1][-60:], 14) for i in range(max(15, len(closes) - 10),
+                                                                     len(closes))]
+                if len(closes) >= 16 else []) if r is not None],
+            "macd_hist_series": [_round(macd_bollinger_pack(closes[:i + 1][-80:])
+                                        .get("macd_histogram"), 4)
+                                 for i in range(max(30, len(closes) - 10), len(closes))]
+                                if len(closes) >= 31 else [],
             "macd_line": macd.get("macd_line"),
             "macd_signal": macd.get("macd_signal"),
             "macd_histogram": macd.get("macd_histogram"),

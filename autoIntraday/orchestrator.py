@@ -341,6 +341,24 @@ def _should_square_off(indicators: dict) -> bool:
 LIVE_MAX_DRIFT_PCT = 20.0     # a live tick further than this from the closed bar is a bad tick
 
 
+# Stages at which a fresh LONG is refused. Below these the radar only informs; it never blocks.
+_RADAR_BLOCK_STAGES = ("distribution", "high_probability_reversal")
+
+
+def _radar(indicators: dict) -> dict | None:
+    """Early-reversal reading for this symbol, or None if it cannot be computed.
+
+    Best-effort by design: a radar failure must never stop a cycle, and a missing reading must
+    never be treated as bearish — absent evidence is not evidence.
+    """
+    try:
+        from reversal_radar import from_indicator_json
+        return from_indicator_json(indicators).as_dict()
+    except Exception:
+        log.debug("reversal radar unavailable", exc_info=True)
+        return None
+
+
 def _held_minutes(position) -> int | None:
     """How long the position has been open, in minutes. None when unparseable — the prompt line
     simply omits it rather than printing a bogus number."""
@@ -1529,6 +1547,24 @@ class Orchestrator:
     def _place_entry(self, run_id: int, symbol: str, decision, indicators, mode: str) -> bool:
         cfg = self.store.get_config()
         side = _position_side(decision.action)
+        # Early Reversal Prediction Engine (reversal_radar) — runs BEFORE the decision is acted on
+        # and never issues one itself. A LONG into a trend the radar reads as distributing is
+        # refused: that is risk reduction and needs no price confirmation to be correct. It must
+        # NEVER be used to open a short unconfirmed — unconfirmed bearish patterns fail >60% of
+        # the time versus ~30% with follow-through.
+        radar = _radar(indicators)
+        if radar and side == "LONG" and radar["reversal_stage"] in _RADAR_BLOCK_STAGES:
+            self.store.record_decision(
+                run_id=run_id, symbol=symbol, action=decision.action,
+                score=decision.trade_quality,
+                reason=(f"rejected: reversal radar {radar['reversal_stage']} "
+                        f"({radar['reversal_probability']:.0f}%) — "
+                        f"{', '.join(radar['signals'][:3]) or 'no named signal'}"),
+                raw_json=decision.raw_response)
+            log.info("%s: LONG refused — radar %s (%.0f%%) %s", symbol,
+                     radar["reversal_stage"], radar["reversal_probability"],
+                     radar["signals"][:3])
+            return False
         # Trend veto — a long must not fight a bearish aggregate tape (nor a short a bullish one).
         if TREND_VETO_ENABLED:
             veto = _trend_blocks(side, indicators)
