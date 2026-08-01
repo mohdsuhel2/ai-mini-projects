@@ -552,6 +552,33 @@ def _with_lifecycle(get_indicators: Callable[[str], dict],
     return wrapped
 
 
+def _with_exhaustion(get_indicators: Callable[[str], dict],
+                     enabled: Callable[[], bool] = lambda: False) -> Callable[[str], dict]:
+    """Attach the bidirectional exhaustion reading — both sides, every payload.
+
+    OFF by default. Measured 2026-08-01 over 61,018 point-in-time readings (34 symbols, 23
+    sessions, 5m and 15m). What replicated across BOTH timeframes was narrow: the LONG reversal
+    call (bearish exhaustion) at the hold-to-square-off horizon, and only with >=5 confluence
+    families — +0.191%/trade 86% right at 15m (n=21), +0.080% 68% right at 5m (n=95). Everything
+    else was noise, and the SHORT side was negative in both samples. Treat the wide taxonomy as
+    unproven until it has live evidence.
+    """
+    def wrapped(symbol: str) -> dict:
+        ind = get_indicators(symbol)
+        if not enabled():
+            return ind
+        try:
+            from exhaustion_engine import from_indicator_json
+            read = from_indicator_json(ind)
+            if "insufficient_bars" not in read["bullish_exhaustion"]["unknown_signals"]:
+                ind = dict(ind)
+                ind["trend_exhaustion"] = read
+        except Exception:                                   # pragma: no cover - belt and braces
+            log.debug("exhaustion annotation failed for %s", symbol, exc_info=True)
+        return ind
+    return wrapped
+
+
 class Orchestrator:
     def __init__(self, store, client, engine, get_indicators: Callable[[str], dict],
                  get_candidates: Callable[..., list], now_provider: Callable[[], datetime] = _utc_now,
@@ -559,9 +586,11 @@ class Orchestrator:
         self.store = store
         self.client = client
         self.engine = engine
-        self.get_indicators = _with_lifecycle(
-            get_indicators, lambda: bool(getattr(store.get_config(), "lifecycle_context_enabled",
-                                                 False)))
+        self.get_indicators = _with_exhaustion(
+            _with_lifecycle(get_indicators,
+                            lambda: bool(getattr(store.get_config(),
+                                                 "lifecycle_context_enabled", False))),
+            lambda: bool(getattr(store.get_config(), "exhaustion_context_enabled", False)))
         self.get_candidates = get_candidates
         self.now_provider = now_provider
         self.screen_engine = screen_engine   # non-None -> one-shot skill screening for entries

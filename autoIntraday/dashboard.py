@@ -641,8 +641,19 @@ def _settings_dialog() -> None:
                      "rally, for -2.59% net. The stage describes how OLD a trend is, not which way "
                      "it is going — but in a prompt it reads like direction. 'mature_trend' was "
                      "the best-performing bucket in that sample (+0.68%), not the worst.")
-            if st.button("Save lifecycle context", use_container_width=True):
-                _db(lambda s: s.update_config(lifecycle_context_enabled=lc_on))
+            ex_on = st.checkbox(
+                "Send bidirectional exhaustion to the skill",
+                value=bool(getattr(lc_cfg, "exhaustion_context_enabled", False)),
+                help="Measures BOTH sides independently — are buyers running out (a short case), "
+                     "and are sellers running out (a long case). The second half is new; the old "
+                     "radar only ever measured exhausting uptrends, so it could only suppress "
+                     "longs. OFF by default: over 61,018 point-in-time readings the only result "
+                     "that replicated at both 5m and 15m was the LONG reversal call with 5+ "
+                     "confluence families, held to square-off (+0.19%/trade 86% right at 15m, "
+                     "n=21; +0.08% 68% right at 5m, n=95). The SHORT side was negative in both.")
+            if st.button("Save context engines", use_container_width=True):
+                _db(lambda s: s.update_config(lifecycle_context_enabled=lc_on,
+                                              exhaustion_context_enabled=ex_on))
                 st.success("Saved.")
                 st.rerun()
 

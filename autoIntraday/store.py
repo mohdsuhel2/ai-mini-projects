@@ -134,6 +134,12 @@ class Config:
     # `healthy_trend` was negative (-0.153%) — ordering backwards for the second measurement
     # running. Needs a stage-to-direction study before it informs a live decision.
     lifecycle_context_enabled: bool = False
+    # Publish the bidirectional exhaustion reading (both sides + summary) to the skill.
+    # OFF by default. Over 61,018 point-in-time readings the only result that replicated at BOTH
+    # 5m and 15m was the LONG reversal call with >=5 confluence families, measured to square-off:
+    # +0.191%/trade 86% right at 15m (n=21), +0.080% 68% right at 5m (n=95). The SHORT side was
+    # negative in both. Thin samples and margins near round-trip cost — needs live evidence.
+    exhaustion_context_enabled: bool = False
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -142,7 +148,7 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
                   "radar_exit_enabled", "radar_stop_pct", "radar_stop_floor_pct",
-                  "lifecycle_context_enabled",
+                  "lifecycle_context_enabled", "exhaustion_context_enabled",
                   "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
                   "rotation_confirm_cycles", "rotation_screen_every",
                   "rr_gate_pre_margin", "rr_gate_enabled", "exit_mode", "arm_exit_enabled",
@@ -567,6 +573,7 @@ class Store:
                          ("rotation_screen_every", "INTEGER NOT NULL DEFAULT 3"),
                          ("radar_exit_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("lifecycle_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                         ("exhaustion_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("radar_stop_pct", "REAL NOT NULL DEFAULT 1.0"),
                          ("radar_stop_floor_pct", "REAL NOT NULL DEFAULT 0.5")):
             if col not in ccols:
@@ -629,6 +636,7 @@ class Store:
                       rotation_screen_every=r["rotation_screen_every"],
                       radar_exit_enabled=bool(r["radar_exit_enabled"]),
                       lifecycle_context_enabled=bool(r["lifecycle_context_enabled"]),
+                      exhaustion_context_enabled=bool(r["exhaustion_context_enabled"]),
                       radar_stop_pct=r["radar_stop_pct"],
                       radar_stop_floor_pct=r["radar_stop_floor_pct"])
 

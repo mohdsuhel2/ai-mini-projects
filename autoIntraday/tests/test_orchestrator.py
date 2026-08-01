@@ -3190,3 +3190,64 @@ def _with_lifecycle_for(orch, store):
     from orchestrator import _with_lifecycle
     return _with_lifecycle(lambda s: _readable_tape(),
                            lambda: store.get_config().lifecycle_context_enabled)
+
+
+# ---- Bidirectional exhaustion wiring (2026-08-01) ---------------------------------------------
+def test_exhaustion_context_is_off_unless_the_config_turns_it_on():
+    """Default OFF. Over 61,018 readings only one narrow slice replicated across both timeframes
+    (LONG reversal, >=5 confluence families, to square-off); the SHORT side was negative in both."""
+    from orchestrator import _with_exhaustion
+    from store import Store
+    assert Store(":memory:").get_config().exhaustion_context_enabled is False
+    assert "trend_exhaustion" not in _with_exhaustion(lambda s: _readable_tape())("X")
+    out = _with_exhaustion(lambda s: _readable_tape(), lambda: True)("X")
+    assert "trend_exhaustion" in out
+
+
+def test_the_exhaustion_block_carries_both_sides_and_never_a_decision():
+    from orchestrator import _with_exhaustion
+    block = _with_exhaustion(lambda s: _readable_tape(), lambda: True)("X")["trend_exhaustion"]
+    assert "bullish_exhaustion" in block and "bearish_exhaustion" in block
+    for k in ("current_trend", "reversal_probability", "expected_direction", "opportunity"):
+        assert k in block["summary"]
+    for forbidden in ("'action'", "'entry'", "'stop_loss'", "'recommendation'"):
+        assert forbidden not in str(block)
+
+
+def test_exhaustion_leaves_the_rest_of_the_payload_untouched():
+    from orchestrator import _with_exhaustion
+    base = _readable_tape()
+    out = _with_exhaustion(lambda s: base, lambda: True)("X")
+    assert set(out) - set(base) == {"trend_exhaustion"}
+    for k in base:
+        assert out[k] == base[k]
+
+
+def test_an_unreadable_tape_publishes_no_exhaustion_claim():
+    """Same rule as the lifecycle: absent evidence stays absent rather than defaulting to 'fresh'."""
+    from orchestrator import _with_exhaustion
+    thin = {"price": {"ltp": 100.0}}
+    assert _with_exhaustion(lambda s: thin, lambda: True)("X") == thin
+
+
+def test_an_exhaustion_failure_never_costs_a_cycle():
+    from orchestrator import _with_exhaustion
+    def boom(_):
+        return {"recent_bars": "not a list of bars"}
+    assert _with_exhaustion(boom, lambda: True)("X") == {"recent_bars": "not a list of bars"}
+
+
+def test_both_context_engines_can_be_enabled_independently():
+    """They are separate flags on separate evidence — turning one on must not turn the other on."""
+    store = Store(":memory:")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision(action="HOLD")), {})
+    from orchestrator import _with_exhaustion, _with_lifecycle
+    both = _with_exhaustion(
+        _with_lifecycle(lambda s: _readable_tape(),
+                        lambda: store.get_config().lifecycle_context_enabled),
+        lambda: store.get_config().exhaustion_context_enabled)
+    assert "trend_lifecycle" not in both("X") and "trend_exhaustion" not in both("X")
+    store.update_config(exhaustion_context_enabled=True)
+    assert "trend_exhaustion" in both("X") and "trend_lifecycle" not in both("X")
+    store.update_config(lifecycle_context_enabled=True)
+    assert "trend_exhaustion" in both("X") and "trend_lifecycle" in both("X")
