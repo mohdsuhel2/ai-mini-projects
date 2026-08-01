@@ -755,7 +755,6 @@ def _intraday_strategy_view() -> str | None:
 
 def _render() -> None:
     from store import ScopedStore
-    st.markdown(_CSS, unsafe_allow_html=True)
 
     sid = _intraday_strategy_view()
 
@@ -1161,7 +1160,6 @@ def _swing_live() -> None:
 
 
 def _swing_page() -> None:
-    st.markdown(_CSS, unsafe_allow_html=True)
     st.markdown('<div class="ai-brand">Swing<em>.</em></div>', unsafe_allow_html=True)
     st.caption("Loads your Groww holdings, then runs a Claude swing analysis on each (both the "
                "days-to-a-month and the 3–5 day view), one stock at a time so you can watch the "
@@ -1359,7 +1357,6 @@ def _drawdown_from_equity(equity: list) -> list:
 def _compare_page() -> None:
     import compare_data as cd
     from orchestrator import LEVERAGE
-    st.markdown(_CSS, unsafe_allow_html=True)
     st.markdown('<div class="ai-brand">Compare<em>.</em></div>', unsafe_allow_html=True)
     st.caption("Two strategies, identical market data, isolated paper ledgers. Paper-only — no "
                "broker orders are ever placed in Compare Testing.")
@@ -1469,7 +1466,7 @@ def _live_page() -> None:
     """
     from live_store import LiveStore
 
-    st.subheader("Live Intraday")
+    st.markdown('<div class="ai-brand">Live Intraday<em>.</em></div>', unsafe_allow_html=True)
     st.caption("Rule-based, no AI. One stock, one position, long only. The trader runs as its own "
                "daemon — this page only reads its state and sets its flags.")
     try:
@@ -1566,7 +1563,7 @@ def _active_short_page() -> None:
     """
     from active_short_store import ActiveShortStore
 
-    st.subheader("Active Short")
+    st.markdown('<div class="ai-brand">Active Short<em>.</em></div>', unsafe_allow_html=True)
     st.caption("Scans after the close for stocks likely to fall next session, then arms "
                "conditional short entries below each confirmation level at the open. Shorts are "
                "intraday-only in India — everything squares off the same day.")
@@ -1640,6 +1637,11 @@ def _active_short_page() -> None:
 def main() -> None:
     st.set_page_config(page_title="autoIntraday", layout="wide",
                        initial_sidebar_state="collapsed")
+    # Injected ONCE here rather than per page. It used to live inside _render and _swing_page, so
+    # every new page silently rendered its tiles as unstyled raw divs (Live Intraday and Active
+    # Short both shipped that way). A <style> block emits nothing visible, so hoisting it above
+    # navigation is safe and makes the styling impossible to forget.
+    st.markdown(_CSS, unsafe_allow_html=True)
     intraday = st.Page(_render, title="Intraday", url_path="intraday", default=True)
     swing = st.Page(_swing_page, title="Swing", url_path="swing")
     live = st.Page(_live_page, title="Live Intraday", url_path="live-intraday")
