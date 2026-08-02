@@ -1,0 +1,1480 @@
+{
+ "symbol": "HINDUNILVR",
+ "day": "2026-07-28",
+ "rows": [
+  {
+   "time": "09:45",
+   "actual": {
+    "px": 2202.89990234375,
+    "to_close_pct": -8.284528849246344,
+    "to_1h_pct": -4.516773544460106,
+    "max_up_pct": 0.4584909938714926,
+    "max_dn_pct": -8.284528849246344
+   },
+   "arms": {
+    "baseline": {
+     "action": "BUY_NOW",
+     "q": 68,
+     "conf": 60,
+     "entry": 2201.9,
+     "stop": 2172.97,
+     "t1": 2204.0,
+     "rr": 1.12,
+     "side": "LONG",
+     "pnl_close": -8.284528849246344,
+     "pnl_1h": -4.516773544460106
+    },
+    "lifecycle": {
+     "action": "BUY_NOW",
+     "q": 68,
+     "conf": 60,
+     "entry": 2201.9,
+     "stop": 2172.97,
+     "t1": 2204.0,
+     "rr": 1.12,
+     "side": "LONG",
+     "pnl_close": -8.284528849246344,
+     "pnl_1h": -4.516773544460106
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 68,
+     "conf": 60,
+     "entry": 2201.9,
+     "stop": 2172.97,
+     "t1": 2204.0,
+     "rr": 1.12,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "BUY_NOW",
+     "q": 68,
+     "conf": 62,
+     "entry": 2201.9,
+     "stop": 2172.97,
+     "t1": 2204.0,
+     "rr": 1.12,
+     "side": "LONG",
+     "pnl_close": -8.284528849246344,
+     "pnl_1h": -4.516773544460106
+    }
+   },
+   "lifecycle_stage": null,
+   "exhaustion": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "time": "10:00",
+   "actual": {
+    "px": 2093.5,
+    "to_close_pct": -3.491759043990327,
+    "to_1h_pct": -1.0269882971101028,
+    "max_up_pct": 5.708144256030571,
+    "max_dn_pct": -3.491759043990327
+   },
+   "arms": {
+    "baseline": {
+     "action": "BUY_NOW",
+     "q": 76,
+     "conf": 72,
+     "entry": 2209.0,
+     "stop": 2181.82,
+     "t1": 2209.2,
+     "rr": 1.2,
+     "side": "LONG",
+     "pnl_close": -3.491759043990327,
+     "pnl_1h": -1.0269882971101028
+    },
+    "lifecycle": {
+     "action": "BUY_NOW",
+     "q": 76,
+     "conf": 72,
+     "entry": 2209.0,
+     "stop": 2181.82,
+     "t1": 2209.2,
+     "rr": 1.2,
+     "side": "LONG",
+     "pnl_close": -3.491759043990327,
+     "pnl_1h": -1.0269882971101028
+    },
+    "exhaustion": {
+     "action": "BUY_NOW",
+     "q": 76,
+     "conf": 76,
+     "entry": 2209.0,
+     "stop": 2181.82,
+     "t1": 2209.2,
+     "rr": 1.2,
+     "side": "LONG",
+     "pnl_close": -3.491759043990327,
+     "pnl_1h": -1.0269882971101028
+    },
+    "both": {
+     "action": "BUY_NOW",
+     "q": 76,
+     "conf": 74,
+     "entry": 2209.0,
+     "stop": 2181.82,
+     "t1": 2209.2,
+     "rr": 1.2,
+     "side": "LONG",
+     "pnl_close": -3.491759043990327,
+     "pnl_1h": -1.0269882971101028
+    }
+   },
+   "lifecycle_stage": null,
+   "exhaustion": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "time": "10:15",
+   "actual": {
+    "px": 2103.10009765625,
+    "to_close_pct": -3.932293728403638,
+    "to_1h_pct": -1.0032854679510739,
+    "max_up_pct": 0.6038681271532514,
+    "max_dn_pct": -3.932293728403638
+   },
+   "arms": {
+    "baseline": {
+     "action": "NO_TRADE",
+     "q": 0,
+     "conf": 30,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "NO_TRADE",
+     "q": 0,
+     "conf": 80,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": null,
+   "exhaustion": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "time": "10:30",
+   "actual": {
+    "px": 2105.199951171875,
+    "to_close_pct": -4.028117457945408,
+    "to_1h_pct": -1.8905590799567524,
+    "max_up_pct": 0.37051344333268893,
+    "max_dn_pct": -4.028117457945408
+   },
+   "arms": {
+    "baseline": {
+     "action": "NO_TRADE",
+     "q": 0,
+     "conf": 85,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "NO_TRADE",
+     "q": 0,
+     "conf": 80,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "NO_TRADE",
+     "q": 0,
+     "conf": 78,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": null,
+   "exhaustion": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "time": "10:45",
+   "actual": {
+    "px": 2103.39990234375,
+    "to_close_pct": -3.945986582827328,
+    "to_1h_pct": -1.3549491928873523,
+    "max_up_pct": 0.3993604104961206,
+    "max_dn_pct": -3.945986582827328
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 55,
+     "entry": 2120.4,
+     "stop": 2168.71,
+     "t1": 2082.01,
+     "rr": 1.26,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 72,
+     "entry": 2120.4,
+     "stop": 2168.71,
+     "t1": 2082.01,
+     "rr": 1.26,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 72,
+     "entry": 2120.4,
+     "stop": 2168.71,
+     "t1": 2082.01,
+     "rr": 1.26,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "NO_TRADE",
+     "q": 78,
+     "conf": 72,
+     "entry": null,
+     "stop": 2168.71,
+     "t1": 2082.01,
+     "rr": 1.26,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "strong_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    19.9,
+    23.7
+   ]
+  },
+  {
+   "time": "11:00",
+   "actual": {
+    "px": 2072.0,
+    "to_close_pct": -2.490346312062621,
+    "to_1h_pct": -0.9121574490226834,
+    "max_up_pct": 1.2693073758747586,
+    "max_dn_pct": -2.490346312062621
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 30,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 92,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 0,
+     "conf": 30,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    18.3,
+    29.6
+   ]
+  },
+  {
+   "time": "11:15",
+   "actual": {
+    "px": 2082.0,
+    "to_close_pct": -2.9586923912554033,
+    "to_1h_pct": -1.7098931597472382,
+    "max_up_pct": 0.07204610951008646,
+    "max_dn_pct": -2.9586923912554033
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 70,
+     "entry": 2117.97,
+     "stop": 2149.64,
+     "t1": 2069.2,
+     "rr": 1.3,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 62,
+     "entry": 2113.43,
+     "stop": 2149.64,
+     "t1": 2069.2,
+     "rr": 1.3,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 70,
+     "entry": 2117.97,
+     "stop": 2149.64,
+     "t1": 2069.2,
+     "rr": 1.3,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 66,
+     "entry": 2117.97,
+     "stop": 2149.64,
+     "t1": 2069.2,
+     "rr": 1.3,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    24.2,
+    38.2
+   ]
+  },
+  {
+   "time": "11:30",
+   "actual": {
+    "px": 2065.39990234375,
+    "to_close_pct": -2.178748913400406,
+    "to_1h_pct": -1.070003609981137,
+    "max_up_pct": 0.7068896265407137,
+    "max_dn_pct": -2.178748913400406
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 62,
+     "entry": 2112.33,
+     "stop": 2140.07,
+     "t1": 2069.2,
+     "rr": 1.4,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 55,
+     "conf": 62,
+     "entry": 2112.33,
+     "stop": 2140.07,
+     "t1": 2069.2,
+     "rr": 1.4,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 62,
+     "entry": 2116.79,
+     "stop": 2140.07,
+     "t1": 2069.2,
+     "rr": 1.4,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    24.2,
+    28.0
+   ]
+  },
+  {
+   "time": "11:45",
+   "actual": {
+    "px": 2074.89990234375,
+    "to_close_pct": -2.626626849233832,
+    "to_1h_pct": -0.9639019201556928,
+    "max_up_pct": 0.24579969619204617,
+    "max_dn_pct": -2.626626849233832
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 72,
+     "entry": 2112.62,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.69,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 55,
+     "entry": 2108.36,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.69,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 55,
+     "conf": 62,
+     "entry": 2112.62,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.69,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 62,
+     "entry": 2112.62,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.69,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "early_long_reversal_candidate",
+    "bullish_reversal",
+    19.9,
+    69.9
+   ]
+  },
+  {
+   "time": "12:00",
+   "actual": {
+    "px": 2053.10009765625,
+    "to_close_pct": -1.5927169493351445,
+    "to_1h_pct": -0.26302402355051396,
+    "max_up_pct": 0.6721447582245693,
+    "max_dn_pct": -1.5927169493351445
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 40,
+     "conf": 55,
+     "entry": 2106.22,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.48,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 75,
+     "conf": 62,
+     "entry": 2110.35,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.48,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 75,
+     "conf": 62,
+     "entry": 2110.35,
+     "stop": 2128.38,
+     "t1": 2060.0,
+     "rr": 1.48,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "NO_TRADE",
+     "q": 40,
+     "conf": 72,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    19.9,
+    42.5
+   ]
+  },
+  {
+   "time": "12:15",
+   "actual": {
+    "px": 2046.4000244140625,
+    "to_close_pct": -1.2705238315976113,
+    "to_1h_pct": -0.03909542702209822,
+    "max_up_pct": 0.5130901976359137,
+    "max_dn_pct": -1.2705238315976113
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 62,
+     "entry": 2102.4,
+     "stop": 2117.27,
+     "t1": 2048.5,
+     "rr": 1.54,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 55,
+     "conf": 60,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 62,
+     "entry": 2106.37,
+     "stop": 2117.27,
+     "t1": 2048.5,
+     "rr": 1.54,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "no_trade",
+    "no_clear_edge",
+    19.9,
+    47.3
+   ]
+  },
+  {
+   "time": "12:30",
+   "actual": {
+    "px": 2043.300048828125,
+    "to_close_pct": -1.1207372322628848,
+    "to_1h_pct": 0.06851183430220505,
+    "max_up_pct": 0.6655827920830716,
+    "max_dn_pct": -1.1207372322628848
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 71,
+     "conf": 58,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": 1.36,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 71,
+     "conf": 62,
+     "entry": 2098.97,
+     "stop": 2120.0,
+     "t1": 2038.0,
+     "rr": 1.36,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 40,
+     "conf": 62,
+     "entry": 2098.97,
+     "stop": 2115.0,
+     "t1": 2038.0,
+     "rr": 1.36,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 71,
+     "conf": 62,
+     "entry": 2102.85,
+     "stop": 2107.06,
+     "t1": 2038.0,
+     "rr": 1.36,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    19.9,
+    42.5
+   ]
+  },
+  {
+   "time": "12:45",
+   "actual": {
+    "px": 2054.89990234375,
+    "to_close_pct": -1.6789079550949462,
+    "to_1h_pct": -0.6472299085051807,
+    "max_up_pct": 0.09732834177075327,
+    "max_dn_pct": -1.6789079550949462
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 62,
+     "entry": 2096.29,
+     "stop": 2104.29,
+     "t1": 2035.0,
+     "rr": 1.67,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 55,
+     "entry": 2100.09,
+     "stop": 2104.29,
+     "t1": 2035.0,
+     "rr": 1.67,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 55,
+     "conf": 62,
+     "entry": 2098.0,
+     "stop": 2104.29,
+     "t1": 2035.0,
+     "rr": 1.67,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 42,
+     "conf": 35,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "early_long_reversal_candidate",
+    "bullish_reversal",
+    10.2,
+    64.5
+   ]
+  },
+  {
+   "time": "13:00",
+   "actual": {
+    "px": 2047.699951171875,
+    "to_close_pct": -1.3331995609116984,
+    "to_1h_pct": -0.5469527488861539,
+    "max_up_pct": 0.14162946493773562,
+    "max_dn_pct": -1.3331995609116984
+   },
+   "arms": {
+    "baseline": {
+     "action": "NO_TRADE",
+     "q": 40,
+     "conf": 72,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 48,
+     "conf": 58,
+     "entry": 2095.0,
+     "stop": 2130.0,
+     "t1": 2035.0,
+     "rr": 1.51,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 78,
+     "conf": 70,
+     "entry": 2098.57,
+     "stop": 2102.77,
+     "t1": 2035.0,
+     "rr": 1.51,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "NO_TRADE",
+     "q": 40,
+     "conf": 72,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    18.8,
+    32.8
+   ]
+  },
+  {
+   "time": "13:15",
+   "actual": {
+    "px": 2045.5999755859375,
+    "to_close_pct": -1.2319100250603385,
+    "to_1h_pct": -0.27375712029589044,
+    "max_up_pct": 0.06355342411228845,
+    "max_dn_pct": -1.2319100250603385
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 77,
+     "conf": 58,
+     "entry": 2097.56,
+     "stop": 2101.76,
+     "t1": 2035.0,
+     "rr": 1.33,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 77,
+     "conf": 72,
+     "entry": 2097.56,
+     "stop": 2101.76,
+     "t1": 2035.0,
+     "rr": 1.33,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 77,
+     "conf": 58,
+     "entry": 2097.56,
+     "stop": 2101.76,
+     "t1": 2035.0,
+     "rr": 1.33,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 77,
+     "conf": 72,
+     "entry": 2097.56,
+     "stop": 2101.76,
+     "t1": 2035.0,
+     "rr": 1.33,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    18.8,
+    32.8
+   ]
+  },
+  {
+   "time": "13:30",
+   "actual": {
+    "px": 2044.699951171875,
+    "to_close_pct": -1.1884348480512033,
+    "to_1h_pct": -0.5722087079412033,
+    "max_up_pct": 0.10759883086643478,
+    "max_dn_pct": -1.1884348480512033
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 74,
+     "conf": 62,
+     "entry": 2093.0,
+     "stop": 2100.69,
+     "t1": 2035.0,
+     "rr": 1.29,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 74,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 74,
+     "conf": 62,
+     "entry": 2092.84,
+     "stop": 2100.69,
+     "t1": 2035.0,
+     "rr": 1.29,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 74,
+     "conf": 72,
+     "entry": 2092.84,
+     "stop": 2100.69,
+     "t1": 2035.0,
+     "rr": 1.29,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    23.7,
+    28.5
+   ]
+  },
+  {
+   "time": "13:45",
+   "actual": {
+    "px": 2041.5999755859375,
+    "to_close_pct": -1.0383988746762516,
+    "to_1h_pct": -0.8081896648369872,
+    "max_up_pct": 0.1616403246271537,
+    "max_dn_pct": -1.0383988746762516
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 80,
+     "conf": 62,
+     "entry": 2090.5,
+     "stop": 2098.29,
+     "t1": 2034.0,
+     "rr": 0.72,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 55,
+     "conf": 62,
+     "entry": 2090.53,
+     "stop": 2098.29,
+     "t1": 2034.0,
+     "rr": 0.72,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 80,
+     "conf": 68,
+     "entry": 2090.0,
+     "stop": 2098.29,
+     "t1": 2034.0,
+     "rr": 0.72,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 55,
+     "conf": 55,
+     "entry": 2090.5,
+     "stop": 2098.29,
+     "t1": 2034.0,
+     "rr": 0.72,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "early_long_reversal_candidate",
+    "bullish_reversal",
+    19.4,
+    55.9
+   ]
+  },
+  {
+   "time": "14:00",
+   "actual": {
+    "px": 2036.5,
+    "to_close_pct": -0.7905708610821263,
+    "to_1h_pct": -0.7070967058218758,
+    "max_up_pct": 0.2307857192180211,
+    "max_dn_pct": -0.7905708610821263
+   },
+   "arms": {
+    "baseline": {
+     "action": "NO_TRADE",
+     "q": 40,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 60,
+     "conf": 58,
+     "entry": 2090.0,
+     "stop": 2096.99,
+     "t1": 2034.0,
+     "rr": 0.64,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 58,
+     "conf": 62,
+     "entry": 2089.0,
+     "stop": 2097.0,
+     "t1": 2034.0,
+     "rr": 0.64,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 50,
+     "conf": 58,
+     "entry": 2089.0,
+     "stop": 2097.0,
+     "t1": 2034.0,
+     "rr": 0.64,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    24.2,
+    33.9
+   ]
+  },
+  {
+   "time": "14:15",
+   "actual": {
+    "px": 2040.0,
+    "to_close_pct": -0.9607831169577206,
+    "to_1h_pct": -0.8921544692095588,
+    "max_up_pct": 0.049019607843137254,
+    "max_dn_pct": -0.9607831169577206
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 80,
+     "conf": 62,
+     "entry": 2091.79,
+     "stop": 2095.97,
+     "t1": 2034.0,
+     "rr": 0.55,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 45,
+     "conf": 55,
+     "entry": 2090.0,
+     "stop": 2114.0,
+     "t1": 2034.0,
+     "rr": 0.55,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 80,
+     "conf": 72,
+     "entry": 2091.79,
+     "stop": 2095.97,
+     "t1": 2034.0,
+     "rr": 0.55,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 45,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": 0.55,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    19.4,
+    43.0
+   ]
+  },
+  {
+   "time": "14:30",
+   "actual": {
+    "px": 2033.0,
+    "to_close_pct": -0.6197725325104525,
+    "to_1h_pct": -0.6197725325104525,
+    "max_up_pct": 0.3049656257685686,
+    "max_dn_pct": -0.6197725325104525
+   },
+   "arms": {
+    "baseline": {
+     "action": "NO_TRADE",
+     "q": 70,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 70,
+     "conf": 70,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "NO_TRADE",
+     "q": 70,
+     "conf": 40,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 45,
+     "conf": 60,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "no_trade",
+    "continuation_down",
+    23.7,
+    33.9
+   ]
+  },
+  {
+   "time": "14:45",
+   "actual": {
+    "px": 2025.0999755859375,
+    "to_close_pct": -0.23208489598224047,
+    "to_1h_pct": -0.23208489598224047,
+    "max_up_pct": 0.19752111244990014,
+    "max_dn_pct": -0.23208489598224047
+   },
+   "arms": {
+    "baseline": {
+     "action": "WAIT",
+     "q": 45,
+     "conf": 58,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": 0.31,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "WAIT",
+     "q": 75,
+     "conf": 45,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": 0.31,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "WAIT",
+     "q": 75,
+     "conf": 60,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "WAIT",
+     "q": 75,
+     "conf": 45,
+     "entry": null,
+     "stop": 2092.83,
+     "t1": 2027.5,
+     "rr": 0.31,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "healthy_trend",
+   "exhaustion": [
+    "early_long_reversal_candidate",
+    "bullish_reversal",
+    19.4,
+    56.5
+   ]
+  },
+  {
+   "time": "15:00",
+   "actual": {
+    "px": 2022.0999755859375,
+    "to_close_pct": -0.0840686015726008,
+    "to_1h_pct": -0.0840686015726008,
+    "max_up_pct": 0.27199446448765635,
+    "max_dn_pct": -0.0840686015726008
+   },
+   "arms": {
+    "baseline": {
+     "action": "NO_TRADE",
+     "q": 40,
+     "conf": 72,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "lifecycle": {
+     "action": "NO_TRADE",
+     "q": 78,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "exhaustion": {
+     "action": "NO_TRADE",
+     "q": 32,
+     "conf": 72,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    },
+    "both": {
+     "action": "NO_TRADE",
+     "q": 40,
+     "conf": 62,
+     "entry": null,
+     "stop": null,
+     "t1": null,
+     "rr": null,
+     "side": "-",
+     "pnl_close": 0.0,
+     "pnl_1h": 0.0
+    }
+   },
+   "lifecycle_stage": "mature_trend",
+   "exhaustion": [
+    "high_conviction_long_reversal",
+    "bullish_reversal",
+    19.4,
+    71.0
+   ]
+  }
+ ]
+}

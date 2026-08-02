@@ -108,17 +108,24 @@ def one(t):
             s = (p.get("trend_exhaustion") or {}).get("summary") or {}
             ex = (s.get("opportunity"), s.get("expected_direction"),
                   s.get("bullish_exhaustion_score"), s.get("bearish_exhaustion_score"))
-        try:
-            eng = SkillDecisionEngine(use_web_search=False, skill_path=SKILL, model=MODEL)
-            d = eng.decide(SYM, p, position=None, book=BOOK)
-            row["arms"][arm] = {"action": d.action, "q": d.trade_quality, "conf": d.confidence,
-                                "entry": d.entry, "stop": d.stop_loss, "t1": d.target1,
-                                "rr": d.risk_reward, "side": side_of(d.action),
-                                "pnl_close": pnl(side_of(d.action), o),
-                                "pnl_1h": pnl(side_of(d.action), o, "to_1h_pct")}
-        except Exception as e:
-            print(f"[{t}/{arm}] FAILED {type(e).__name__}: {str(e)[:100]}", flush=True)
-            row["arms"][arm] = None
+        # Retry inline: the first run lost 6 of 88 cells to rate limits with EMPTY stderr, and
+        # the identical call succeeded moments later. A silently-missing arm would look like a
+        # config difference in the report, which is exactly the wrong thing to get wrong.
+        row["arms"][arm] = None
+        for attempt in range(4):
+            try:
+                eng = SkillDecisionEngine(use_web_search=False, skill_path=SKILL, model=MODEL)
+                d = eng.decide(SYM, p, position=None, book=BOOK)
+                row["arms"][arm] = {"action": d.action, "q": d.trade_quality, "conf": d.confidence,
+                                    "entry": d.entry, "stop": d.stop_loss, "t1": d.target1,
+                                    "rr": d.risk_reward, "side": side_of(d.action),
+                                    "pnl_close": pnl(side_of(d.action), o),
+                                    "pnl_1h": pnl(side_of(d.action), o, "to_1h_pct")}
+                break
+            except Exception as e:
+                print(f"[{t}/{arm}] attempt {attempt+1} {type(e).__name__}: {str(e)[:80]}",
+                      flush=True)
+                time.sleep(4 * (attempt + 1))
     row["lifecycle_stage"], row["exhaustion"] = lc, ex
     acts = " | ".join(f"{a[:4]}={(row['arms'][a] or {}).get('action','ERR')[:14]}" for a in ARMS)
     print(f"[{t}] {acts}  actual->close {o and o['to_close_pct']:+.2f}%", flush=True)
@@ -128,7 +135,7 @@ def one(t):
 if __name__ == "__main__":
     print(f"{SYM} {DAY}: {len(TIMES)} decision points x {len(ARMS)} arms "
           f"= {len(TIMES)*len(ARMS)} skill calls, model {MODEL}\n", flush=True)
-    with ThreadPoolExecutor(max_workers=5) as ex_:
+    with ThreadPoolExecutor(max_workers=4) as ex_:
         rows = [r for r in ex_.map(one, TIMES) if r]
     json.dump({"symbol": SYM, "day": DAY, "rows": rows},
               open(f"dayreplay_{SYM}_{DAY}.json", "w"), indent=1)
