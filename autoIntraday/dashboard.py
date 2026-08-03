@@ -503,8 +503,7 @@ def _settings_dialog() -> None:
             if comp_on:
                 fields["mode"] = "paper"          # compare is paper-only -> disable live
             _db(lambda s: s.update_config(**fields))
-            st.success("Saved.")
-            st.rerun()
+            st.toast("Saved", icon="✅")
 
     with t_capital:
         sub_capital, sub_exits, sub_exec = st.tabs(["Capital", "Exits", "Execution"])
@@ -522,8 +521,7 @@ def _settings_dialog() -> None:
                 _db(lambda s: s.update_config(total_pool=total_pool,
                                               max_open_positions=int(max_pos),
                                               capital_per_position=cap_pos))
-                st.success("Saved.")
-                st.rerun()
+                st.toast("Saved", icon="✅")
 
         with sub_exits:
             st.caption("Early profit-taking — secure the win before the far target reverts. "
@@ -545,8 +543,7 @@ def _settings_dialog() -> None:
                     _db(lambda s: s.update_config(profit_book_enabled=pb_on,
                                                   profit_book_partial_pct=partial_pct,
                                                   profit_book_full_pct=full_pct))
-                    st.success("Saved.")
-                    st.rerun()
+                    st.toast("Saved", icon="✅")
 
             st.divider()
             st.caption("Exit placement (LIVE only) — where the stop + target actually live. "
@@ -585,8 +582,7 @@ def _settings_dialog() -> None:
             if st.button("Save exit placement", use_container_width=True):
                 _db(lambda s: s.update_config(exit_mode=em, arm_exit_band_pct=ex_band,
                                               adopt_fallback_stop_pct=fallback_pct))
-                st.success("Saved.")
-                st.rerun()
+                st.toast("Saved", icon="✅")
 
         with sub_exec:
             st.caption("Execution breathing space — applied to Claude's levels before the order goes "
@@ -639,8 +635,7 @@ def _settings_dialog() -> None:
                                               rr_gate_enabled=rr_enabled,
                                               rr_source=rr_source,
                                               rr_gate_pre_margin=rr_pre_margin))
-                st.success("Saved.")
-                st.rerun()
+                st.toast("Saved", icon="✅")
 
             st.divider()
             st.caption("Trend lifecycle context — publish the 8-state lifecycle (strong -> healthy "
@@ -671,8 +666,7 @@ def _settings_dialog() -> None:
             if st.button("Save context engines", use_container_width=True):
                 _db(lambda s: s.update_config(lifecycle_context_enabled=lc_on,
                                               exhaustion_context_enabled=ex_on))
-                st.success("Saved.")
-                st.rerun()
+                st.toast("Saved", icon="✅")
 
             st.divider()
             st.caption("Scale into strength — pyramid extra capital into a position while the engine "
@@ -706,8 +700,7 @@ def _settings_dialog() -> None:
                     pyramid_max_adds=int(pyr_max), pyramid_full_pct=pyr_full,
                     pyramid_confirm_cycles=int(pyr_conf), pyramid_min_quality=pyr_q,
                     pyramid_min_confidence=pyr_c))
-                st.success("Saved.")
-                st.rerun()
+                st.toast("Saved", icon="✅")
 
     with t_schedule:
         try:
@@ -755,8 +748,7 @@ def _settings_dialog() -> None:
                 else:
                     _db(lambda s: s.update_config(
                         primer_time=f"{primer_in.hour:02d}:{primer_in.minute:02d}"))
-                    st.success(msg)
-                    st.rerun()
+                    st.toast(msg, icon="✅")
 
             primer_on = _db(lambda s: s.get_config().primer_enabled)
             new_primer = st.toggle(
@@ -766,7 +758,7 @@ def _settings_dialog() -> None:
                      "usage window early, so it resets during trading, not after.")
             if new_primer != primer_on:
                 _db(lambda s: s.update_config(primer_enabled=new_primer))
-                st.rerun()
+                st.toast("Primer " + ("enabled" if new_primer else "disabled"), icon="✅")
 
     with t_data:
         st.caption("Delete history older than 30 days. Keeps the last 30 days, every open/resting "
@@ -782,6 +774,7 @@ def _settings_dialog() -> None:
                 st.success(f"Cleared {deleted} old rows "
                            f"({counts['positions']} trades, {counts['decisions']} decisions, "
                            f"{counts['orders']} orders, {counts['job_runs']} runs).")
+                st.toast(f"Cleared {deleted} old rows", icon="🧹")
 
 
 def _intraday_strategy_view() -> str | None:
@@ -1590,8 +1583,7 @@ def _live_page() -> None:
         if st.button("Save settings", use_container_width=True):
             ls.set_config(mode="live" if live_mode else "paper", capital_per_trade=cap,
                           min_rr=rr, atr_mult=atr_m, daily_loss_cap=cap_loss)
-            st.success("Saved.")
-            st.rerun()
+            st.toast("Saved", icon="✅")
         st.caption(f"Stop floor {cfg['min_stop_pct']}% of price · select at {cfg['select_at']} · "
                    f"no new entry after {cfg['no_new_entry_after']} · "
                    f"square-off {cfg['squareoff_at']}")
@@ -1677,8 +1669,7 @@ def _active_short_page() -> None:
             ss.set_config(active_short_enabled=1 if on else 0,
                           active_short_mode="live" if (want_live and done >= need) else "paper",
                           max_shorts=int(n), capital_per_short=cap, min_confidence=conf)
-            st.success("Saved.")
-            st.rerun()
+            st.toast("Saved", icon="✅")
         st.caption(f"Stop {cfg['stop_pct']}% above fill · target {cfg['target_pct']}% below · "
                    f"skip gaps beyond {cfg['max_gap_pct']}% · RVOL floor {cfg['min_rvol']}")
 
