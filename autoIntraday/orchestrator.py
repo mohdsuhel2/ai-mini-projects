@@ -173,16 +173,42 @@ def _tick(px: float, symbol: str | None = None) -> float:
     return round_to_tick(px, symbol)
 
 
-def _passes_entry_gate(decision, rr_gate: bool = True) -> bool:
+# Which R:R number the floor is judged on (config.rr_source). Two numbers exist:
+#   SKILL     — `decision.risk_reward`, the figure the engine writes in its JSON.
+#   GEOMETRIC — recomputed from entry/stop/target by `_geometric_rr`, i.e. the ratio the ORDERS
+#               actually express.
+# Measured 2026-08-03 over 88 entry decisions: the two are IDENTICAL to 0.00 in every case,
+# because the engine quotes its R:R off the same `institutional_desk.risk_model.targets` ladder
+# that `_full_exit_target` reads. The toggle therefore changes nothing on current data — it exists
+# so the source can be pinned deliberately, and matters only if the engine ever starts quoting a
+# number its own levels do not support (e.g. a payload with no desk block).
+RR_SOURCE_BOTH = "both"            # default: a trade must clear the floor on BOTH numbers
+RR_SOURCE_SKILL = "skill"          # judge only the engine's self-reported figure
+RR_SOURCE_GEOMETRIC = "geometric"  # judge only the ratio recomputed from the levels
+RR_SOURCES = (RR_SOURCE_BOTH, RR_SOURCE_SKILL, RR_SOURCE_GEOMETRIC)
+
+
+def _rr_source(cfg) -> str:
+    """The configured source, falling back to the strictest option on anything unrecognised."""
+    src = getattr(cfg, "rr_source", RR_SOURCE_BOTH)
+    return src if src in RR_SOURCES else RR_SOURCE_BOTH
+
+
+def _passes_entry_gate(decision, rr_gate: bool = True,
+                       rr_source: str = RR_SOURCE_BOTH) -> bool:
     """A trade is only worth taking with a genuine, data-backed edge. Every hard floor here must
     clear before capital is risked: a strong setup (trade_quality), the engine's own conviction
     (confidence), and a valid entry+stop to size and protect it. When rr_gate is on (default) the
     self-reported payoff-to-risk skew (risk_reward) must also clear MIN_RISK_REWARD; when off
     (config.rr_gate_enabled=False) the R:R floor is skipped and the trade rides on quality +
-    confidence. Anything short is a WAIT, not a marginal trade."""
+    confidence. Anything short is a WAIT, not a marginal trade.
+
+    This is the SKILL-side half of the R:R floor, so it is skipped when rr_source is GEOMETRIC —
+    the geometry check in `_place_entry` carries the floor in that mode."""
+    check_skill = rr_gate and rr_source in (RR_SOURCE_BOTH, RR_SOURCE_SKILL)
     return (decision.action in ENTRY_ACTIONS
             and decision.trade_quality is not None and decision.trade_quality >= MIN_TRADE_QUALITY
-            and (not rr_gate
+            and (not check_skill
                  or (decision.risk_reward is not None and decision.risk_reward >= MIN_RISK_REWARD))
             and decision.confidence is not None and decision.confidence >= MIN_CONFIDENCE
             and decision.entry is not None and decision.stop_loss is not None
@@ -1292,7 +1318,7 @@ class Orchestrator:
             order = self.client.place_order(
                 symbol=position.symbol, exchange=position.exchange, transaction_type=txn,
                 quantity=qty, order_type="SL_M", trigger_price=px, product="MIS")
-            otype = "SL_M"
+            otype = order.get("order_type") or "SL_M"   # SL_M goes out as an emulated SL
         if _is_rejected(order):
             self._cycle_errors += 1
             self.store.record_decision(run_id=run_id, symbol=position.symbol, action="SKIP",
@@ -1737,7 +1763,12 @@ class Orchestrator:
                                        reason="rejected: invalid geometry (no reward)",
                                        raw_json=decision.raw_response)
             return False
-        if cfg.rr_gate_enabled and actual_rr < MIN_RISK_REWARD:
+        # The GEOMETRIC half of the floor. Skipped when rr_source is SKILL — but note the
+        # `actual_rr is None` rejection above still stands in every mode: degenerate geometry (no
+        # reward, or a stop on the wrong side of entry) is an INVALID trade, not a thin one, and
+        # no choice of R:R source makes it tradeable.
+        check_geometric = _rr_source(cfg) in (RR_SOURCE_BOTH, RR_SOURCE_GEOMETRIC)
+        if cfg.rr_gate_enabled and check_geometric and actual_rr < MIN_RISK_REWARD:
             # Practical-T1 ladder (2026-07-31): the engine's target1 is now the FIRST objective
             # (~0.6%, ~62% hit-before-stop), not the trade's full reward — so geometry-to-target1
             # alone under-states the trade. Before rejecting, judge the best achievable reward:
@@ -2332,7 +2363,7 @@ class Orchestrator:
                 self.store.record_decision(run_id=run_id, symbol=symbol, action="SKIP",
                                            reason=f"decision error: {e}")
                 continue
-            if not _passes_entry_gate(decision, cfg.rr_gate_enabled):
+            if not _passes_entry_gate(decision, cfg.rr_gate_enabled, _rr_source(cfg)):
                 self.store.record_decision(run_id=run_id, symbol=symbol, action=decision.action,
                                            score=decision.trade_quality, reason="below gate",
                                            raw_json=decision.raw_response)
@@ -2371,7 +2402,7 @@ class Orchestrator:
             if symbol in held:      # belt and braces — the model was told to exclude these
                 log.warning("skill screen returned held symbol %s — ignoring", symbol)
                 continue
-            if not _passes_entry_gate(decision, cfg.rr_gate_enabled):
+            if not _passes_entry_gate(decision, cfg.rr_gate_enabled, _rr_source(cfg)):
                 self.store.record_decision(run_id=run_id, symbol=symbol,
                                            action=decision.action,
                                            score=decision.trade_quality, reason="below gate",

@@ -3251,3 +3251,95 @@ def test_both_context_engines_can_be_enabled_independently():
     assert "trend_exhaustion" in both("X") and "trend_lifecycle" not in both("X")
     store.update_config(lifecycle_context_enabled=True)
     assert "trend_exhaustion" in both("X") and "trend_lifecycle" in both("X")
+
+
+# ---- R:R source toggle (2026-08-03) -----------------------------------------------------------
+# Two R:R numbers exist: the engine's self-reported `risk_reward`, and the ratio recomputed from
+# entry/stop/target. Measured across 88 entry decisions they were IDENTICAL to 0.00 (the engine
+# quotes off the same desk target ladder `_full_exit_target` reads), so this toggle is a no-op on
+# current data. These tests pin the behaviour for the case where they DO diverge.
+def _rr_decision(rr, entry=100.0, stop=95.0, target=110.0, action="BUY_NOW"):
+    return _decision(action=action, tq=90, conf=90, entry=entry, stop=stop,
+                     target1=target, rr=rr)
+
+
+def test_rr_source_defaults_to_both_and_is_the_strictest():
+    from orchestrator import RR_SOURCE_BOTH, RR_SOURCES, _passes_entry_gate, _rr_source
+    from store import Store
+    assert Store(":memory:").get_config().rr_source == RR_SOURCE_BOTH
+    assert RR_SOURCES == ("both", "skill", "geometric")
+    # a thin self-reported number is refused under both/skill, ignored under geometric
+    thin = _rr_decision(0.5)
+    assert not _passes_entry_gate(thin, True, "both")
+    assert not _passes_entry_gate(thin, True, "skill")
+    assert _passes_entry_gate(thin, True, "geometric")
+
+
+def test_the_skill_half_is_skipped_only_in_geometric_mode():
+    from orchestrator import _passes_entry_gate
+    good = _rr_decision(3.0)
+    for src in ("both", "skill", "geometric"):
+        assert _passes_entry_gate(good, True, src), src
+
+
+def test_an_unrecognised_source_falls_back_to_the_strictest():
+    """A bad DB value must never silently loosen a live money gate."""
+    from orchestrator import RR_SOURCE_BOTH, _rr_source
+    class C:
+        rr_source = "whatever"
+    assert _rr_source(C()) == RR_SOURCE_BOTH
+    class D:
+        pass                      # field missing entirely (old row)
+    assert _rr_source(D()) == RR_SOURCE_BOTH
+
+
+def test_the_rr_source_only_matters_while_the_gate_is_on():
+    from orchestrator import _passes_entry_gate
+    thin = _rr_decision(0.2)
+    for src in ("both", "skill", "geometric"):
+        assert _passes_entry_gate(thin, False, src), f"gate off must ignore source {src}"
+
+
+def test_rr_source_survives_a_config_round_trip():
+    from store import Store
+    s = Store(":memory:")
+    for src in ("skill", "geometric", "both"):
+        s.update_config(rr_source=src)
+        assert s.get_config().rr_source == src
+
+
+def test_rr_source_skill_lets_a_thin_geometry_through_the_place_entry_path():
+    """The mirror of test_rr_gate_post_margin_rejects_when_flag_disabled: same setup, but with
+    rr_source='skill' the geometric half is not applied, so the engine's own number decides."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0, rr_gate_pre_margin=False, rr_source="skill")
+    d = _decision(action="BUY_NOW", tq=80, rr=1.6, conf=75, entry=100.0, stop=95.0, target1=108.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is True and len(store.get_open_positions()) == 1
+
+
+def test_rr_source_geometric_still_rejects_thin_geometry():
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0, rr_gate_pre_margin=False, rr_source="geometric")
+    d = _decision(action="BUY_NOW", tq=80, rr=1.6, conf=75, entry=100.0, stop=95.0, target1=108.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0), "paper")
+    assert ok is False and store.get_open_positions() == []
+
+
+def test_degenerate_geometry_is_rejected_under_EVERY_rr_source():
+    """No choice of source makes an invalid trade tradeable. A target at/below entry has no
+    reward at all — that is a broken decision, not a thin one."""
+    for src in ("both", "skill", "geometric"):
+        store = Store(":memory:")
+        _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+             capital_per_position=20000.0, rr_source=src)
+        d = _decision(action="BUY_NOW", tq=90, rr=5.0, conf=90,
+                      entry=100.0, stop=95.0, target1=99.0)      # target BELOW entry
+        orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+        ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0),
+                               "paper")
+        assert ok is False and store.get_open_positions() == [], f"source {src} admitted it"

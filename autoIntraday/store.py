@@ -140,6 +140,13 @@ class Config:
     # +0.191%/trade 86% right at 15m (n=21), +0.080% 68% right at 5m (n=95). The SHORT side was
     # negative in both. Thin samples and margins near round-trip cost — needs live evidence.
     exhaustion_context_enabled: bool = False
+    # Which R:R number the floor is judged on: "both" (default, strictest), "skill" (the engine's
+    # self-reported figure only) or "geometric" (only the ratio recomputed from entry/stop/target).
+    # Measured 2026-08-03 across 88 entry decisions the two numbers were IDENTICAL to 0.00, since
+    # the engine quotes R:R off the same desk target ladder `_full_exit_target` reads — so this
+    # changes nothing on current data. It exists to pin the source deliberately, and bites only if
+    # the engine ever quotes a number its own levels do not support.
+    rr_source: str = "both"
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -148,7 +155,7 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "profit_book_enabled", "profit_book_partial_pct", "profit_book_full_pct",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
                   "radar_exit_enabled", "radar_stop_pct", "radar_stop_floor_pct",
-                  "lifecycle_context_enabled", "exhaustion_context_enabled",
+                  "lifecycle_context_enabled", "exhaustion_context_enabled", "rr_source",
                   "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
                   "rotation_confirm_cycles", "rotation_screen_every",
                   "rr_gate_pre_margin", "rr_gate_enabled", "exit_mode", "arm_exit_enabled",
@@ -574,6 +581,7 @@ class Store:
                          ("radar_exit_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("lifecycle_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("exhaustion_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                         ("rr_source", "TEXT NOT NULL DEFAULT 'both'"),
                          ("radar_stop_pct", "REAL NOT NULL DEFAULT 1.0"),
                          ("radar_stop_floor_pct", "REAL NOT NULL DEFAULT 0.5")):
             if col not in ccols:
@@ -637,6 +645,7 @@ class Store:
                       radar_exit_enabled=bool(r["radar_exit_enabled"]),
                       lifecycle_context_enabled=bool(r["lifecycle_context_enabled"]),
                       exhaustion_context_enabled=bool(r["exhaustion_context_enabled"]),
+                      rr_source=(r["rr_source"] or "both"),
                       radar_stop_pct=r["radar_stop_pct"],
                       radar_stop_floor_pct=r["radar_stop_floor_pct"])
 

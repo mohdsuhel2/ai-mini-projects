@@ -616,11 +616,28 @@ def _settings_dialog() -> None:
                      "wide target-shave books less profit but never rejects the trade for 'low "
                      "R:R'. OFF: the shaved target / widened stop must still clear the R:R floor "
                      "AFTER margins (stricter, fewer trades).")
+            _RR_SRC = ["both", "skill", "geometric"]
+            _cur_src = getattr(m, "rr_source", "both")
+            rr_source = st.selectbox(
+                "R:R judged on", _RR_SRC,
+                index=_RR_SRC.index(_cur_src) if _cur_src in _RR_SRC else 0,
+                disabled=not rr_enabled,
+                help="Which reward:risk number the 1.5 floor is applied to. BOTH (default, "
+                     "strictest): the trade must clear the floor on the engine's self-reported "
+                     "risk_reward AND on the ratio recomputed from entry/stop/target. SKILL: only "
+                     "the engine's own figure. GEOMETRIC: only the recomputed ratio — what the "
+                     "orders actually express. Measured 2026-08-03 across 88 entry decisions the "
+                     "two numbers were IDENTICAL to 0.00, because the engine quotes its R:R off "
+                     "the same desk target ladder the full-exit target reads — so on current data "
+                     "this changes nothing. It bites only if the engine starts quoting a number "
+                     "its own levels do not support. A trade with degenerate geometry (no reward, "
+                     "or a stop on the wrong side of entry) is rejected under every setting.")
             if st.button("Save execution margins", use_container_width=True):
                 _db(lambda s: s.update_config(entry_tolerance_pct=entry_tol,
                                               stop_tolerance_pct=stop_tol,
                                               target_shave_pct=target_shave,
                                               rr_gate_enabled=rr_enabled,
+                                              rr_source=rr_source,
                                               rr_gate_pre_margin=rr_pre_margin))
                 st.success("Saved.")
                 st.rerun()
