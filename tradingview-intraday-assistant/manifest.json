@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "TradingView Intraday Assistant",
+  "version": "1.0.0",
+  "description": "Reads the open TradingView chart and gives a decisive intraday verdict: BUY / SHORT / WAIT with entry, stop, targets and risk:reward.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TradingView Intraday Assistant"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.tradingview.com/*"],
+      "js": ["engine.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["*://*.tradingview.com/*"]
+}
