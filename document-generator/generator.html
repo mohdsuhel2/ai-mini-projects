@@ -7753,7 +7753,7 @@
         <div class="bb-page">
           <div class="bb-header-grid">
             <h1 class="bb-title bb-header-title">POSTPAID MONTHLY STATEMENT</h1>
-            <img class="bb-logo-img bb-header-logo" src="bb-logo-ref.png" alt="airtel" />
+            <img class="bb-logo-img bb-header-logo" src="airtel-logo.png" alt="airtel" />
             <div class="bb-header-left">
               <div class="bb-left">
                 <div class="bb-name">${escapeHtml(data.customerName)}</div>
@@ -10368,7 +10368,7 @@
     async function preloadExportAssets() {
       try {
         await waitForExportFonts();
-        const files = new Set([LOGO_FILE, 'bb-logo-ref.png', 'bb-qr-ref.png']);
+        const files = new Set([LOGO_FILE, 'airtel-logo.png', 'bb-qr-ref.png']);
         Object.values(FUEL_COMPANIES).forEach(company => {
           if (company.logo) files.add(company.logo);
         });
