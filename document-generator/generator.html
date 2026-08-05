@@ -3116,20 +3116,42 @@
       grid-template-columns: 1fr 1fr;
       grid-template-rows: auto auto;
       column-gap: 16px;
-      row-gap: 6px;
-      align-items: center;
+      row-gap: 10px;
+      align-items: start;
       margin-bottom: 10px;
     }
 
-    .bb-header-title {
-      grid-column: 1;
+    .bb-header-top-row {
+      grid-column: 1 / -1;
       grid-row: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 6px 12px;
+      min-height: 52px;
+      box-sizing: border-box;
+      overflow: visible;
+    }
+
+    .bb-header-title {
+      flex: 1 1 auto;
+      min-width: 0;
       align-self: center;
+      margin: 0;
+    }
+
+    .bb-header-logo-wrap {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 4px 2px;
+      max-width: 46%;
+      overflow: visible;
     }
 
     .bb-header-logo {
-      grid-column: 2;
-      grid-row: 1;
       justify-self: end;
       align-self: center;
     }
@@ -3157,11 +3179,13 @@
     }
 
     .bb-logo-img {
-      width: 124px;
+      width: auto;
+      max-width: 136px;
+      max-height: 38px;
       height: auto;
-      max-width: 100%;
       display: block;
       object-fit: contain;
+      object-position: right center;
       flex-shrink: 0;
     }
 
@@ -7752,8 +7776,12 @@
       return `
         <div class="bb-page">
           <div class="bb-header-grid">
-            <h1 class="bb-title bb-header-title">POSTPAID MONTHLY STATEMENT</h1>
-            <img class="bb-logo-img bb-header-logo" src="airtel-logo.png" alt="airtel" />
+            <div class="bb-header-top-row">
+              <h1 class="bb-title bb-header-title">POSTPAID MONTHLY STATEMENT</h1>
+              <div class="bb-header-logo-wrap">
+                <img class="bb-logo-img bb-header-logo" src="airtel-logo.png" alt="airtel" />
+              </div>
+            </div>
             <div class="bb-header-left">
               <div class="bb-left">
                 <div class="bb-name">${escapeHtml(data.customerName)}</div>
