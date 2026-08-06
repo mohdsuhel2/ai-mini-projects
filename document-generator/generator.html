@@ -3666,19 +3666,9 @@
       margin-bottom: 0;
     }
     .doc-stamp-layer {
-      position: absolute;
-      inset: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-      z-index: 1;
+      display: none;
     }
-    .doc-stamp-layer img {
-      max-height: 56px;
-      max-width: 140px;
-      object-fit: contain;
-    }
+    .doc-draggable-stamp,
     .doc-draggable-signature {
       position: absolute;
       z-index: 40;
@@ -3691,13 +3681,25 @@
       user-select: none;
       pointer-events: auto;
     }
+    .doc-draggable-stamp {
+      z-index: 35;
+      max-width: 58%;
+      padding: 2px;
+    }
+    .doc-draggable-stamp img {
+      max-height: 56px;
+      max-width: 140px;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+    }
     .doc-sig-canvas[data-sig-interactive] {
       border-color: #93c5fd;
       background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
       box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
     }
     .doc-sig-canvas[data-sig-interactive]::before {
-      content: 'Drag signature — can overlap stamp';
+      content: 'Drag stamp or signature — rotate with ↻ handle';
       position: absolute;
       top: 6px;
       left: 8px;
@@ -3710,16 +3712,28 @@
       pointer-events: none;
       font-family: system-ui, -apple-system, sans-serif;
     }
-    .doc-sig-canvas[data-sig-interactive] .doc-draggable-signature {
-      outline: 2px dashed rgba(37, 99, 235, 0.65);
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-signature,
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-stamp {
       outline-offset: 3px;
       border-radius: 6px;
       background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+    }
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-signature {
+      outline: 2px dashed rgba(37, 99, 235, 0.65);
       box-shadow: 0 2px 10px rgba(37, 99, 235, 0.18);
+    }
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-stamp {
+      outline: 2px dashed rgba(234, 88, 12, 0.65);
+      box-shadow: 0 2px 10px rgba(234, 88, 12, 0.18);
     }
     .doc-sig-canvas[data-sig-interactive] .doc-draggable-signature:hover {
       outline-color: #2563eb;
       box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+    }
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-stamp:hover {
+      outline-color: #ea580c;
+      box-shadow: 0 4px 14px rgba(234, 88, 12, 0.28);
     }
     .doc-sig-drag-grip {
       position: absolute;
@@ -3743,7 +3757,41 @@
       box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
       pointer-events: none;
     }
-    .doc-draggable-signature--placeholder {
+    .doc-draggable-stamp .doc-sig-drag-grip {
+      background: #ea580c;
+      box-shadow: 0 2px 6px rgba(234, 88, 12, 0.35);
+    }
+    .doc-sig-rotate-handle {
+      position: absolute;
+      right: -12px;
+      bottom: -12px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #2563eb;
+      color: #2563eb;
+      font-size: 11px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .doc-draggable-stamp .doc-sig-rotate-handle {
+      border-color: #ea580c;
+      color: #ea580c;
+    }
+    .doc-sig-rotate-handle.is-rotating,
+    .doc-draggable-signature.is-dragging,
+    .doc-draggable-stamp.is-dragging {
+      cursor: grabbing;
+    }
+    .doc-draggable-signature--placeholder,
+    .doc-draggable-stamp--placeholder {
       min-width: 132px;
       min-height: 40px;
       display: flex;
@@ -3755,11 +3803,13 @@
       font-family: system-ui, -apple-system, sans-serif;
       font-style: italic;
     }
-    .doc-draggable-signature.is-dragging {
-      cursor: grabbing;
+    .doc-draggable-stamp--placeholder {
+      min-width: 108px;
+      min-height: 48px;
+    }
+    .doc-draggable-signature.is-dragging,
+    .doc-draggable-stamp.is-dragging {
       z-index: 50;
-      outline-color: #1d4ed8;
-      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
     }
     .doc-draggable-signature .template-sign-img {
       max-height: 52px;
@@ -3769,7 +3819,8 @@
       font-size: clamp(20px, 4.5vw, 30px);
       white-space: nowrap;
     }
-    .doc-sig-canvas:not([data-sig-interactive]) .doc-draggable-signature {
+    .doc-sig-canvas:not([data-sig-interactive]) .doc-draggable-signature,
+    .doc-sig-canvas:not([data-sig-interactive]) .doc-draggable-stamp {
       cursor: default;
     }
     .sig-pos-actions {
@@ -4949,9 +5000,13 @@
           </div>
           <input type="hidden" id="rrSignaturePosLeft" value="72" />
           <input type="hidden" id="rrSignaturePosTop" value="72" />
-          <p class="signature-mode-hint">Drag the signature on the live preview to place it anywhere — you can overlap the revenue stamp.</p>
+          <input type="hidden" id="rrSignatureRotate" value="0" />
+          <input type="hidden" id="rrStampPosLeft" value="48" />
+          <input type="hidden" id="rrStampPosTop" value="42" />
+          <input type="hidden" id="rrStampRotate" value="0" />
+          <p class="signature-mode-hint">Drag the stamp or signature on the live preview. Use the ↻ handle to rotate either one.</p>
           <div class="sig-pos-actions">
-            <button type="button" class="sig-pos-reset" id="rrResetSignaturePos">Reset signature position</button>
+            <button type="button" class="sig-pos-reset" id="rrResetSignaturePos">Reset stamp &amp; signature layout</button>
           </div>
         </div>
 
@@ -5039,9 +5094,13 @@
           </div>
           <input type="hidden" id="rrBulkSignaturePosLeft" value="72" />
           <input type="hidden" id="rrBulkSignaturePosTop" value="72" />
-          <p class="signature-mode-hint">Signature position set in single mode applies to bulk — drag on the preview before opening bulk.</p>
+          <input type="hidden" id="rrBulkSignatureRotate" value="0" />
+          <input type="hidden" id="rrBulkStampPosLeft" value="48" />
+          <input type="hidden" id="rrBulkStampPosTop" value="42" />
+          <input type="hidden" id="rrBulkStampRotate" value="0" />
+          <p class="signature-mode-hint">Stamp/signature layout is shared with bulk export. Set it on the single preview first.</p>
           <div class="sig-pos-actions">
-            <button type="button" class="sig-pos-reset" id="rrBulkResetSignaturePos">Reset signature position</button>
+            <button type="button" class="sig-pos-reset" id="rrBulkResetSignaturePos">Reset stamp &amp; signature layout</button>
           </div>
         </div>
       </div>
@@ -5112,8 +5171,12 @@
           </div>
           <input type="hidden" id="dsSignaturePosLeft" value="30" />
           <input type="hidden" id="dsSignaturePosTop" value="52" />
+          <input type="hidden" id="dsSignatureRotate" value="0" />
+          <input type="hidden" id="dsStampPosLeft" value="62" />
+          <input type="hidden" id="dsStampPosTop" value="42" />
+          <input type="hidden" id="dsStampRotate" value="0" />
           <div class="sig-pos-actions">
-            <button type="button" class="sig-pos-reset" id="dsResetSignaturePos">Reset signature position</button>
+            <button type="button" class="sig-pos-reset" id="dsResetSignaturePos">Reset stamp &amp; signature layout</button>
           </div>
         </div>
 
@@ -5178,8 +5241,12 @@
           </div>
           <input type="hidden" id="dsBulkSignaturePosLeft" value="30" />
           <input type="hidden" id="dsBulkSignaturePosTop" value="52" />
+          <input type="hidden" id="dsBulkSignatureRotate" value="0" />
+          <input type="hidden" id="dsBulkStampPosLeft" value="62" />
+          <input type="hidden" id="dsBulkStampPosTop" value="42" />
+          <input type="hidden" id="dsBulkStampRotate" value="0" />
           <div class="sig-pos-actions">
-            <button type="button" class="sig-pos-reset" id="dsBulkResetSignaturePos">Reset signature position</button>
+            <button type="button" class="sig-pos-reset" id="dsBulkResetSignaturePos">Reset stamp &amp; signature layout</button>
           </div>
         </div>
       </div>
@@ -5250,7 +5317,7 @@
         <div class="preview-toolbar-left">
           <span class="preview-badge" id="previewModeBadge">Live Preview</span>
           <span class="preview-watermark-note" id="previewWatermarkNote">Preview watermark is not included in downloaded files.</span>
-          <span class="preview-sig-drag-note hidden" id="previewSigDragNote">Drag the signature on the receipt to reposition it.</span>
+          <span class="preview-sig-drag-note hidden" id="previewSigDragNote">Drag stamp or signature in the preview; rotate with the ↻ handle.</span>
         </div>
       </div>
       <div class="preview-canvas">
@@ -8560,61 +8627,238 @@
       return `<span class="signature-script">${escapeHtml(value)}</span>`;
     }
 
-    const SIGNATURE_POS_DEFAULTS = {
-      rent: { left: 72, top: 72 },
-      driver: { left: 30, top: 52 },
+    const PLACEMENT_DEFAULTS = {
+      rent: {
+        stamp: { left: 48, top: 42, rotate: 0 },
+        signature: { left: 72, top: 72, rotate: 0 },
+      },
+      driver: {
+        stamp: { left: 62, top: 42, rotate: 0 },
+        signature: { left: 30, top: 52, rotate: 0 },
+      },
     };
 
-    function clampSignaturePercent(value) {
+    function placementKind(prefix) {
+      return String(prefix || '').startsWith('rr') ? 'rent' : 'driver';
+    }
+
+    function clampPlacementPercent(value) {
       return Math.min(96, Math.max(4, value));
     }
 
-    function signaturePositionStyle(pos) {
-      return `left:${pos.left}%;top:${pos.top}%;`;
+    function normalizeRotate(value) {
+      let rotate = Number(value) || 0;
+      rotate = ((rotate % 360) + 360) % 360;
+      if (rotate > 180) rotate -= 360;
+      return Math.round(rotate * 10) / 10;
     }
 
-    function readSignaturePosition(prefix) {
-      const kind = String(prefix || '').startsWith('rr') ? 'rent' : 'driver';
-      const defaults = SIGNATURE_POS_DEFAULTS[kind];
-      const left = parseFloat($(prefix + 'SignaturePosLeft')?.value);
-      const top = parseFloat($(prefix + 'SignaturePosTop')?.value);
+    function placementTransformStyle(pos) {
+      const rotate = normalizeRotate(pos.rotate);
+      return `left:${pos.left}%;top:${pos.top}%;transform:translate(-50%,-50%) rotate(${rotate}deg);`;
+    }
+
+    function readPlacement(prefix, type) {
+      const kind = placementKind(prefix);
+      const defaults = PLACEMENT_DEFAULTS[kind][type];
+      const cap = type.charAt(0).toUpperCase() + type.slice(1);
+      const left = parseFloat($(prefix + cap + 'PosLeft')?.value);
+      const top = parseFloat($(prefix + cap + 'PosTop')?.value);
+      const rotate = parseFloat($(prefix + cap + 'Rotate')?.value);
       return {
-        left: clampSignaturePercent(Number.isFinite(left) ? left : defaults.left),
-        top: clampSignaturePercent(Number.isFinite(top) ? top : defaults.top),
+        left: clampPlacementPercent(Number.isFinite(left) ? left : defaults.left),
+        top: clampPlacementPercent(Number.isFinite(top) ? top : defaults.top),
+        rotate: normalizeRotate(Number.isFinite(rotate) ? rotate : defaults.rotate),
       };
     }
 
-    function setSignaturePosition(prefix, pos) {
-      const leftEl = $(prefix + 'SignaturePosLeft');
-      const topEl = $(prefix + 'SignaturePosTop');
-      const left = clampSignaturePercent(pos.left);
-      const top = clampSignaturePercent(pos.top);
+    function readSignaturePosition(prefix) {
+      return readPlacement(prefix, 'signature');
+    }
+
+    function setPlacement(prefix, type, pos) {
+      const cap = type.charAt(0).toUpperCase() + type.slice(1);
+      const leftEl = $(prefix + cap + 'PosLeft');
+      const topEl = $(prefix + cap + 'PosTop');
+      const rotateEl = $(prefix + cap + 'Rotate');
+      const left = clampPlacementPercent(pos.left);
+      const top = clampPlacementPercent(pos.top);
+      const rotate = normalizeRotate(pos.rotate);
       if (leftEl) leftEl.value = String(Math.round(left * 10) / 10);
       if (topEl) topEl.value = String(Math.round(top * 10) / 10);
+      if (rotateEl) rotateEl.value = String(rotate);
+    }
+
+    function setSignaturePosition(prefix, pos) {
+      setPlacement(prefix, 'signature', pos);
+    }
+
+    function resetPlacements(prefix) {
+      const kind = placementKind(prefix);
+      setPlacement(prefix, 'stamp', PLACEMENT_DEFAULTS[kind].stamp);
+      setPlacement(prefix, 'signature', PLACEMENT_DEFAULTS[kind].signature);
     }
 
     function resetSignaturePosition(prefix) {
-      const kind = String(prefix || '').startsWith('rr') ? 'rent' : 'driver';
-      setSignaturePosition(prefix, SIGNATURE_POS_DEFAULTS[kind]);
+      resetPlacements(prefix);
     }
 
-    function buildDraggableSignatureHtml(content, pos) {
+    function applyPlacementStyle(el, pos) {
+      if (!el) return;
+      el.style.left = `${clampPlacementPercent(pos.left)}%`;
+      el.style.top = `${clampPlacementPercent(pos.top)}%`;
+      el.style.transform = `translate(-50%, -50%) rotate(${normalizeRotate(pos.rotate)}deg)`;
+    }
+
+    function buildDraggablePlacementHtml({ content, pos, className, dataAttr, ariaLabel }) {
       if (!content) return '';
-      return `<div class="doc-draggable-signature" data-draggable-signature tabindex="0" aria-label="Signature — drag to reposition" style="${signaturePositionStyle(pos)}">${content}</div>`;
+      return `<div class="${className}" ${dataAttr} tabindex="0" aria-label="${ariaLabel}" style="${placementTransformStyle(pos)}">${content}</div>`;
     }
 
-    function buildSignatureCanvasHtml({ stampHtml, signatureHtml, pos, boxClass = 'rr-stamp-box' }) {
-      const stampLayer = stampHtml && stampHtml !== '&nbsp;'
-        ? `<div class="doc-stamp-layer">${stampHtml}</div>`
-        : '<div class="doc-stamp-layer doc-stamp-layer-empty" aria-hidden="true"></div>';
-      return `<div class="doc-sig-canvas ${boxClass}" data-sig-canvas>${stampLayer}${buildDraggableSignatureHtml(signatureHtml, pos)}</div>`;
+    function buildSignatureCanvasHtml({ stampHtml, signatureHtml, stampPos, signaturePos, boxClass = 'rr-stamp-box' }) {
+      const stamp = buildDraggablePlacementHtml({
+        content: stampHtml,
+        pos: stampPos,
+        className: 'doc-draggable-stamp',
+        dataAttr: 'data-draggable-stamp',
+        ariaLabel: 'Revenue stamp — drag to reposition',
+      });
+      const signature = buildDraggablePlacementHtml({
+        content: signatureHtml,
+        pos: signaturePos,
+        className: 'doc-draggable-signature',
+        dataAttr: 'data-draggable-signature',
+        ariaLabel: 'Signature — drag to reposition',
+      });
+      return `<div class="doc-sig-canvas ${boxClass}" data-sig-canvas>${stamp}${signature}</div>`;
+    }
+
+    function ensurePlacementChrome(el, { label, gripText, kind }) {
+      if (!el.querySelector('.doc-sig-drag-grip')) {
+        const grip = document.createElement('span');
+        grip.className = 'doc-sig-drag-grip';
+        grip.setAttribute('aria-hidden', 'true');
+        grip.textContent = gripText;
+        el.appendChild(grip);
+      }
+      if (!el.querySelector('.doc-sig-rotate-handle')) {
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'doc-sig-rotate-handle';
+        handle.setAttribute('aria-label', `Rotate ${label}`);
+        handle.textContent = '↻';
+        el.appendChild(handle);
+      }
+      if (kind === 'stamp' && !el.classList.contains('doc-draggable-stamp')) {
+        el.classList.add('doc-draggable-stamp');
+      }
+      if (kind === 'signature' && !el.classList.contains('doc-draggable-signature')) {
+        el.classList.add('doc-draggable-signature');
+      }
+    }
+
+    function wirePlacementElement(el, canvas, { prefix, kind, onPositionChange }) {
+      const label = kind === 'stamp' ? 'revenue stamp' : 'signature';
+      const gripText = kind === 'stamp' ? 'Stamp' : 'Drag';
+
+      ensurePlacementChrome(el, { label, gripText, kind });
+
+      const rotateHandle = el.querySelector('.doc-sig-rotate-handle');
+      rotateHandle?.addEventListener('pointerdown', event => {
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        rotateHandle.setPointerCapture?.(event.pointerId);
+        rotateHandle.classList.add('is-rotating');
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const startAngle = Math.atan2(event.clientY - cy, event.clientX - cx);
+        const startPos = readPlacement(prefix, kind);
+        let latestRotate = startPos.rotate;
+        const move = e => {
+          const angle = Math.atan2(e.clientY - cy, e.clientX - cx);
+          const delta = (angle - startAngle) * (180 / Math.PI);
+          latestRotate = normalizeRotate(startPos.rotate + delta);
+          applyPlacementStyle(el, { ...startPos, rotate: latestRotate });
+        };
+        const up = e => {
+          rotateHandle.classList.remove('is-rotating');
+          rotateHandle.releasePointerCapture?.(e.pointerId);
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          window.removeEventListener('pointercancel', up);
+          const left = parseFloat(el.style.left);
+          const top = parseFloat(el.style.top);
+          if (Number.isFinite(left) && Number.isFinite(top)) {
+            const pos = { left, top, rotate: latestRotate };
+            setPlacement(prefix, kind, pos);
+            onPositionChange?.(kind, pos);
+          }
+        };
+        move(event);
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
+      });
+
+      el.addEventListener('pointerdown', event => {
+        if (event.target.closest('.doc-sig-rotate-handle')) return;
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        el.setPointerCapture?.(event.pointerId);
+        el.classList.add('is-dragging');
+        const rect = canvas.getBoundingClientRect();
+        const currentRotate = readPlacement(prefix, kind).rotate;
+        const move = e => {
+          const left = clampPlacementPercent(((e.clientX - rect.left) / rect.width) * 100);
+          const top = clampPlacementPercent(((e.clientY - rect.top) / rect.height) * 100);
+          applyPlacementStyle(el, { left, top, rotate: currentRotate });
+        };
+        const up = e => {
+          el.classList.remove('is-dragging');
+          el.releasePointerCapture?.(e.pointerId);
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          window.removeEventListener('pointercancel', up);
+          const left = parseFloat(el.style.left);
+          const top = parseFloat(el.style.top);
+          if (Number.isFinite(left) && Number.isFinite(top)) {
+            const pos = { left, top, rotate: currentRotate };
+            setPlacement(prefix, kind, pos);
+            onPositionChange?.(kind, pos);
+          }
+        };
+        move(event);
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
+      });
     }
 
     function attachDraggableSignatures(root, { prefix, onPositionChange }) {
       if (!root) return;
       root.querySelectorAll('[data-sig-canvas]').forEach(canvas => {
+        canvas.dataset.sigInteractive = '1';
+        const stampPos = readPlacement(prefix, 'stamp');
+        const signaturePos = readPlacement(prefix, 'signature');
+
+        let stamp = canvas.querySelector('[data-draggable-stamp]');
+        if (!stamp) {
+          stamp = document.createElement('div');
+          stamp.className = 'doc-draggable-stamp doc-draggable-stamp--placeholder';
+          stamp.dataset.draggableStamp = '';
+          stamp.dataset.placeholder = '1';
+          stamp.setAttribute('aria-label', 'Revenue stamp position — drag to place');
+          stamp.innerHTML = '<span>Revenue stamp</span>';
+          applyPlacementStyle(stamp, stampPos);
+          canvas.appendChild(stamp);
+        } else {
+          applyPlacementStyle(stamp, stampPos);
+        }
+
         let sig = canvas.querySelector('[data-draggable-signature]');
-        const pos = readSignaturePosition(prefix);
         if (!sig) {
           sig = document.createElement('div');
           sig.className = 'doc-draggable-signature doc-draggable-signature--placeholder';
@@ -8622,55 +8866,20 @@
           sig.dataset.placeholder = '1';
           sig.setAttribute('aria-label', 'Signature position — drag to place');
           sig.innerHTML = '<span>Your signature</span>';
-          sig.style.left = `${pos.left}%`;
-          sig.style.top = `${pos.top}%`;
+          applyPlacementStyle(sig, signaturePos);
           canvas.appendChild(sig);
+        } else {
+          applyPlacementStyle(sig, signaturePos);
         }
-        if (!sig.querySelector('.doc-sig-drag-grip')) {
-          const grip = document.createElement('span');
-          grip.className = 'doc-sig-drag-grip';
-          grip.setAttribute('aria-hidden', 'true');
-          grip.textContent = 'Drag';
-          sig.appendChild(grip);
-        }
-        canvas.dataset.sigInteractive = '1';
-        sig.addEventListener('pointerdown', event => {
-          if (event.button !== undefined && event.button !== 0) return;
-          event.preventDefault();
-          event.stopPropagation();
-          sig.setPointerCapture?.(event.pointerId);
-          sig.classList.add('is-dragging');
-          const rect = canvas.getBoundingClientRect();
-          const move = e => {
-            const left = clampSignaturePercent(((e.clientX - rect.left) / rect.width) * 100);
-            const top = clampSignaturePercent(((e.clientY - rect.top) / rect.height) * 100);
-            sig.style.left = `${left}%`;
-            sig.style.top = `${top}%`;
-          };
-          const up = e => {
-            sig.classList.remove('is-dragging');
-            sig.releasePointerCapture?.(e.pointerId);
-            window.removeEventListener('pointermove', move);
-            window.removeEventListener('pointerup', up);
-            window.removeEventListener('pointercancel', up);
-            const left = parseFloat(sig.style.left);
-            const top = parseFloat(sig.style.top);
-            if (Number.isFinite(left) && Number.isFinite(top)) {
-              setSignaturePosition(prefix, { left, top });
-              onPositionChange?.({ left, top });
-            }
-          };
-          move(event);
-          window.addEventListener('pointermove', move);
-          window.addEventListener('pointerup', up);
-          window.addEventListener('pointercancel', up);
-        });
+
+        wirePlacementElement(stamp, canvas, { prefix, kind: 'stamp', onPositionChange });
+        wirePlacementElement(sig, canvas, { prefix, kind: 'signature', onPositionChange });
       });
     }
 
     function wireSignaturePositionControls({ prefix, resetBtnId, onChange }) {
       $(resetBtnId)?.addEventListener('click', () => {
-        resetSignaturePosition(prefix);
+        resetPlacements(prefix);
         onChange?.();
       });
     }
@@ -8754,7 +8963,8 @@
           ? (overrides.landlordSignatureText ?? rrFields.landlordSignatureText()?.value ?? '')
           : '',
         revenueStampDataUrl: overrides.revenueStampDataUrl ?? rentRevenueStampDataUrl,
-        signaturePos: overrides.signaturePos ?? readSignaturePosition('rr'),
+        stampPos: overrides.stampPos ?? readPlacement('rr', 'stamp'),
+        signaturePos: overrides.signaturePos ?? readPlacement('rr', 'signature'),
       };
     }
 
@@ -8794,7 +9004,8 @@
       const signatureCanvas = buildSignatureCanvasHtml({
         stampHtml: stampContent,
         signatureHtml: ownerSignature,
-        pos: data.signaturePos || SIGNATURE_POS_DEFAULTS.rent,
+        stampPos: data.stampPos || PLACEMENT_DEFAULTS.rent.stamp,
+        signaturePos: data.signaturePos || PLACEMENT_DEFAULTS.rent.signature,
       });
 
       return `
@@ -8995,7 +9206,8 @@
           ? ($('rrBulkLandlordSignatureText').value || '')
           : '',
         revenueStampDataUrl: rentBulkRevenueStampDataUrl,
-        signaturePos: readSignaturePosition('rrBulk'),
+        stampPos: readPlacement('rrBulk', 'stamp'),
+        signaturePos: readPlacement('rrBulk', 'signature'),
       };
       return dates.map(date => {
         const receiptDate = toDatetimeLocalValue(date).split(' ')[0];
@@ -9276,7 +9488,8 @@
           ? (overrides.signatureText ?? $('dsSignatureText')?.value ?? '')
           : '',
         revenueStampDataUrl: overrides.revenueStampDataUrl ?? driverRevenueStampDataUrl,
-        signaturePos: overrides.signaturePos ?? readSignaturePosition('ds'),
+        stampPos: overrides.stampPos ?? readPlacement('ds', 'stamp'),
+        signaturePos: overrides.signaturePos ?? readPlacement('ds', 'signature'),
       };
     }
 
@@ -9292,7 +9505,8 @@
       const signatureCanvas = buildSignatureCanvasHtml({
         stampHtml: stampContent,
         signatureHtml,
-        pos: data.signaturePos || SIGNATURE_POS_DEFAULTS.driver,
+        stampPos: data.stampPos || PLACEMENT_DEFAULTS.driver.stamp,
+        signaturePos: data.signaturePos || PLACEMENT_DEFAULTS.driver.signature,
         boxClass: 'ds-stamp-box',
       });
       return `
@@ -9412,7 +9626,8 @@
           ? ($('dsBulkSignatureText').value || '')
           : '',
         revenueStampDataUrl: driverBulkRevenueStampDataUrl,
-        signaturePos: readSignaturePosition('dsBulk'),
+        stampPos: readPlacement('dsBulk', 'stamp'),
+        signaturePos: readPlacement('dsBulk', 'signature'),
       };
       return dates.map(date => {
         const slipDate = toDatetimeLocalValue(date).split(' ')[0];
@@ -9937,10 +10152,10 @@
       ecommerce: ['ecOrderDate', 'ecOrderId', 'ecInvoiceNo', 'ecInvoiceDate', 'ecSellerName', 'ecSellerAddress', 'ecSellerRegisteredAddress', 'ecCustomerName', 'ecBillingAddress', 'ecShippingAddress', 'ecOrderedThrough', 'ecShippingCharges'],
       postpaid_single: ['bbCustomerName', 'bbAddress', 'bbEmail', 'bbPhone', 'bbPlanName', 'bbPlanCharges', 'bbGstRate', 'bbLateFee', 'bbStatementDate', 'bbBillRefId', 'bbLastBillAmount', 'bbPaymentMade', 'bbCredits'],
       postpaid_bulk: ['bbBulkDateFrom', 'bbBulkCount', 'bbBulkCustomerName', 'bbBulkAddress', 'bbBulkEmail', 'bbBulkPhone', 'bbBulkPlanName', 'bbBulkPlanCharges', 'bbBulkGstRate', 'bbBulkLateFee'],
-      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFrom', 'rrPeriodTo', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText', 'rrSignaturePosLeft', 'rrSignaturePosTop'],
-      rent_bulk: ['rrBulkDateFrom', 'rrBulkCount', 'rrBulkRentAmount', 'rrBulkMonthlyRent', 'rrBulkTenantSalutation', 'rrBulkTenantName', 'rrBulkHouseNo', 'rrBulkPropertyAddress', 'rrBulkLandlordName', 'rrBulkLandlordPan', 'rrBulkLandlordSignatureMode', 'rrBulkLandlordSignatureText', 'rrBulkSignaturePosLeft', 'rrBulkSignaturePosTop'],
-      driver_single: ['dsSlipDate', 'dsReceivedFrom', 'dsSalaryAmount', 'dsVehicleNo', 'dsDriverName', 'dsLicenseNo', 'dsSignatureMode', 'dsSignatureText', 'dsSignaturePosLeft', 'dsSignaturePosTop'],
-      driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText', 'dsBulkSignaturePosLeft', 'dsBulkSignaturePosTop'],
+      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFrom', 'rrPeriodTo', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText', 'rrStampPosLeft', 'rrStampPosTop', 'rrStampRotate', 'rrSignaturePosLeft', 'rrSignaturePosTop', 'rrSignatureRotate'],
+      rent_bulk: ['rrBulkDateFrom', 'rrBulkCount', 'rrBulkRentAmount', 'rrBulkMonthlyRent', 'rrBulkTenantSalutation', 'rrBulkTenantName', 'rrBulkHouseNo', 'rrBulkPropertyAddress', 'rrBulkLandlordName', 'rrBulkLandlordPan', 'rrBulkLandlordSignatureMode', 'rrBulkLandlordSignatureText', 'rrBulkStampPosLeft', 'rrBulkStampPosTop', 'rrBulkStampRotate', 'rrBulkSignaturePosLeft', 'rrBulkSignaturePosTop', 'rrBulkSignatureRotate'],
+      driver_single: ['dsSlipDate', 'dsReceivedFrom', 'dsSalaryAmount', 'dsVehicleNo', 'dsDriverName', 'dsLicenseNo', 'dsSignatureMode', 'dsSignatureText', 'dsStampPosLeft', 'dsStampPosTop', 'dsStampRotate', 'dsSignaturePosLeft', 'dsSignaturePosTop', 'dsSignatureRotate'],
+      driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText', 'dsBulkStampPosLeft', 'dsBulkStampPosTop', 'dsBulkStampRotate', 'dsBulkSignaturePosLeft', 'dsBulkSignaturePosTop', 'dsBulkSignatureRotate'],
     };
 
     const USER_PROFILE_GROUPS = {
