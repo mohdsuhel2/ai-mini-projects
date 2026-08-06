@@ -1745,11 +1745,12 @@ def _live_pos(store, qty=100, entry=100.0, target=110.0, stop=95.0):
                                entry_price=entry, target_price=target, stop_loss=stop, mode="live")
 
 
-def test_on_fill_places_stop_only():
-    # A full-qty target LIMIT and a full-qty stop SL_M cannot co-rest on one MIS holding — Groww
-    # keeps the LIMIT and auto-cancels the SL_M, leaving the position naked on the downside and
-    # flooding the order book (verified 2026-07-29). So ONLY the protective stop rests at the
-    # broker; the target is taken by the soft cycle-level take-profit instead.
+def test_on_fill_places_both_legs():
+    # Both exit legs rest at the broker: the protective stop AND the target. The 2026-07-29
+    # "Groww auto-cancels one" finding was an SL_M artifact — a target LIMIT and a stop SL
+    # (SL_M goes out emulated as SL) co-rest fine on one MIS holding, verified live 2026-08-03
+    # (1 share IDEA: LIMIT=APPROVED alongside SL=TRIGGER_PENDING for 30s+). The stop is placed
+    # FIRST so a failure on the second call never leaves the downside naked.
     store = Store(":memory:")
     store.update_config(mode="live", exit_mode="on_fill")
     pid = _live_pos(store)
@@ -1759,11 +1760,13 @@ def test_on_fill_places_stop_only():
     p = store.get_position(pid)
     assert p.status == "OPEN"
     assert p.broker_stop_price == pytest.approx(95.0)
-    assert p.broker_target_order_id is None and p.broker_target_price is None
-    assert [o["order_type"] for o in client.orders] == ["SL_M"]   # ONLY the stop — no target LIMIT
-    sl = client.orders[0]
+    assert p.broker_target_price == pytest.approx(103.0)   # nearer of full-profit 103 / structural 110
+    assert [o["order_type"] for o in client.orders] == ["SL_M", "LIMIT"]   # stop first, then target
+    sl, tg = client.orders
     assert sl["trigger_price"] == pytest.approx(95.0)
     assert sl["transaction_type"] == "SELL" and sl["quantity"] == 100
+    assert tg["price"] == pytest.approx(103.0)
+    assert tg["transaction_type"] == "SELL" and tg["quantity"] == 100
 
 
 def test_on_fill_target_taken_softly_when_no_target_leg():
@@ -1781,9 +1784,9 @@ def test_on_fill_target_taken_softly_when_no_target_leg():
     assert p.exit_price == pytest.approx(103.0)
 
 
-def test_ensure_bracket_tears_down_stale_target_leg():
-    # A target leg that somehow exists (legacy row / a leg placed before this change) is cancelled
-    # on the next manage cycle — only the stop is allowed to rest.
+def test_ensure_bracket_keeps_existing_target_leg_and_adds_missing_stop():
+    # A target leg already resting at the right price is left alone (no cancel/replace churn);
+    # the missing stop is placed alongside it.
     store = Store(":memory:")
     store.update_config(mode="live", exit_mode="on_fill")
     pid = _live_pos(store)
@@ -1792,9 +1795,9 @@ def test_ensure_bracket_tears_down_stale_target_leg():
     _orch(store, client, _FakeEngine(_decision(action="HOLD")),
           {"RELIANCE": _indic(last=100.5)})._manage_positions(store.start_run("live"))
     p = store.get_position(pid)
-    assert "TG-OLD" in client.cancelled                          # stale target leg torn down
-    assert p.broker_target_order_id is None
-    assert p.broker_stop_price == pytest.approx(95.0)            # protective stop still rests
+    assert "TG-OLD" not in client.cancelled                      # kept — already at the level
+    assert p.broker_target_order_id == "TG-OLD"
+    assert p.broker_stop_price == pytest.approx(95.0)            # protective stop placed too
 
 
 def test_db_only_places_no_bracket():
@@ -1820,23 +1823,27 @@ def test_paper_mode_places_no_bracket():
     assert client.orders == [] and store.get_position(pid).broker_stop_order_id is None
 
 
-def test_armed_places_stop_only_when_near_the_stop():
+def test_armed_gates_the_stop_but_rests_the_target_eagerly():
+    # 'armed' keeps the STOP soft until price nears it; the target has no such gate — it rests
+    # eagerly so an intracycle touch fills instead of waiting for the next 5-minute poll.
     store = Store(":memory:")
     store.update_config(mode="live", exit_mode="armed", profit_book_enabled=False)  # stop = 95
     pid = _live_pos(store)
     client = _FakeClient(mode="live", order_status="OPEN")
-    # mid-range: not within 1% of the stop (95) -> nothing placed
+    # mid-range: not within 1% of the stop (95) -> target rests, stop stays soft
     _orch(store, client, _FakeEngine(_decision(action="HOLD")),
           {"RELIANCE": _indic(last=100.0)})._manage_positions(store.start_run("live"))
-    assert store.get_position(pid).broker_stop_order_id is None
-    assert client.orders == []
-    # within 1% of the stop -> place the protective stop (still no target leg)
+    p = store.get_position(pid)
+    assert p.broker_stop_order_id is None
+    assert p.broker_target_price == pytest.approx(110.0)         # profit-taking off -> structural
+    assert [o["order_type"] for o in client.orders] == ["LIMIT"]
+    # within 1% of the stop -> the protective stop arms as well
     _orch(store, client, _FakeEngine(_decision(action="HOLD")),
           {"RELIANCE": _indic(last=95.5)})._manage_positions(store.start_run("live"))
     p = store.get_position(pid)
     assert p.broker_stop_price == pytest.approx(95.0)
-    assert p.broker_target_order_id is None
-    assert [o["order_type"] for o in client.orders] == ["SL_M"]
+    assert p.broker_target_order_id is not None
+    assert [o["order_type"] for o in client.orders] == ["LIMIT", "SL_M"]
 
 
 def test_bracket_target_fill_closes_and_cancels_stop():
@@ -1928,9 +1935,57 @@ def test_partial_book_resizes_bracket():
     p = store.get_position(pid)
     assert p.partial_booked is True and p.quantity == 50
     assert "SL-1" in client.cancelled and "TG-1" in client.cancelled     # old bracket torn down
-    assert p.broker_stop_order_id is not None                   # stop rebuilt at the new size
-    assert p.broker_target_order_id is None                     # stop only — no target leg
+    assert p.broker_stop_order_id is not None                   # both legs rebuilt at the new size
+    assert p.broker_target_order_id is not None
     assert p.broker_stop_price == pytest.approx(100.0)          # runner stop trailed to breakeven
+
+
+class _PositionsDownClient(_FakeClient):
+    def get_positions(self):
+        raise RuntimeError("network down")
+
+
+def test_stale_previous_day_row_is_swept_even_when_reconcile_fails():
+    # 2026-08-03: five Friday MIS rows survived the weekend still OPEN, the morning reconcile
+    # failed on a network error, and "closing" three phantoms at their gapped-up targets SOLD
+    # into a flat account — creating real naked shorts. An MIS row from a previous IST day
+    # cannot exist at the broker (force-squared ~15:20), so it must be closed DB-side before
+    # ANY managing, with no broker call needed — the guard has to hold exactly when the
+    # network is down.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="STALEPOS", exchange="NSE", side="LONG", quantity=33,
+                              entry_price=4540.0, target_price=4600.0, stop_loss=4400.0,
+                              mode="live")
+    store.set_bracket_leg(pid, "stop", "SL-FRIDAY", 4400.0)
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    yesterday = (_dt.now(_tz.utc) - _td(days=1)).isoformat()
+    store._conn.execute("UPDATE positions SET opened_at = ? WHERE id = ?", (yesterday, pid))
+    store._conn.commit()
+    client = _PositionsDownClient(mode="live", order_status="OPEN")
+    orch = _live_screen_orch(store, client)
+    orch.run_cycle()
+    p = store.get_position(pid)
+    assert p.status == "CLOSED"
+    assert "STALE" in p.exit_reason.upper()
+    assert client.orders == []                    # the phantom fired NO orders
+    assert p.broker_stop_order_id is None         # dead DAY-validity leg cleared...
+    assert "SL-FRIDAY" not in client.cancelled    # ...not "cancelled" (it expired at close)
+
+
+def test_same_day_row_is_not_swept():
+    # The sweep keys on the IST trading day: a row opened THIS session stays open and managed.
+    store = Store(":memory:")
+    _cfg(store, mode="live", total_pool=100000.0, max_open_positions=2,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="FRESH", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=110.0, stop_loss=95.0,
+                              mode="live")
+    client = _PositionsDownClient(mode="live", order_status="OPEN")
+    orch = _live_screen_orch(store, client)
+    orch.run_cycle()
+    assert store.get_position(pid).status == "OPEN"
 
 
 def test_reconcile_cnc_holding_does_not_mask_closed_mis_position():
@@ -3343,3 +3398,169 @@ def test_degenerate_geometry_is_rejected_under_EVERY_rr_source():
         ok = orch._place_entry(store.start_run("paper"), "AAA", d, _indic("AAA", last=100.0),
                                "paper")
         assert ok is False and store.get_open_positions() == [], f"source {src} admitted it"
+
+
+# ---- Target ladder extension (2026-08-06) -----------------------------------------------------
+# The skill designs T1 as a PARTIAL first objective (62% hit-before-stop by its own study) with
+# T2 the structural rung and T3 the ceiling — but the JSON schema discarded T2/T3, so every exit
+# rested at the smallest rung forever. On 2026-08-04 five trades hit both stop and target and the
+# same entries held to square-off returned +15,024 against -5,861 actual.
+def _ladder(action="BUY_NOW", tq=85, conf=85, t1=102.0, t2=106.0, t3=112.0, **kw):
+    d = _decision(action=action, tq=tq, conf=conf, entry=100.0, stop=95.0, target1=t1, **kw)
+    from dataclasses import replace
+    return replace(d, target2=t2, target3=t3)
+
+
+def _extend_cfg(store, **kw):
+    base = dict(mode="paper", total_pool=100000.0, max_open_positions=3,
+                capital_per_position=20000.0, target_extend_enabled=True,
+                target_extend_band_pct=0.25, target_extend_min_quality=70.0,
+                target_extend_min_confidence=70.0, target_extend_max=2)
+    base.update(kw)
+    _cfg(store, **base)
+
+
+def test_next_rung_is_the_NEAREST_one_beyond_not_the_ceiling():
+    """Each extension is a fresh bet that must be re-earned next cycle. Jumping straight to a
+    ceiling the skill itself puts at ~11% is a poor place to move a nearly-booked exit."""
+    from orchestrator import next_ladder_rung
+    d = _ladder()
+    assert next_ladder_rung(d, "LONG", 102.0) == 106.0
+    assert next_ladder_rung(d, "LONG", 106.0) == 112.0
+    assert next_ladder_rung(d, "LONG", 112.0) is None      # nothing left to walk to
+
+
+def test_next_rung_mirrors_for_shorts():
+    from orchestrator import next_ladder_rung
+    from dataclasses import replace
+    d = replace(_decision(action="SHORT_NOW", entry=100.0, stop=105.0, target1=98.0),
+                target2=94.0, target3=88.0)
+    assert next_ladder_rung(d, "SHORT", 98.0) == 94.0
+    assert next_ladder_rung(d, "SHORT", 94.0) == 88.0
+    assert next_ladder_rung(d, "SHORT", 88.0) is None
+
+
+def test_a_wrong_side_rung_is_ignored_rather_than_trusted():
+    """The addendum tells the engine never to quote one, so a wrong-side rung is a defect."""
+    from orchestrator import next_ladder_rung
+    d = _ladder(t2=90.0, t3=108.0)          # t2 is BELOW a long's current target
+    assert next_ladder_rung(d, "LONG", 102.0) == 108.0
+
+
+def test_near_target_measures_the_gap_as_a_percentage_of_price():
+    from orchestrator import near_target
+    assert near_target("LONG", 101.8, 102.0, 0.25) is True      # 0.20% away
+    assert near_target("LONG", 101.0, 102.0, 0.25) is False     # 0.99% away
+    assert near_target("LONG", 102.5, 102.0, 0.25) is True      # already through it
+    assert near_target("SHORT", 98.2, 98.0, 0.25) is True
+    assert near_target("SHORT", 99.5, 98.0, 0.25) is False
+    assert near_target("LONG", 101.8, None, 0.25) is False
+
+
+def test_the_target_extends_when_price_arrives_and_conviction_holds():
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    ok = orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid),
+                                   _ladder(), _indic("AAA", last=101.9), store.get_config())
+    p = store.get_position(pid)
+    assert ok is True and p.target_price == 106.0 and p.target_extends == 1
+
+
+def test_extending_pulls_the_stop_to_at_least_breakeven():
+    """Extending gives up a booked gain for a chance at more. It must never be able to turn a
+    winner into a loser."""
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), _ladder(),
+                              _indic("AAA", last=101.9), store.get_config())
+    assert store.get_position(pid).stop_loss >= 100.0
+
+
+def test_a_better_stop_is_never_loosened_to_breakeven():
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=101.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), _ladder(),
+                              _indic("AAA", last=101.9), store.get_config())
+    assert store.get_position(pid).stop_loss == 101.0
+
+
+def test_thin_conviction_lets_the_target_fill_instead():
+    """The whole point is to hold on only while the skill still believes. A weak read must let
+    the winner book."""
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    for weak in (_ladder(tq=60), _ladder(conf=60)):
+        assert orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), weak,
+                                         _indic("AAA", last=101.9), store.get_config()) is False
+    assert store.get_position(pid).target_price == 102.0
+
+
+def test_an_opposing_read_never_extends():
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    flip = _ladder(action="SELL_NOW")
+    assert orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), flip,
+                                     _indic("AAA", last=101.9), store.get_config()) is False
+
+
+def test_it_does_nothing_until_price_actually_arrives():
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=100.5)})
+    assert orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), _ladder(),
+                                     _indic("AAA", last=100.5), store.get_config()) is False
+
+
+def test_extensions_are_capped_so_a_position_cannot_chase_all_session():
+    store = Store(":memory:")
+    _extend_cfg(store, target_extend_max=1)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    rid = store.start_run("paper")
+    assert orch._maybe_extend_target(rid, store.get_position(pid), _ladder(),
+                                     _indic("AAA", last=105.9), store.get_config()) is True
+    assert orch._maybe_extend_target(rid, store.get_position(pid), _ladder(),
+                                     _indic("AAA", last=105.9), store.get_config()) is False
+    assert store.get_position(pid).target_extends == 1
+
+
+def test_the_feature_is_off_by_default():
+    store = Store(":memory:")
+    assert store.get_config().target_extend_enabled is False
+    _cfg(store, mode="paper", total_pool=100000.0, max_open_positions=3,
+         capital_per_position=20000.0)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_ladder()), {"AAA": _indic("AAA", last=101.9)})
+    assert orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), _ladder(),
+                                     _indic("AAA", last=101.9), store.get_config()) is False
+
+
+def test_a_skill_that_emits_no_upper_rungs_changes_nothing():
+    """Back-compat: an older skill returns target1 only, and the position simply fills there."""
+    store = Store(":memory:")
+    _extend_cfg(store)
+    pid = store.open_position(symbol="AAA", exchange="NSE", side="LONG", quantity=10,
+                              entry_price=100.0, target_price=102.0, stop_loss=95.0, mode="paper")
+    orch = _orch(store, _FakeClient(), _FakeEngine(_decision()), {"AAA": _indic("AAA", last=101.9)})
+    plain = _decision(action="BUY_NOW", tq=85, conf=85, entry=100.0, stop=95.0, target1=102.0)
+    assert orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), plain,
+                                     _indic("AAA", last=101.9), store.get_config()) is False

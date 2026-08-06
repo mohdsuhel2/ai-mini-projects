@@ -147,6 +147,18 @@ class Config:
     # changes nothing on current data. It exists to pin the source deliberately, and bites only if
     # the engine ever quotes a number its own levels do not support.
     rr_source: str = "both"
+    # Walk the resting exit order OUT along the skill's own target ladder while conviction holds,
+    # instead of always selling at target1. The skill designs T1 = first objective (62%
+    # hit-before-stop by its own study), T2 = structural rung, T3 = ceiling — and until 2026-08-06
+    # the JSON schema discarded T2/T3, so every exit sat at T1 forever. When price comes within
+    # target_extend_band_pct of the resting target AND the latest read is still same-side and above
+    # both floors, the target ratchets to the next rung and the stop is pulled to at least
+    # breakeven so a near-booked gain cannot turn into a loss. OFF by default.
+    target_extend_enabled: bool = False
+    target_extend_band_pct: float = 0.25
+    target_extend_min_quality: float = 70.0
+    target_extend_min_confidence: float = 70.0
+    target_extend_max: int = 2
 
 
 _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
@@ -156,6 +168,8 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
                   "radar_exit_enabled", "radar_stop_pct", "radar_stop_floor_pct",
                   "lifecycle_context_enabled", "exhaustion_context_enabled", "rr_source",
+                  "target_extend_enabled", "target_extend_band_pct", "target_extend_min_quality",
+                  "target_extend_min_confidence", "target_extend_max",
                   "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
                   "rotation_confirm_cycles", "rotation_screen_every",
                   "rr_gate_pre_margin", "rr_gate_enabled", "exit_mode", "arm_exit_enabled",
@@ -242,6 +256,9 @@ class Position:
     # ever written for adopted positions) and never moved by trailing — |entry - initial_stop| is
     # the 1R the exit engine measures progress against.
     initial_stop: float | None = None
+    # How many times the resting target has been walked OUT along the skill's ladder. Bounded by
+    # config.target_extend_max so a position cannot chase a receding target all session.
+    target_extends: int = 0
     strategy_id: str = DEFAULT_STRATEGY_ID
 
 
@@ -463,6 +480,9 @@ class Store:
         if "last_quality" not in cols:
             # The engine's most recent trade_quality for this holding — the rotation ranking key.
             self._conn.execute("ALTER TABLE positions ADD COLUMN last_quality REAL")
+        if "target_extends" not in cols:
+            self._conn.execute("ALTER TABLE positions ADD COLUMN target_extends "
+                               "INTEGER NOT NULL DEFAULT 0")
         if "weakest_streak" not in cols:
             self._conn.execute("ALTER TABLE positions ADD COLUMN weakest_streak "
                                "INTEGER NOT NULL DEFAULT 0")
@@ -582,6 +602,11 @@ class Store:
                          ("lifecycle_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("exhaustion_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("rr_source", "TEXT NOT NULL DEFAULT 'both'"),
+                         ("target_extend_enabled", "INTEGER NOT NULL DEFAULT 0"),
+                         ("target_extend_band_pct", "REAL NOT NULL DEFAULT 0.25"),
+                         ("target_extend_min_quality", "REAL NOT NULL DEFAULT 70.0"),
+                         ("target_extend_min_confidence", "REAL NOT NULL DEFAULT 70.0"),
+                         ("target_extend_max", "INTEGER NOT NULL DEFAULT 2"),
                          ("radar_stop_pct", "REAL NOT NULL DEFAULT 1.0"),
                          ("radar_stop_floor_pct", "REAL NOT NULL DEFAULT 0.5")):
             if col not in ccols:
@@ -646,6 +671,11 @@ class Store:
                       lifecycle_context_enabled=bool(r["lifecycle_context_enabled"]),
                       exhaustion_context_enabled=bool(r["exhaustion_context_enabled"]),
                       rr_source=(r["rr_source"] or "both"),
+                      target_extend_enabled=bool(r["target_extend_enabled"]),
+                      target_extend_band_pct=r["target_extend_band_pct"],
+                      target_extend_min_quality=r["target_extend_min_quality"],
+                      target_extend_min_confidence=r["target_extend_min_confidence"],
+                      target_extend_max=int(r["target_extend_max"]),
                       radar_stop_pct=r["radar_stop_pct"],
                       radar_stop_floor_pct=r["radar_stop_floor_pct"])
 
@@ -717,6 +747,7 @@ class Store:
             broker_target_order_id=r["broker_target_order_id"],
             broker_target_price=r["broker_target_price"],
             force_bracket=bool(r["force_bracket"]),
+            target_extends=((r["target_extends"] or 0) if "target_extends" in r.keys() else 0),
             initial_stop=(r["initial_stop"] if "initial_stop" in r.keys() else None),
             strategy_id=(r["strategy_id"] if "strategy_id" in r.keys() else DEFAULT_STRATEGY_ID))
 
@@ -797,6 +828,23 @@ class Store:
             "initial_stop = COALESCE(initial_stop, ?) "
             "WHERE id = ? AND status = 'OPEN'",
             (stop_loss, target_price, stop_loss, position_id))
+        self._conn.commit()
+        if cur.rowcount == 0:
+            raise StoreError(f"unknown open position id (or not open): {position_id}")
+
+    def extend_position_target(self, position_id: int, target_price: float,
+                               stop_loss: float | None = None) -> None:
+        """Walk an OPEN position's resting target OUT to the next ladder rung and count it.
+
+        Separate from update_position_levels because the extend counter must move in the same
+        statement as the level — counting it in the caller would let a retried cycle extend twice
+        against one increment."""
+        cur = self._conn.execute(
+            "UPDATE positions SET target_price = ?, "
+            "stop_loss = COALESCE(?, stop_loss), "
+            "target_extends = target_extends + 1 "
+            "WHERE id = ? AND status = 'OPEN'",
+            (target_price, stop_loss, position_id))
         self._conn.commit()
         if cur.rowcount == 0:
             raise StoreError(f"unknown open position id (or not open): {position_id}")

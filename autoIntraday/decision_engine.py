@@ -28,8 +28,11 @@ class DecisionEngineError(Exception):
 @dataclass
 class Decision:
     """Compact intraday decision — only the fields the orchestrator acts on (gate, sizing, OCO).
-    No prose (rationale/invalidation/news) and no unused extra targets, to keep the model output
-    small and fast."""
+    No prose (rationale/invalidation/news), to keep the model output small and fast.
+
+    target2/target3 are the upper rungs of the skill's own ladder. They default to None so every
+    existing construction site keeps working, and so a skill that emits neither still parses.
+    """
     action: str
     confidence: int
     trade_quality: int
@@ -38,6 +41,8 @@ class Decision:
     target1: float | None
     risk_reward: float | None
     raw_response: str
+    target2: float | None = None
+    target3: float | None = None
 
 
 DECISION_SCHEMA = {
@@ -50,6 +55,14 @@ DECISION_SCHEMA = {
         "entry": {"type": ["number", "null"]},
         "stop_loss": {"type": ["number", "null"]},
         "target1": {"type": ["number", "null"]},
+        # The skill designs a THREE-rung ladder (SKILL.md: "T1 = first objective / partial,
+        # T2 = the structural rung, T3 = stretch (ceiling)") and its own study puts T1 at 62%
+        # hit-before-stop against ~11% for T3. Until 2026-08-06 the schema declared only target1
+        # with additionalProperties:false, so T2/T3 were discarded at the JSON boundary and every
+        # exit order rested at the first objective forever. Optional so an older skill that emits
+        # neither still validates.
+        "target2": {"type": ["number", "null"]},
+        "target3": {"type": ["number", "null"]},
         "risk_reward": {"type": ["number", "null"]},
     },
     "required": ["action", "confidence", "trade_quality", "entry", "stop_loss", "target1",
@@ -151,6 +164,7 @@ def _parse_decision(raw_text: str) -> Decision:
         action=obj["action"], confidence=int(obj["confidence"]),
         trade_quality=int(obj["trade_quality"]), entry=_as_float(obj["entry"]),
         stop_loss=_as_float(obj["stop_loss"]), target1=_as_float(obj["target1"]),
+        target2=_as_float(obj.get("target2")), target3=_as_float(obj.get("target3")),
         risk_reward=_as_float(obj["risk_reward"]), raw_response=raw_text)
 
 

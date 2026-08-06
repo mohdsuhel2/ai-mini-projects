@@ -53,9 +53,14 @@ in the user message, but:
 4. Levels follow the skill's TARGET LADDER: target1 = the PRACTICAL first objective
    (institutional_desk.risk_model.targets[0]); risk_reward = risk_model.rr_to_final_est — the
    geometry to the FINAL capped target, never a narrative number and never the R:R to target1.
-5. Output ONLY the structured decision object matching the enforced JSON schema — the seven
-   fields action/confidence/trade_quality/entry/stop_loss/target1/risk_reward. No prose, no
-   trade summary, no explanation.
+5. ALSO emit target2 and target3 — the structural rung and the stretch/ceiling of that same
+   ladder. They are what risk_reward already refers to, and the system rests its exit order at
+   target1 first and walks it out to target2/target3 only while your conviction holds. Emit null
+   for a rung you genuinely cannot place; do NOT invent one, and never quote a rung on the wrong
+   side of entry.
+6. Output ONLY the structured decision object matching the enforced JSON schema — the fields
+   action/confidence/trade_quality/entry/stop_loss/target1/target2/target3/risk_reward. No prose,
+   no trade summary, no explanation.
 """
 
 

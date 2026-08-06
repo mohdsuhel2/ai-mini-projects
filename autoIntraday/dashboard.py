@@ -612,6 +612,38 @@ def _settings_dialog() -> None:
                      "wide target-shave books less profit but never rejects the trade for 'low "
                      "R:R'. OFF: the shaved target / widened stop must still clear the R:R floor "
                      "AFTER margins (stricter, fewer trades).")
+            st.divider()
+            st.caption("Target ladder — the skill quotes T1 (first objective, ~62% hit-before-stop "
+                       "by its own study), T2 (structural) and T3 (ceiling). Normally the exit "
+                       "order rests at T1 and books there. With this ON, when price comes within "
+                       "the band of the resting target AND the latest read is still same-side and "
+                       "above both floors, the target walks OUT to the next rung and the stop is "
+                       "pulled to at least breakeven. OFF by default.")
+            tx_on = st.checkbox("Extend the target while conviction holds",
+                                value=bool(getattr(m, "target_extend_enabled", False)))
+            x1, x2, x3 = st.columns(3)
+            tx_band = x1.number_input("Trigger band %", min_value=0.05, max_value=2.0,
+                                      value=float(getattr(m, "target_extend_band_pct", 0.25)),
+                                      step=0.05, format="%.2f", disabled=not tx_on,
+                                      help="How close price must come to the resting target "
+                                           "before an extension is considered, as a % of price.")
+            tx_max = x2.number_input("Max extensions", min_value=1, max_value=3,
+                                     value=int(getattr(m, "target_extend_max", 2)), step=1,
+                                     disabled=not tx_on)
+            tx_q = x3.number_input("Min quality", min_value=0.0, max_value=100.0,
+                                   value=float(getattr(m, "target_extend_min_quality", 70.0)),
+                                   step=1.0, disabled=not tx_on)
+            tx_c = st.number_input("Min confidence", min_value=0.0, max_value=100.0,
+                                   value=float(getattr(m, "target_extend_min_confidence", 70.0)),
+                                   step=1.0, disabled=not tx_on)
+            if st.button("Save target ladder", use_container_width=True):
+                _db(lambda s: s.update_config(
+                    target_extend_enabled=tx_on, target_extend_band_pct=tx_band,
+                    target_extend_max=int(tx_max), target_extend_min_quality=tx_q,
+                    target_extend_min_confidence=tx_c))
+                st.toast("Saved", icon="✅")
+            st.divider()
+
             _RR_SRC = ["both", "skill", "geometric"]
             _cur_src = getattr(m, "rr_source", "both")
             rr_source = st.selectbox(

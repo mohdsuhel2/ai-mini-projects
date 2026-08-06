@@ -605,6 +605,42 @@ def _with_exhaustion(get_indicators: Callable[[str], dict],
     return wrapped
 
 
+def next_ladder_rung(decision, side: str, current_target):
+    """The nearest rung of the skill's ladder that sits strictly BEYOND the current target.
+
+    The skill quotes T1 (first objective), T2 (structural) and T3 (ceiling). Picking the NEAREST
+    rung beyond, rather than jumping to T3, is deliberate: each extension is a fresh bet that must
+    be re-earned by conviction on the next cycle, and a ceiling that is ~11% likely by the skill's
+    own study is a poor place to move a nearly-booked exit to in one step.
+
+    Rungs on the wrong side of the current target are ignored rather than trusted — the addendum
+    tells the engine never to quote one, so a wrong-side rung is a defect, not an instruction.
+    """
+    rungs = [r for r in (decision.target1, getattr(decision, "target2", None),
+                         getattr(decision, "target3", None)) if r is not None]
+    if current_target is None:
+        rungs = sorted(rungs, reverse=(side == "SHORT"))
+        return rungs[0] if rungs else None
+    if side == "LONG":
+        beyond = sorted(r for r in rungs if r > current_target)
+    else:
+        beyond = sorted((r for r in rungs if r < current_target), reverse=True)
+    return beyond[0] if beyond else None
+
+
+def near_target(side: str, ltp: float, target, band_pct: float) -> bool:
+    """Is price within band_pct of the resting target — i.e. about to fill it?
+
+    Measured as a percentage OF PRICE, not of the entry-to-target distance: the question is
+    whether the resting LIMIT is about to be touched, which is a property of the tape now, not of
+    how far the trade has already travelled.
+    """
+    if target is None or not ltp or ltp <= 0 or band_pct <= 0:
+        return False
+    gap_pct = ((target - ltp) if side == "LONG" else (ltp - target)) / ltp * 100.0
+    return gap_pct <= band_pct          # already through it counts as near
+
+
 class Orchestrator:
     def __init__(self, store, client, engine, get_indicators: Callable[[str], dict],
                  get_candidates: Callable[..., list], now_provider: Callable[[], datetime] = _utc_now,
@@ -633,6 +669,10 @@ class Orchestrator:
             return {"run_id": run_id, "status": "SUCCESS", "exits": 0, "entries": 0,
                     "fills": 0, "cancels": 0, "errors": 0, "candidates": 0}
         try:
+            # -1) sweep phantom rows from previous sessions BEFORE anything can trade on them.
+            #     Runs before ensure_ready on purpose: it is DB-only and must hold even when
+            #     broker auth or the network is down.
+            self._sweep_stale_positions(run_id)
             self.client.ensure_ready()
             # 0) reconcile with the broker (live only): the OCO can fire BETWEEN cycles — the DB
             #    must learn the position is gone before we try to manage/exit it a second time.
@@ -665,6 +705,46 @@ class Orchestrator:
         except Exception as e:
             self.store.finish_run(run_id, "FAILED", error=str(e))
             raise
+
+    def _sweep_stale_positions(self, run_id: int) -> None:
+        """Close every OPEN row opened on a PREVIOUS IST trading day, before anything manages it.
+
+        An MIS position cannot outlive its session — the broker force-squares ~15:20 IST and the
+        DAY-validity bracket legs expire at close — so a row like this is a phantom of a position
+        that no longer exists. On 2026-08-03 five Friday rows survived the weekend, the morning
+        reconcile failed on a network error, and "closing" three phantoms at their gapped-up
+        targets SOLD into a flat account, creating real naked shorts. Deliberately DB-only (no
+        broker calls): the guard must hold precisely when the network is down. The true
+        square-off fill is unknowable the next day (Groww's order history is same-day only), so
+        the row closes at its entry price with a reason that marks the P&L as unknown — an
+        honest zero, not an invented profit."""
+        from trading_calendar import IST
+        today_ist = datetime.now(IST).date()
+        for position in self.store.get_open_positions():
+            try:
+                opened = datetime.fromisoformat(position.opened_at)
+                if opened.tzinfo is None:
+                    opened = opened.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                continue                       # unreadable stamp: leave it to broker reconcile
+            if opened.astimezone(IST).date() >= today_ist:
+                continue
+            # The legs died with the session — clear, don't cancel (yesterday's order ids are
+            # not even queryable today).
+            self.store.set_bracket_leg(position.id, "stop", None, None)
+            self.store.set_bracket_leg(position.id, "target", None, None)
+            self.store.close_position(
+                position.id, exit_price=position.entry_price,
+                exit_reason="STALE_EOD_SQUAREOFF (broker squared it last session; "
+                            "fill unknown, P&L not booked)",
+                realized_pnl=0.0)
+            self.store.record_decision(
+                run_id=run_id, symbol=position.symbol, action="EXIT",
+                reason=f"stale row from {position.opened_at[:10]} — broker squared it at that "
+                       f"session's close; swept before manage",
+                position_id=position.id)
+            log.warning("swept stale %s %s x%d (opened %s) — previous-session MIS row",
+                        position.side, position.symbol, position.quantity, position.opened_at)
 
     def _broker_state(self):
         """Read the broker ONCE per cycle and normalize it. Returns (mis, orders):
@@ -1020,6 +1100,65 @@ class Orchestrator:
                     radar["reversal_stage"], radar["reversal_probability"],
                     position.stop_loss, new_stop)
 
+    def _maybe_extend_target(self, run_id: int, position, decision, indicators, cfg) -> bool:
+        """Walk a nearly-filled exit OUT to the next ladder rung while conviction still holds.
+
+        The problem this fixes: the skill designs T1 as a PARTIAL first objective (62%
+        hit-before-stop by its own study) and T2/T3 as the real destinations, but the exit order
+        rested at T1 forever, so every winner was capped at the smallest rung. The measured cost
+        was concrete — on 2026-08-04 five trades hit both stop and target, and held to square-off
+        the same entries returned +15,024 against -5,861 actual.
+
+        Four conditions, all required. Price must be about to fill the resting target; the latest
+        read must not oppose the position; quality and confidence must clear their floors; and a
+        further rung must exist. Extending is giving up a booked gain for a chance at more, so the
+        stop is pulled to at least breakeven in the same statement — an extension must never be
+        able to turn a winner into a loser.
+        """
+        if not getattr(cfg, "target_extend_enabled", False):
+            return False
+        if position.target_extends >= int(getattr(cfg, "target_extend_max", 2) or 0):
+            return False
+        if _opposes(decision.action, position.side):
+            return False
+        ltp = _ltp(indicators)
+        if not near_target(position.side, ltp, position.target_price,
+                           float(cfg.target_extend_band_pct)):
+            return False
+        q, conf = decision.trade_quality, decision.confidence
+        if q is None or conf is None:
+            return False
+        if q < float(cfg.target_extend_min_quality) or conf < float(cfg.target_extend_min_confidence):
+            log.info("%s: at target but conviction thin (q=%s conf=%s) — letting it fill",
+                     position.symbol, q, conf)
+            return False
+        rung = next_ladder_rung(decision, position.side, position.target_price)
+        if rung is None:
+            return False
+        # Protect what is already on the table. Breakeven is the floor, and the existing stop wins
+        # when it is already better — this may only ratchet toward profit, like every other stop
+        # write in this file.
+        be = position.entry_price
+        if position.side == "LONG":
+            new_stop = max(position.stop_loss if position.stop_loss is not None else be, be)
+        else:
+            new_stop = min(position.stop_loss if position.stop_loss is not None else be, be)
+        if not _stop_is_sane(position.side, new_stop, ltp):
+            new_stop = position.stop_loss          # never write a stop on the wrong side of price
+        old_target = position.target_price
+        self.store.extend_position_target(position.id, rung, stop_loss=new_stop)
+        self.store.record_decision(
+            run_id=run_id, symbol=position.symbol, action="ADJUSTED",
+            reason=(f"target extended {old_target} -> {rung} (rung "
+                    f"{position.target_extends + 1}/{cfg.target_extend_max}) — price {ltp} within "
+                    f"{cfg.target_extend_band_pct}% and read still {decision.action} "
+                    f"q{q}/c{conf}; stop -> {new_stop}"),
+            stop_loss=new_stop, target_price=rung, position_id=position.id)
+        log.info("TARGET EXTEND %s: %s -> %s (stop %s -> %s, extend %d/%s)", position.symbol,
+                 old_target, rung, position.stop_loss, new_stop, position.target_extends + 1,
+                 cfg.target_extend_max)
+        return True
+
     def _book_context(self) -> dict:
         """Day-level state attached to EVERY decide() call, held or flat.
 
@@ -1154,6 +1293,12 @@ class Orchestrator:
         # the broker now rather than a cycle from now (_ensure_leg is a no-op when it already is).
         self._maybe_trail(run_id, position, decision, indicators)
         position = self.store.get_position(position.id)
+        # Walk a nearly-filled exit out to the next ladder rung while conviction holds. Placed
+        # AFTER the trail so it sees the trail's ratcheted target, and BEFORE the _ensure_bracket
+        # below so the broker's resting LIMIT actually moves this cycle rather than the next —
+        # otherwise the old leg could fill in the five minutes before we got back here.
+        if self._maybe_extend_target(run_id, position, decision, indicators, cfg):
+            position = self.store.get_position(position.id)
         self._maybe_radar_derisk(run_id, position, indicators, cfg)
         position = self.store.get_position(position.id)
         self._ensure_protective_stop(run_id, position, indicators)
@@ -1352,25 +1497,32 @@ class Orchestrator:
                      "re-placed" if cur_id else "placed", tpx, position.quantity)
 
     def _ensure_bracket(self, run_id: int, position, indicators, cfg) -> None:
-        """Rest the protective STOP at the broker (eager modes). ONLY the stop rests: a full-qty
-        target LIMIT and a full-qty stop SL_M cannot co-exist on one MIS holding — Groww keeps the
-        LIMIT and auto-cancels the SL_M, so a two-leg bracket left the downside naked and re-placed
-        a fresh (uncancelled) stop every cycle, flooding the order book (verified 2026-07-29). The
-        target is enforced by the soft cycle-level take-profit / exit instead; native OCO stays off
-        (USE_BROKER_OCO=False — Groww's smart-order modify/cancel proved unreliable 2026-07-20).
-        'on_fill' always keeps the stop; 'armed' places it once price is within arm_exit_band_pct of
-        the stop. Skipped in the square-off window (that flattens at market)."""
+        """Rest BOTH exit legs at the broker (eager modes): protective stop + target LIMIT.
+
+        The 2026-07-29 "Groww keeps the LIMIT and auto-cancels the SL_M" finding that forced a
+        stop-only bracket was an SL_M artifact: with the stop going out as an emulated SL (see
+        groww_client.emulate_slm_as_sl), a full-qty target LIMIT and a full-qty stop SL co-rest
+        fine on one MIS holding — verified live 2026-08-03 (1 share IDEA, LIMIT=APPROVED alongside
+        SL=TRIGGER_PENDING; Groww also accepts exit qty exceeding the net holding, so a partial
+        book against a resting bracket is not rejected). OCO stays software-side
+        (_reconcile_bracket_fills cancels the sibling on a fill — worst case one cycle of both
+        legs live after a fill; native OCO stays off, USE_BROKER_OCO=False, Groww's smart-order
+        modify/cancel proved unreliable 2026-07-20).
+
+        The STOP is placed first (protection wins if the second call fails). 'on_fill' always
+        rests it; 'armed' arms it once price is within arm_exit_band_pct of the stop. The target
+        rests eagerly in both modes so an intracycle touch fills at the level instead of waiting
+        for the next poll. Skipped in the square-off window (that flattens at market)."""
         if self.client.mode != "live" or _should_square_off(indicators):
             return
-        stop_px, _ = self._bracket_levels(position, cfg)
-        if position.broker_target_order_id:      # tear down any stale/legacy target leg — stop only
-            self._cancel_leg(position, "target")
+        stop_px, target_px = self._bracket_levels(position, cfg)
         if (cfg.exit_mode == "armed" and not position.force_bracket
                 and not position.broker_stop_order_id):
             ltp = _ltp(indicators)
             if stop_px is None or not _near(ltp, stop_px, cfg.arm_exit_band_pct):
-                return                                     # not near the stop yet -> stay soft
+                stop_px = None                             # not near the stop yet -> stop stays soft
         self._ensure_leg(run_id, position, "stop", stop_px)
+        self._ensure_leg(run_id, position, "target", target_px)
 
     def _maybe_scale_in(self, run_id: int, position, decision, indicators) -> bool:
         """Add to an underwater position when the engine still re-affirms it — sized so the
