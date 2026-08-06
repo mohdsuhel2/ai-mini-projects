@@ -1396,6 +1396,222 @@ def _drawdown_from_equity(equity: list) -> list:
     return out
 
 
+def _obs_db(fn):
+    """Skill Lab store handle. Separate from the trading store on purpose — nothing in this page
+    can reach the order path."""
+    from observe_store import ObserveStore
+    st_ = ObserveStore()
+    try:
+        return fn(st_)
+    finally:
+        st_.close()
+
+
+def _skill_lab_page() -> None:
+    import pandas as pd
+    from observe import available_skills
+    from observe_store import UNIVERSE_MODES
+
+    st.markdown('<div class="ai-brand">Skill Lab<em>.</em></div>', unsafe_allow_html=True)
+    st.caption("Run any skill against live market data and record what it WOULD have said. "
+               "No orders are ever placed from this page — the runner has no broker client at all. "
+               "Use it to compare skills on the same data before trusting one with money.")
+
+    cfg = _obs_db(lambda s: s.get_config())
+    t_results, t_config = st.tabs(["Results", "Schedule & skills"])
+
+    # ---- configuration ---------------------------------------------------------------------
+    with t_config:
+        found = available_skills()
+        if not found:
+            st.error("No skills found in ~/.claude/skills")
+            return
+        chosen = [x for x in (cfg.get("skills") or "").split(",") if x in found]
+        sel = st.multiselect("Skills to run", found, default=chosen,
+                             help="Every selected skill is asked about every selected symbol, on "
+                                  "the IDENTICAL indicator payload — so a difference in the "
+                                  "answers is a difference in the skills, not the data.")
+        c1, c2, c3 = st.columns(3)
+        start_t = c1.time_input("First pass",
+                                value=_parse_hhmm(cfg.get("start_time"), 9, 45), step=300)
+        end_t = c2.time_input("Last pass",
+                              value=_parse_hhmm(cfg.get("end_time"), 15, 0), step=300)
+        interval = c3.number_input("Every N minutes", min_value=5, max_value=120,
+                                   value=int(cfg.get("interval_min") or 30), step=5)
+
+        u1, u2 = st.columns([1, 2])
+        mode = u1.selectbox("Symbols from", list(UNIVERSE_MODES),
+                            index=list(UNIVERSE_MODES).index(cfg.get("universe_mode") or "screener"),
+                            help="screener: the same pool the live system screens. "
+                                 "watchlist: names you type below. "
+                                 "book: whatever is currently open.")
+        max_syms = u2.number_input("Max symbols per pass", min_value=1, max_value=25,
+                                   value=int(cfg.get("max_symbols") or 5), step=1)
+        watch = st.text_input("Watchlist (comma separated)", value=cfg.get("watchlist") or "",
+                              disabled=(mode != "watchlist"),
+                              placeholder="RELIANCE, KEI, PNGSREVA")
+
+        budget = st.number_input(
+            "Daily skill-call budget", min_value=0, max_value=5000,
+            value=int(cfg.get("daily_call_budget") or 200), step=25,
+            help="Hard ceiling on skill calls per trading day. The Skill Lab shares the Claude "
+                 "usage window with the LIVE trading cycle, so an over-wide config could starve "
+                 "the thing that actually makes money. When a full pass will not fit in what is "
+                 "left, the pass is SKIPPED whole rather than half-run.")
+        per_pass = max(1, len(sel)) * int(max_syms)
+        passes = _passes_between(start_t, end_t, int(interval))
+        st.caption(f"{len(sel)} skill(s) x {max_syms} symbols = **{per_pass} calls per pass**, "
+                   f"{passes} passes/day -> up to **{per_pass * passes} calls/day** "
+                   f"(budget {budget}).")
+        if per_pass * passes > budget:
+            st.warning(f"This configuration wants {per_pass * passes} calls but the budget is "
+                       f"{budget} — later passes of the day will be skipped.")
+
+        enabled = st.toggle("Skill Lab enabled", value=bool(int(cfg.get("observe_enabled") or 0)))
+
+        b1, b2, b3 = st.columns(3)
+        if b1.button("Save", use_container_width=True):
+            _obs_db(lambda s: s.set_config(
+                observe_enabled=1 if enabled else 0, skills=",".join(sel),
+                start_time=start_t.strftime("%H:%M"), end_time=end_t.strftime("%H:%M"),
+                interval_min=int(interval), universe_mode=mode, watchlist=watch,
+                max_symbols=int(max_syms), daily_call_budget=int(budget)))
+            st.toast("Saved", icon="✅")
+
+        if b2.button("Apply schedule", use_container_width=True,
+                     help="Installs/updates the com.autointraday.observe launchd agent. Separate "
+                          "from the trading agent — this can never delay a real cycle."):
+            from schedule_manager import ScheduleError, apply_observe_schedule
+            try:
+                msg = apply_observe_schedule((start_t.hour, start_t.minute),
+                                             (end_t.hour, end_t.minute), int(interval))
+                st.toast(msg, icon="✅")
+            except ScheduleError as e:
+                st.error(str(e))
+
+        if b3.button("Run one pass now", use_container_width=True):
+            with st.spinner("Asking each skill…"):
+                out = _run_skill_lab_now()
+            if out.get("status") == "SUCCESS":
+                st.toast(f"{out['calls']} calls, {out['errors']} errors", icon="✅")
+            else:
+                st.warning(f"{out.get('status')}: {out.get('reason')}")
+
+        try:
+            from schedule_manager import read_observe_schedule
+            inst = read_observe_schedule()
+        except Exception:
+            inst = None
+        if inst:
+            st.caption(f"Agent installed: {inst['start'][0]:02d}:{inst['start'][1]:02d} -> "
+                       f"{inst['last'][0]:02d}:{inst['last'][1]:02d} every "
+                       f"{inst['interval_min']} min ({inst['fires']} passes/day).")
+            if st.button("Remove the scheduled agent"):
+                from schedule_manager import remove_observe_schedule
+                remove_observe_schedule()
+                st.toast("Agent removed", icon="🗑️")
+        else:
+            st.caption("No scheduled agent installed — use **Apply schedule** above, or run "
+                       "passes manually.")
+
+    # ---- results ---------------------------------------------------------------------------
+    with t_results:
+        dates = _obs_db(lambda s: s.dates())
+        if not dates:
+            st.info("Nothing recorded yet. Pick your skills under **Schedule & skills**, then "
+                    "**Run one pass now**.")
+            return
+        day = st.selectbox("Date", dates, index=0)
+        rows = _obs_db(lambda s: s.decisions(trade_date=day))
+        runs = _obs_db(lambda s: s.runs(trade_date=day))
+        used = sum(r["calls"] or 0 for r in runs)
+        _tiles([_tile("Passes", str(len([r for r in runs if r["status"] == "SUCCESS"]))),
+                _tile("Skill calls", str(used)),
+                _tile("Decisions", str(len(rows))),
+                _tile("Errors", str(sum(1 for r in rows if r["error"])),
+                      tone="bad" if any(r["error"] for r in rows) else "plain")])
+        if not rows:
+            st.info("No decisions on this date.")
+            return
+
+        df = pd.DataFrame(rows)
+        df["time"] = pd.to_datetime(df["created_at"], utc=True, format="mixed") \
+            .dt.tz_convert("Asia/Kolkata").dt.strftime("%H:%M")
+
+        st.markdown("##### Side by side — what each skill said, same data")
+        piv = df.pivot_table(index=["time", "symbol"], columns="skill_id", values="action",
+                             aggfunc="first").reset_index()
+        st.dataframe(piv, use_container_width=True, hide_index=True)
+
+        st.markdown("##### Action mix per skill")
+        mix = df.groupby(["skill_id", "action"]).size().unstack(fill_value=0)
+        st.dataframe(mix, use_container_width=True)
+
+        st.markdown("##### Reported vs geometric R:R")
+        st.caption("The skill's own risk_reward against the ratio its entry/stop/target actually "
+                   "express. On 2026-08-04 these diverged 3-15x on the live payload, so a "
+                   "comparison that trusts the reported number ranks skills by how boldly they "
+                   "round up.")
+        rr = df.dropna(subset=["risk_reward"]).groupby("skill_id").agg(
+            decisions=("id", "count"),
+            reported_rr=("risk_reward", "mean"),
+            geometric_rr=("rr_geometric", "mean"),
+            quality=("trade_quality", "mean"),
+            confidence=("confidence", "mean"),
+            latency_ms=("latency_ms", "mean")).round(2)
+        st.dataframe(rr, use_container_width=True)
+
+        st.markdown("##### Every recorded decision")
+        cols = ["time", "skill_id", "symbol", "action", "trade_quality", "confidence", "entry",
+                "stop_loss", "target1", "risk_reward", "rr_geometric", "latency_ms", "error"]
+        st.dataframe(df[cols], use_container_width=True, hide_index=True)
+
+        with st.expander("Raw skill output"):
+            pick = st.selectbox("Decision", df["id"].tolist(),
+                                format_func=lambda i: _obs_label(df, i))
+            raw = df.loc[df["id"] == pick, "raw_json"].iloc[0]
+            st.code(raw or "(none)", language="json")
+
+
+def _obs_label(df, i) -> str:
+    r = df.loc[df["id"] == i].iloc[0]
+    return f"{r['time']}  {r['skill_id']}  {r['symbol']}  {r['action']}"
+
+
+def _parse_hhmm(raw, dh: int, dm: int):
+    from datetime import time as _t
+    try:
+        h, m = str(raw).split(":")
+        return _t(int(h), int(m))
+    except Exception:
+        return _t(dh, dm)
+
+
+def _passes_between(start_t, end_t, interval_min: int) -> int:
+    a = start_t.hour * 60 + start_t.minute
+    b = end_t.hour * 60 + end_t.minute
+    return max(0, (b - a) // max(1, interval_min) + 1) if b >= a else 0
+
+
+def _run_skill_lab_now() -> dict:
+    """Manual pass from the UI. Same runner the scheduler uses, so what you see here is exactly
+    what the agent will do."""
+    from observe import run_once
+    from observe_store import ObserveStore
+    from indicators import get_indicators
+    from screener import get_candidates
+
+    def open_symbols():
+        return _db(lambda s: [p.symbol for p in s.get_open_positions()])
+
+    s = ObserveStore()
+    try:
+        return run_once(s, get_indicators=get_indicators, get_candidates=get_candidates,
+                        get_open_symbols=open_symbols)
+    finally:
+        s.close()
+
+
 def _compare_page() -> None:
     import compare_data as cd
     from orchestrator import LEVERAGE
@@ -1686,7 +1902,8 @@ def main() -> None:
     swing = st.Page(_swing_page, title="Swing", url_path="swing")
     live = st.Page(_live_page, title="Live Intraday", url_path="live-intraday")
     ashort = st.Page(_active_short_page, title="Active Short", url_path="active-short")
-    pages = [intraday, swing, live, ashort]
+    lab = st.Page(_skill_lab_page, title="Skill Lab", url_path="skill-lab")
+    pages = [intraday, swing, live, ashort, lab]
     # The Compare tab appears only when Compare Testing is on, so the app looks exactly like today
     # when it's off (enable it from Settings ▸ Strategies).
     try:
