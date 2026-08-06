@@ -3618,10 +3618,7 @@
       font-size: 12px; color: #111; margin-bottom: 10px;
     }
     .ds-stamp-box {
-      min-height: 56px; border: 1px dashed #999; padding: 6px;
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      flex-wrap: wrap;
-      background: #fafafa;
+      min-height: 108px;
     }
     .ds-stamp-box img { max-height: 52px; max-width: 120px; object-fit: contain; }
     .legal-template-title {
@@ -3639,19 +3636,86 @@
       font-family: Arial, Helvetica, sans-serif; font-size: clamp(10px, 2.6vw, 11px);
       margin: 14px 0 8px; color: #111;
     }
-    .rr-stamp-box {
-      min-height: 56px; border: 1px dashed #999; padding: 8px;
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      flex-wrap: wrap; background: #fafafa; margin-bottom: 16px;
+    .rr-stamp-box,
+    .ds-stamp-box,
+    .doc-sig-canvas {
+      position: relative;
+      min-height: 108px;
+      border: 1px dashed #999;
+      padding: 10px;
+      background: #fafafa;
+      margin-bottom: 16px;
+      overflow: visible;
+      box-sizing: border-box;
     }
+    .ds-stamp-box {
+      margin-bottom: 0;
+    }
+    .doc-stamp-layer {
+      position: absolute;
+      inset: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .doc-stamp-layer img {
+      max-height: 56px;
+      max-width: 140px;
+      object-fit: contain;
+    }
+    .doc-draggable-signature {
+      position: absolute;
+      z-index: 3;
+      cursor: grab;
+      touch-action: none;
+      transform: translate(-50%, -50%);
+      max-width: 72%;
+      padding: 2px 4px;
+      line-height: 1;
+      user-select: none;
+    }
+    .doc-draggable-signature.is-dragging {
+      cursor: grabbing;
+      z-index: 5;
+    }
+    .doc-draggable-signature .template-sign-img {
+      max-height: 52px;
+      max-width: 180px;
+    }
+    .doc-draggable-signature .signature-script {
+      font-size: clamp(20px, 4.5vw, 30px);
+      white-space: nowrap;
+    }
+    .doc-sig-canvas:not([data-sig-interactive]) .doc-draggable-signature {
+      cursor: default;
+    }
+    .sig-pos-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: -4px;
+      margin-bottom: 8px;
+    }
+    .sig-pos-reset {
+      border: none;
+      background: none;
+      color: var(--accent, #2563eb);
+      font-size: 12px;
+      padding: 0;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .sig-pos-reset:hover { opacity: 0.85; }
     .rr-stamp-box img { max-height: 56px; max-width: 140px; object-fit: contain; }
     .rr-owner-sign-label {
       font-family: Arial, Helvetica, sans-serif; font-size: clamp(10px, 2.6vw, 11px);
-      margin: 0 0 6px; color: #111;
+      margin: -8px 0 6px; color: #111;
     }
     .rr-owner-sign-area {
-      min-height: 44px; margin-bottom: 16px;
-      display: flex; align-items: flex-end; padding: 2px 0;
+      display: none;
     }
     .signature-script {
       font-family: 'Priestacy', 'Segoe Script', 'Bradley Hand', cursive;
@@ -4802,6 +4866,12 @@
             <p class="pdf-file-name" id="rrRevenueStampName">No file selected</p>
             <img id="rrRevenueStampPreview" class="upload-preview hidden" alt="Revenue stamp preview" />
           </div>
+          <input type="hidden" id="rrSignaturePosLeft" value="72" />
+          <input type="hidden" id="rrSignaturePosTop" value="72" />
+          <p class="signature-mode-hint">Drag the signature on the live preview to place it anywhere — you can overlap the revenue stamp.</p>
+          <div class="sig-pos-actions">
+            <button type="button" class="sig-pos-reset" id="rrResetSignaturePos">Reset signature position</button>
+          </div>
         </div>
 
         <div id="rentBulkPanel" class="mode-panel hidden config-adaptive-panel">
@@ -4886,6 +4956,12 @@
             <input type="file" id="rrBulkRevenueStamp" accept="image/png,image/jpeg,image/webp" />
             <p class="pdf-file-name" id="rrBulkRevenueStampName">No file selected</p>
           </div>
+          <input type="hidden" id="rrBulkSignaturePosLeft" value="72" />
+          <input type="hidden" id="rrBulkSignaturePosTop" value="72" />
+          <p class="signature-mode-hint">Signature position set in single mode applies to bulk — drag on the preview before opening bulk.</p>
+          <div class="sig-pos-actions">
+            <button type="button" class="sig-pos-reset" id="rrBulkResetSignaturePos">Reset signature position</button>
+          </div>
         </div>
       </div>
 
@@ -4939,7 +5015,7 @@
           <div class="field-group" id="dsSignatureTextGroup">
             <label for="dsSignatureText">Signature text</label>
             <input type="text" id="dsSignatureText" value="" placeholder="e.g. Rahul Mehta" />
-            <p class="signature-mode-hint">Rendered in Priestacy handwriting font in the stamp area.</p>
+            <p class="signature-mode-hint">Rendered in Priestacy handwriting font in the stamp area. Drag it on the preview to place over the stamp.</p>
           </div>
           <div class="field-group hidden" id="dsSignatureUploadGroup">
             <label for="dsSignature">Signature (upload)</label>
@@ -4952,6 +5028,11 @@
             <input type="file" id="dsRevenueStamp" accept="image/png,image/jpeg,image/webp" />
             <p class="pdf-file-name" id="dsRevenueStampName">No file selected</p>
             <img id="dsRevenueStampPreview" class="upload-preview hidden" alt="Revenue stamp preview" />
+          </div>
+          <input type="hidden" id="dsSignaturePosLeft" value="30" />
+          <input type="hidden" id="dsSignaturePosTop" value="52" />
+          <div class="sig-pos-actions">
+            <button type="button" class="sig-pos-reset" id="dsResetSignaturePos">Reset signature position</button>
           </div>
         </div>
 
@@ -5013,6 +5094,11 @@
             <label for="dsBulkRevenueStamp">Revenue Stamp (upload)</label>
             <input type="file" id="dsBulkRevenueStamp" accept="image/png,image/jpeg,image/webp" />
             <p class="pdf-file-name" id="dsBulkRevenueStampName">No file selected</p>
+          </div>
+          <input type="hidden" id="dsBulkSignaturePosLeft" value="30" />
+          <input type="hidden" id="dsBulkSignaturePosTop" value="52" />
+          <div class="sig-pos-actions">
+            <button type="button" class="sig-pos-reset" id="dsBulkResetSignaturePos">Reset signature position</button>
           </div>
         </div>
       </div>
@@ -8390,6 +8476,102 @@
       return `<span class="signature-script">${escapeHtml(value)}</span>`;
     }
 
+    const SIGNATURE_POS_DEFAULTS = {
+      rent: { left: 72, top: 72 },
+      driver: { left: 30, top: 52 },
+    };
+
+    function clampSignaturePercent(value) {
+      return Math.min(96, Math.max(4, value));
+    }
+
+    function signaturePositionStyle(pos) {
+      return `left:${pos.left}%;top:${pos.top}%;`;
+    }
+
+    function readSignaturePosition(prefix) {
+      const kind = String(prefix || '').startsWith('rr') ? 'rent' : 'driver';
+      const defaults = SIGNATURE_POS_DEFAULTS[kind];
+      const left = parseFloat($(prefix + 'SignaturePosLeft')?.value);
+      const top = parseFloat($(prefix + 'SignaturePosTop')?.value);
+      return {
+        left: clampSignaturePercent(Number.isFinite(left) ? left : defaults.left),
+        top: clampSignaturePercent(Number.isFinite(top) ? top : defaults.top),
+      };
+    }
+
+    function setSignaturePosition(prefix, pos) {
+      const leftEl = $(prefix + 'SignaturePosLeft');
+      const topEl = $(prefix + 'SignaturePosTop');
+      const left = clampSignaturePercent(pos.left);
+      const top = clampSignaturePercent(pos.top);
+      if (leftEl) leftEl.value = String(Math.round(left * 10) / 10);
+      if (topEl) topEl.value = String(Math.round(top * 10) / 10);
+    }
+
+    function resetSignaturePosition(prefix) {
+      const kind = String(prefix || '').startsWith('rr') ? 'rent' : 'driver';
+      setSignaturePosition(prefix, SIGNATURE_POS_DEFAULTS[kind]);
+    }
+
+    function buildDraggableSignatureHtml(content, pos) {
+      if (!content) return '';
+      return `<div class="doc-draggable-signature" data-draggable-signature tabindex="0" aria-label="Signature — drag to reposition" style="${signaturePositionStyle(pos)}">${content}</div>`;
+    }
+
+    function buildSignatureCanvasHtml({ stampHtml, signatureHtml, pos, boxClass = 'rr-stamp-box' }) {
+      const stampLayer = stampHtml && stampHtml !== '&nbsp;'
+        ? `<div class="doc-stamp-layer">${stampHtml}</div>`
+        : '<div class="doc-stamp-layer doc-stamp-layer-empty" aria-hidden="true"></div>';
+      return `<div class="doc-sig-canvas ${boxClass}" data-sig-canvas>${stampLayer}${buildDraggableSignatureHtml(signatureHtml, pos)}</div>`;
+    }
+
+    function attachDraggableSignatures(root, { prefix, onPositionChange }) {
+      if (!root) return;
+      root.querySelectorAll('[data-sig-canvas]').forEach(canvas => {
+        const sig = canvas.querySelector('[data-draggable-signature]');
+        if (!sig) return;
+        canvas.dataset.sigInteractive = '1';
+        sig.addEventListener('pointerdown', event => {
+          if (event.button !== undefined && event.button !== 0) return;
+          event.preventDefault();
+          sig.setPointerCapture?.(event.pointerId);
+          sig.classList.add('is-dragging');
+          const rect = canvas.getBoundingClientRect();
+          const move = e => {
+            const left = clampSignaturePercent(((e.clientX - rect.left) / rect.width) * 100);
+            const top = clampSignaturePercent(((e.clientY - rect.top) / rect.height) * 100);
+            sig.style.left = `${left}%`;
+            sig.style.top = `${top}%`;
+          };
+          const up = e => {
+            sig.classList.remove('is-dragging');
+            sig.releasePointerCapture?.(e.pointerId);
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            window.removeEventListener('pointercancel', up);
+            const left = parseFloat(sig.style.left);
+            const top = parseFloat(sig.style.top);
+            if (Number.isFinite(left) && Number.isFinite(top)) {
+              setSignaturePosition(prefix, { left, top });
+              onPositionChange?.({ left, top });
+            }
+          };
+          move(event);
+          window.addEventListener('pointermove', move);
+          window.addEventListener('pointerup', up);
+          window.addEventListener('pointercancel', up);
+        });
+      });
+    }
+
+    function wireSignaturePositionControls({ prefix, resetBtnId, onChange }) {
+      $(resetBtnId)?.addEventListener('click', () => {
+        resetSignaturePosition(prefix);
+        onChange?.();
+      });
+    }
+
     function wireSignatureModeToggle({ modeId, textGroupId, uploadGroupId, textInputId, onChange }) {
       const modeEl = $(modeId);
       const textGroup = $(textGroupId);
@@ -8469,6 +8651,7 @@
           ? (overrides.landlordSignatureText ?? rrFields.landlordSignatureText()?.value ?? '')
           : '',
         revenueStampDataUrl: overrides.revenueStampDataUrl ?? rentRevenueStampDataUrl,
+        signaturePos: overrides.signaturePos ?? readSignaturePosition('rr'),
       };
     }
 
@@ -8499,11 +8682,16 @@
       const words = splitRentWordsLine(data.amountInWords);
       const stampContent = data.revenueStampDataUrl
         ? `<img src="${data.revenueStampDataUrl}" alt="Revenue stamp" />`
-        : '&nbsp;';
+        : '';
       const ownerSignature = renderSignatureContent({
         imageUrl: data.landlordSignatureDataUrl,
         text: data.landlordSignatureText,
         useTextMode: data.landlordSignatureMode !== 'upload',
+      });
+      const signatureCanvas = buildSignatureCanvasHtml({
+        stampHtml: stampContent,
+        signatureHtml: ownerSignature,
+        pos: data.signaturePos || SIGNATURE_POS_DEFAULTS.rent,
       });
 
       return `
@@ -8545,9 +8733,8 @@
             <div class="form-line"><span class="form-text">.</span></div>
           </div>
           <p class="rr-revenue-stamp-note">(Affix Revenue Stamp of Rs.1/-)</p>
-          <div class="rr-stamp-box">${stampContent}</div>
+          ${signatureCanvas}
           <p class="rr-owner-sign-label">Signature of the House Owner</p>
-          <div class="rr-owner-sign-area">${ownerSignature || '&nbsp;'}</div>
           <div class="form-row"><span class="form-label">Date :</span>${formField(formatBbDate(data.receiptDate))}</div>
           <div class="form-row"><span class="form-label">Name :</span>${formField(data.landlordName)}</div>
           <div class="form-row"><span class="form-label">Pancard:</span>${formField(data.landlordPan)}</div>
@@ -8655,6 +8842,10 @@
       wrapper.dataset.document = 'rent';
       wrapper.innerHTML = buildRentReceiptHtml(buildRentReceiptData());
       applyPreviewWatermark(wrapper);
+      attachDraggableSignatures(wrapper, {
+        prefix: 'rr',
+        onPositionChange: () => window.__persistFormKey?.('rent_single'),
+      });
     }
 
     function updateRentPreview() {
@@ -8701,6 +8892,7 @@
           ? ($('rrBulkLandlordSignatureText').value || '')
           : '',
         revenueStampDataUrl: rentBulkRevenueStampDataUrl,
+        signaturePos: readSignaturePosition('rrBulk'),
       };
       return dates.map(date => {
         const receiptDate = toDatetimeLocalValue(date).split(' ')[0];
@@ -8933,6 +9125,15 @@
         runGatedDownload('single', 'Download PDF', downloadRentPdf);
       });
       $('rrOpenBulkPreviewBtn')?.addEventListener('click', openRentBulkPreviewPage);
+      wireSignaturePositionControls({
+        prefix: 'rr',
+        resetBtnId: 'rrResetSignaturePos',
+        onChange: updateRentPreview,
+      });
+      wireSignaturePositionControls({
+        prefix: 'rrBulk',
+        resetBtnId: 'rrBulkResetSignaturePos',
+      });
     }
 
     function initRentMode() {
@@ -8972,6 +9173,7 @@
           ? (overrides.signatureText ?? $('dsSignatureText')?.value ?? '')
           : '',
         revenueStampDataUrl: overrides.revenueStampDataUrl ?? driverRevenueStampDataUrl,
+        signaturePos: overrides.signaturePos ?? readSignaturePosition('ds'),
       };
     }
 
@@ -8981,10 +9183,15 @@
         text: data.signatureText,
         useTextMode: data.signatureMode !== 'upload',
       });
-      const stampContent = [
+      const stampContent = data.revenueStampDataUrl
+        ? `<img src="${data.revenueStampDataUrl}" alt="Revenue stamp" />`
+        : '';
+      const signatureCanvas = buildSignatureCanvasHtml({
+        stampHtml: stampContent,
         signatureHtml,
-        data.revenueStampDataUrl ? `<img src="${data.revenueStampDataUrl}" alt="Revenue stamp" />` : '',
-      ].filter(Boolean).join('') || '&nbsp;';
+        pos: data.signaturePos || SIGNATURE_POS_DEFAULTS.driver,
+        boxClass: 'ds-stamp-box',
+      });
       return `
         <div class="ds-page ds-page-compact">
           <h1 class="legal-template-title">DRIVER SALARY RECEIPT</h1>
@@ -9010,7 +9217,7 @@
           <div class="form-row"><span class="form-label">Name:</span>${formField(data.driverName)}</div>
           <div class="ds-stamp-block">
             <div class="ds-stamp-label">Sign and Affix Revenue Stamp</div>
-            <div class="ds-stamp-box">${stampContent}</div>
+            ${signatureCanvas}
           </div>
           <div class="form-row"><span class="form-label">DL No:</span>${formField(data.licenseNo)}</div>
           <div class="form-row"><span class="form-label">Date:</span>${formField(formatBbDate(data.slipDate), 'form-line-half')}</div>
@@ -9055,6 +9262,10 @@
       wrapper.dataset.document = 'driver';
       wrapper.innerHTML = buildDriverSlipHtml(buildDriverSlipData());
       applyPreviewWatermark(wrapper);
+      attachDraggableSignatures(wrapper, {
+        prefix: 'ds',
+        onPositionChange: () => window.__persistFormKey?.('driver_single'),
+      });
     }
 
     function updateDriverPreview() {
@@ -9098,6 +9309,7 @@
           ? ($('dsBulkSignatureText').value || '')
           : '',
         revenueStampDataUrl: driverBulkRevenueStampDataUrl,
+        signaturePos: readSignaturePosition('dsBulk'),
       };
       return dates.map(date => {
         const slipDate = toDatetimeLocalValue(date).split(' ')[0];
@@ -9293,6 +9505,15 @@
         runGatedDownload('single', 'Download PDF', downloadDriverPdf);
       });
       $('dsOpenBulkPreviewBtn')?.addEventListener('click', openDriverBulkPreviewPage);
+      wireSignaturePositionControls({
+        prefix: 'ds',
+        resetBtnId: 'dsResetSignaturePos',
+        onChange: updateDriverPreview,
+      });
+      wireSignaturePositionControls({
+        prefix: 'dsBulk',
+        resetBtnId: 'dsBulkResetSignaturePos',
+      });
     }
 
     function initDriverMode() {
@@ -9613,10 +9834,10 @@
       ecommerce: ['ecOrderDate', 'ecOrderId', 'ecInvoiceNo', 'ecInvoiceDate', 'ecSellerName', 'ecSellerAddress', 'ecSellerRegisteredAddress', 'ecCustomerName', 'ecBillingAddress', 'ecShippingAddress', 'ecOrderedThrough', 'ecShippingCharges'],
       postpaid_single: ['bbCustomerName', 'bbAddress', 'bbEmail', 'bbPhone', 'bbPlanName', 'bbPlanCharges', 'bbGstRate', 'bbLateFee', 'bbStatementDate', 'bbBillRefId', 'bbLastBillAmount', 'bbPaymentMade', 'bbCredits'],
       postpaid_bulk: ['bbBulkDateFrom', 'bbBulkCount', 'bbBulkCustomerName', 'bbBulkAddress', 'bbBulkEmail', 'bbBulkPhone', 'bbBulkPlanName', 'bbBulkPlanCharges', 'bbBulkGstRate', 'bbBulkLateFee'],
-      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFrom', 'rrPeriodTo', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText'],
-      rent_bulk: ['rrBulkDateFrom', 'rrBulkCount', 'rrBulkRentAmount', 'rrBulkMonthlyRent', 'rrBulkTenantSalutation', 'rrBulkTenantName', 'rrBulkHouseNo', 'rrBulkPropertyAddress', 'rrBulkLandlordName', 'rrBulkLandlordPan', 'rrBulkLandlordSignatureMode', 'rrBulkLandlordSignatureText'],
-      driver_single: ['dsSlipDate', 'dsReceivedFrom', 'dsSalaryAmount', 'dsVehicleNo', 'dsDriverName', 'dsLicenseNo', 'dsSignatureMode', 'dsSignatureText'],
-      driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText'],
+      rent_single: ['rrReceiptDate', 'rrRentAmount', 'rrMonthlyRent', 'rrPeriodFrom', 'rrPeriodTo', 'rrTenantSalutation', 'rrTenantName', 'rrHouseNo', 'rrPropertyAddress', 'rrLandlordName', 'rrLandlordPan', 'rrLandlordSignatureMode', 'rrLandlordSignatureText', 'rrSignaturePosLeft', 'rrSignaturePosTop'],
+      rent_bulk: ['rrBulkDateFrom', 'rrBulkCount', 'rrBulkRentAmount', 'rrBulkMonthlyRent', 'rrBulkTenantSalutation', 'rrBulkTenantName', 'rrBulkHouseNo', 'rrBulkPropertyAddress', 'rrBulkLandlordName', 'rrBulkLandlordPan', 'rrBulkLandlordSignatureMode', 'rrBulkLandlordSignatureText', 'rrBulkSignaturePosLeft', 'rrBulkSignaturePosTop'],
+      driver_single: ['dsSlipDate', 'dsReceivedFrom', 'dsSalaryAmount', 'dsVehicleNo', 'dsDriverName', 'dsLicenseNo', 'dsSignatureMode', 'dsSignatureText', 'dsSignaturePosLeft', 'dsSignaturePosTop'],
+      driver_bulk: ['dsBulkDateFrom', 'dsBulkCount', 'dsBulkSalaryAmount', 'dsBulkReceivedFrom', 'dsBulkDriverName', 'dsBulkLicenseNo', 'dsBulkVehicleNo', 'dsBulkSignatureMode', 'dsBulkSignatureText', 'dsBulkSignaturePosLeft', 'dsBulkSignaturePosTop'],
     };
 
     const USER_PROFILE_GROUPS = {
