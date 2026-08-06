@@ -256,6 +256,25 @@ def _geometric_rr(entry, stop, target, side) -> float | None:
     return reward / risk
 
 
+EXIT_RUNGS = ("t1", "t2", "t3")
+
+
+def ladder_target(decision, rung: str) -> float | None:
+    """The requested rung of the skill's ladder, falling back DOWN to the nearest one present.
+
+    Falling down rather than up is the safe direction: asking for t3 on a skill that emits only
+    target1 must give the conservative near target, never a bigger number we invented.
+    """
+    rungs = {"t1": decision.target1, "t2": getattr(decision, "target2", None),
+             "t3": getattr(decision, "target3", None)}
+    order = ["t3", "t2", "t1"]
+    want = rung if rung in EXIT_RUNGS else "t1"
+    for r in order[order.index(want):]:
+        if rungs.get(r) is not None:
+            return rungs[r]
+    return decision.target1
+
+
 def _full_exit_target(decision, indicators) -> float | None:
     """The bracket/full-exit target: the desk risk_model's FINAL capped target (the Gate F
     ceiling), NOT the practical T1 the skill quotes as target1.
@@ -1894,7 +1913,21 @@ class Orchestrator:
         # objective; the FULL-EXIT leg rides at the desk's final capped target so winners exit
         # via the Gate K trail, not a fixed 0.6R leg. Upgraded pre-margin so the R:R gate and
         # the standard target shave both see the real reward.
-        decision = replace(decision, target1=_full_exit_target(decision, indicators))
+        # Which rung the exit order rests at. `config.exit_target_rung` picks it straight from the
+        # skill's own ladder; `_full_exit_target` is the older desk-ceiling upgrade and still runs
+        # as a floor under it (it needs institutional_desk, which the V1 payload does not carry, so
+        # in practice it is a no-op and the rung below is what decides).
+        #
+        # Why this is not simply "t1": measured over 13,906 simulated entries, resting at T1 is
+        # EV-NEGATIVE (-0.003%/trade) — it caps the winner near +0.6% while the stop still risks
+        # 1.8%, needing a 75% hit rate against an actual 33%. T2 returns +0.015%/trade. The gate
+        # below then judges the geometry to the rung we ACTUALLY rest at, which is what makes the
+        # R:R number mean something again.
+        rung_px = ladder_target(decision, getattr(cfg, "exit_target_rung", "t1"))
+        desk_px = _full_exit_target(decision, indicators)
+        far = max(x for x in (rung_px, desk_px) if x is not None) if side == "LONG" \
+            else min(x for x in (rung_px, desk_px) if x is not None)
+        decision = replace(decision, target1=far)
         raw = decision                                                      # pre-margin levels
         decision = _with_level_margins(decision, **_margins_from_cfg(cfg))   # config breathing space
         # P0 guard #2 — re-gate on the ACTUAL geometry (recomputed from entry/stop/target, not the

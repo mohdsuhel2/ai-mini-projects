@@ -154,6 +154,15 @@ class Config:
     # target_extend_band_pct of the resting target AND the latest read is still same-side and above
     # both floors, the target ratchets to the next rung and the stop is pulled to at least
     # breakeven so a near-booked gain cannot turn into a loss. OFF by default.
+    # WHICH rung of the skill's ladder the exit order rests at from the start: "t1" (first
+    # objective), "t2" (structural) or "t3" (ceiling), falling back down the ladder when a rung is
+    # absent. Measured 2026-08-06 over 13,906 simulated entries (34 symbols, 816 symbol-days,
+    # stop at the live median 1.8%): resting at T1 is EV-NEGATIVE (-0.003%/trade) because it caps
+    # the winner at ~0.6% while the stop still risks 1.8% — break-even needs a 75% hit rate and it
+    # hits 33%. T2 returns +0.015%/trade, T3 +0.017%. Nearly all the gain is T1->T2.
+    # Regime split: on DOWN days T1 is better (-0.393% vs -0.489%); T2 wins overall because up
+    # days more than compensate (+0.540% vs +0.358%).
+    exit_target_rung: str = "t1"
     target_extend_enabled: bool = False
     target_extend_band_pct: float = 0.25
     target_extend_min_quality: float = 70.0
@@ -168,6 +177,7 @@ _CONFIG_FIELDS = ("mode", "total_pool", "max_open_positions",
                   "entry_tolerance_pct", "stop_tolerance_pct", "target_shave_pct",
                   "radar_exit_enabled", "radar_stop_pct", "radar_stop_floor_pct",
                   "lifecycle_context_enabled", "exhaustion_context_enabled", "rr_source",
+                  "exit_target_rung",
                   "target_extend_enabled", "target_extend_band_pct", "target_extend_min_quality",
                   "target_extend_min_confidence", "target_extend_max",
                   "rotation_enabled", "rotation_margin", "rotation_min_hold_minutes",
@@ -602,6 +612,7 @@ class Store:
                          ("lifecycle_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("exhaustion_context_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("rr_source", "TEXT NOT NULL DEFAULT 'both'"),
+                         ("exit_target_rung", "TEXT NOT NULL DEFAULT 't1'"),
                          ("target_extend_enabled", "INTEGER NOT NULL DEFAULT 0"),
                          ("target_extend_band_pct", "REAL NOT NULL DEFAULT 0.25"),
                          ("target_extend_min_quality", "REAL NOT NULL DEFAULT 70.0"),
@@ -671,6 +682,7 @@ class Store:
                       lifecycle_context_enabled=bool(r["lifecycle_context_enabled"]),
                       exhaustion_context_enabled=bool(r["exhaustion_context_enabled"]),
                       rr_source=(r["rr_source"] or "both"),
+                      exit_target_rung=(r["exit_target_rung"] or "t1"),
                       target_extend_enabled=bool(r["target_extend_enabled"]),
                       target_extend_band_pct=r["target_extend_band_pct"],
                       target_extend_min_quality=r["target_extend_min_quality"],

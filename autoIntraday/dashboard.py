@@ -613,6 +613,23 @@ def _settings_dialog() -> None:
                      "R:R'. OFF: the shaved target / widened stop must still clear the R:R floor "
                      "AFTER margins (stricter, fewer trades).")
             st.divider()
+            _RUNGS = ["t1", "t2", "t3"]
+            _cur_rung = getattr(m, "exit_target_rung", "t1")
+            rung = st.selectbox(
+                "Exit order rests at", _RUNGS,
+                index=_RUNGS.index(_cur_rung) if _cur_rung in _RUNGS else 0,
+                help="Which rung of the skill's ladder the resting exit order sits at. Measured "
+                     "2026-08-06 over 13,906 simulated entries (34 symbols, 816 symbol-days, stop "
+                     "at the live median 1.8%): T1 is EV-NEGATIVE at -0.003%/trade — it caps the "
+                     "winner near +0.6% while the stop still risks 1.8%, so break-even needs a "
+                     "75% hit rate against an actual 33%. T2 returns +0.015%/trade and T3 +0.017%, "
+                     "so nearly all the gain is T1->T2. Caveat: on DOWN days T1 is better "
+                     "(-0.393% vs -0.489%); T2 wins overall because up days more than compensate. "
+                     "A rung the skill did not emit falls DOWN the ladder, never up.")
+            if st.button("Save exit rung", use_container_width=True):
+                _db(lambda s: s.update_config(exit_target_rung=rung))
+                st.toast("Saved", icon="✅")
+
             st.caption("Target ladder — the skill quotes T1 (first objective, ~62% hit-before-stop "
                        "by its own study), T2 (structural) and T3 (ceiling). Normally the exit "
                        "order rests at T1 and books there. With this ON, when price comes within "

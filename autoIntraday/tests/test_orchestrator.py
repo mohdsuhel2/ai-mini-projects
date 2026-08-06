@@ -3564,3 +3564,66 @@ def test_a_skill_that_emits_no_upper_rungs_changes_nothing():
     plain = _decision(action="BUY_NOW", tq=85, conf=85, entry=100.0, stop=95.0, target1=102.0)
     assert orch._maybe_extend_target(store.start_run("paper"), store.get_position(pid), plain,
                                      _indic("AAA", last=101.9), store.get_config()) is False
+
+
+# ---- Which rung the exit rests at (2026-08-06) ------------------------------------------------
+# 13,906 simulated entries, stop at the live median 1.8%: T1 is EV-NEGATIVE (-0.003%/trade)
+# because it caps the winner near +0.6% while the stop risks 1.8% — break-even needs a 75% hit
+# rate against an actual 33%. T2 returns +0.015%/trade; T2->T3 adds almost nothing.
+def test_ladder_target_picks_the_requested_rung():
+    from orchestrator import ladder_target
+    d = _ladder(t1=102.0, t2=106.0, t3=112.0)
+    assert ladder_target(d, "t1") == 102.0
+    assert ladder_target(d, "t2") == 106.0
+    assert ladder_target(d, "t3") == 112.0
+
+
+def test_a_missing_rung_falls_DOWN_the_ladder_never_up():
+    """Asking for t3 on a skill that emits only target1 must give the conservative near target,
+    never a bigger number we invented."""
+    from dataclasses import replace
+    from orchestrator import ladder_target
+    only_t1 = _decision(action="BUY_NOW", entry=100.0, stop=95.0, target1=102.0)
+    assert ladder_target(only_t1, "t3") == 102.0
+    assert ladder_target(only_t1, "t2") == 102.0
+    t1_t2 = replace(only_t1, target2=106.0)
+    assert ladder_target(t1_t2, "t3") == 106.0        # falls to t2, not past it
+
+
+def test_an_unrecognised_rung_falls_back_to_the_conservative_t1():
+    from orchestrator import EXIT_RUNGS, ladder_target
+    assert EXIT_RUNGS == ("t1", "t2", "t3")
+    assert ladder_target(_ladder(), "nonsense") == 102.0
+
+
+def test_the_default_rung_is_t1_so_nothing_changes_until_it_is_set():
+    from store import Store
+    assert Store(":memory:").get_config().exit_target_rung == "t1"
+
+
+def test_resting_at_t2_is_what_reaches_the_broker_and_the_db():
+    """End to end: the rung choice must change the ORDER, not just a number in the DB."""
+    store = Store(":memory:")
+    _cfg(store, mode="paper", total_pool=200000.0, max_open_positions=3,
+         capital_per_position=20000.0, exit_target_rung="t2", target_shave_pct=0.0,
+         rr_gate_enabled=False)
+    d = _ladder(t1=102.0, t2=106.0, t3=112.0)
+    orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+    assert orch._place_entry(store.start_run("paper"), "AAA", d,
+                             _indic("AAA", last=100.0), "paper") is True
+    assert store.get_open_positions()[0].target_price == 106.0
+
+
+def test_the_rr_gate_then_judges_the_rung_we_actually_rest_at():
+    """The incoherence this fixes: the gate was admitting on the R:R to a rung we discarded. At
+    t1 the geometry is 0.4 and the trade is refused; at t2 it is 1.6 and taken — same decision."""
+    d = _ladder(t1=102.0, t2=108.0, t3=112.0, tq=80, conf=75)   # entry 100, stop 95
+    for rung, expect in (("t1", False), ("t2", True)):
+        store = Store(":memory:")
+        _cfg(store, mode="paper", total_pool=200000.0, max_open_positions=3,
+             capital_per_position=20000.0, exit_target_rung=rung, target_shave_pct=0.0,
+             rr_gate_enabled=True, rr_source="geometric")
+        orch = _orch(store, _FakeClient(), _FakeEngine(d), {"AAA": _indic("AAA", last=100.0)})
+        got = orch._place_entry(store.start_run("paper"), "AAA", d,
+                                _indic("AAA", last=100.0), "paper")
+        assert got is expect, f"rung {rung} should have {'placed' if expect else 'refused'}"
