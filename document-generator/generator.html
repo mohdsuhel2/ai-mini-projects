@@ -2633,6 +2633,20 @@
       max-width: 28rem;
     }
 
+    .preview-sig-drag-note {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: #2563eb;
+      font-weight: 600;
+      max-width: 28rem;
+    }
+
+    .preview-sig-drag-note::before {
+      content: '↕ ';
+    }
+
     .preview-canvas {
       flex: 1;
       overflow: auto;
@@ -3667,18 +3681,85 @@
     }
     .doc-draggable-signature {
       position: absolute;
-      z-index: 3;
+      z-index: 40;
       cursor: grab;
       touch-action: none;
       transform: translate(-50%, -50%);
       max-width: 72%;
-      padding: 2px 4px;
+      padding: 4px 8px;
       line-height: 1;
       user-select: none;
+      pointer-events: auto;
+    }
+    .doc-sig-canvas[data-sig-interactive] {
+      border-color: #93c5fd;
+      background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+    }
+    .doc-sig-canvas[data-sig-interactive]::before {
+      content: 'Drag signature — can overlap stamp';
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      z-index: 2;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #2563eb;
+      pointer-events: none;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-signature {
+      outline: 2px dashed rgba(37, 99, 235, 0.65);
+      outline-offset: 3px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.18);
+    }
+    .doc-sig-canvas[data-sig-interactive] .doc-draggable-signature:hover {
+      outline-color: #2563eb;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+    }
+    .doc-sig-drag-grip {
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 14px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #2563eb;
+      color: #fff;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: system-ui, -apple-system, sans-serif;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+      pointer-events: none;
+    }
+    .doc-draggable-signature--placeholder {
+      min-width: 132px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed #94a3b8;
+      color: #64748b;
+      font-size: 11px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-style: italic;
     }
     .doc-draggable-signature.is-dragging {
       cursor: grabbing;
-      z-index: 5;
+      z-index: 50;
+      outline-color: #1d4ed8;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
     }
     .doc-draggable-signature .template-sign-img {
       max-height: 52px;
@@ -5169,6 +5250,7 @@
         <div class="preview-toolbar-left">
           <span class="preview-badge" id="previewModeBadge">Live Preview</span>
           <span class="preview-watermark-note" id="previewWatermarkNote">Preview watermark is not included in downloaded files.</span>
+          <span class="preview-sig-drag-note hidden" id="previewSigDragNote">Drag the signature on the receipt to reposition it.</span>
         </div>
       </div>
       <div class="preview-canvas">
@@ -7276,7 +7358,9 @@
     }
 
     function updatePreviewChrome() {
-      // Preview toolbar stays static: Live Preview + watermark note.
+      const isRentSingle = currentGenerator === 'rent' && currentRentMode === 'single';
+      const isDriverSingle = currentGenerator === 'driver' && currentDriverMode === 'single';
+      $('previewSigDragNote')?.classList.toggle('hidden', !(isRentSingle || isDriverSingle));
     }
 
     function wireEcSectionNav() {
@@ -8529,12 +8613,31 @@
     function attachDraggableSignatures(root, { prefix, onPositionChange }) {
       if (!root) return;
       root.querySelectorAll('[data-sig-canvas]').forEach(canvas => {
-        const sig = canvas.querySelector('[data-draggable-signature]');
-        if (!sig) return;
+        let sig = canvas.querySelector('[data-draggable-signature]');
+        const pos = readSignaturePosition(prefix);
+        if (!sig) {
+          sig = document.createElement('div');
+          sig.className = 'doc-draggable-signature doc-draggable-signature--placeholder';
+          sig.dataset.draggableSignature = '';
+          sig.dataset.placeholder = '1';
+          sig.setAttribute('aria-label', 'Signature position — drag to place');
+          sig.innerHTML = '<span>Your signature</span>';
+          sig.style.left = `${pos.left}%`;
+          sig.style.top = `${pos.top}%`;
+          canvas.appendChild(sig);
+        }
+        if (!sig.querySelector('.doc-sig-drag-grip')) {
+          const grip = document.createElement('span');
+          grip.className = 'doc-sig-drag-grip';
+          grip.setAttribute('aria-hidden', 'true');
+          grip.textContent = 'Drag';
+          sig.appendChild(grip);
+        }
         canvas.dataset.sigInteractive = '1';
         sig.addEventListener('pointerdown', event => {
           if (event.button !== undefined && event.button !== 0) return;
           event.preventDefault();
+          event.stopPropagation();
           sig.setPointerCapture?.(event.pointerId);
           sig.classList.add('is-dragging');
           const rect = canvas.getBoundingClientRect();
