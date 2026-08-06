@@ -1491,14 +1491,19 @@ def _skill_lab_page() -> None:
         u1, u2 = st.columns([1, 2])
         mode = u1.selectbox("Symbols from", list(UNIVERSE_MODES),
                             index=list(UNIVERSE_MODES).index(cfg.get("universe_mode") or "screener"),
-                            help="screener: the same pool the live system screens. "
-                                 "watchlist: names you type below. "
-                                 "book: whatever is currently open.")
-        max_syms = u2.number_input("Max symbols per pass", min_value=1, max_value=25,
-                                   value=int(cfg.get("max_symbols") or 5), step=1)
-        watch = st.text_input("Watchlist (comma separated)", value=cfg.get("watchlist") or "",
-                              disabled=(mode != "watchlist"),
-                              placeholder="RELIANCE, KEI, PNGSREVA")
+                            help="screener (default): the top movers the live system screens — "
+                                 "nothing to type, the pool refreshes itself every pass. "
+                                 "watchlist: fixed names you supply, for tracking the same stocks "
+                                 "day after day. book: whatever is currently open.")
+        max_syms = u2.number_input("Top N symbols per pass", min_value=1, max_value=25,
+                                   value=int(cfg.get("max_symbols") or 5), step=1,
+                                   help="Taken in screener rank order.")
+        watch = cfg.get("watchlist") or ""
+        if mode == "watchlist":
+            watch = st.text_input("Watchlist (comma separated)", value=watch,
+                                  placeholder="RELIANCE, KEI, PNGSREVA")
+        else:
+            st.caption("Using the screener's top movers — no watchlist needed.")
 
         budget = st.number_input(
             "Daily skill-call budget", min_value=0, max_value=5000,
@@ -1587,20 +1592,65 @@ def _skill_lab_page() -> None:
         df["time"] = pd.to_datetime(df["created_at"], utc=True, format="mixed") \
             .dt.tz_convert("Asia/Kolkata").dt.strftime("%H:%M")
 
-        st.markdown("##### Side by side — what each skill said, same data")
-        piv = df.pivot_table(index=["time", "symbol"], columns="skill_id", values="action",
-                             aggfunc="first").reset_index()
-        st.dataframe(piv, use_container_width=True, hide_index=True)
+        st.markdown("##### Do they agree?")
+        st.caption("Skills speak different dialects — the breakout desk says IGNITION_BUY/COILING, "
+                   "v3 says BUY/SELL, v1 and v2 say BUY_NOW/WAIT — and the shared JSON schema "
+                   "coerces all of them into one enum. So the honest comparison is on STANCE "
+                   "(long / short / stand aside), which survives the translation. The exact words "
+                   "each skill used are in the per-skill detail below.")
+        df["stance"] = df["action"].map(_stance)
+        latest = df.sort_values("id").groupby(["symbol", "skill_id"]).tail(1)
+        stance = latest.pivot_table(index="symbol", columns="skill_id", values="stance",
+                                    aggfunc="first")
+        skills_present = list(stance.columns)
 
-        st.markdown("##### Action mix per skill")
-        mix = df.groupby(["skill_id", "action"]).size().unstack(fill_value=0)
-        st.dataframe(mix, use_container_width=True)
+        def _verdict(row):
+            vals = [v for v in row if isinstance(v, str)]
+            if not vals:
+                return "—"
+            uniq = set(vals)
+            if len(uniq) == 1:
+                return f"ALL AGREE · {vals[0]}"
+            if uniq <= {"long", "stand aside"} or uniq <= {"short", "stand aside"}:
+                return "partial · " + "/".join(sorted(uniq))
+            return "CONFLICT · " + "/".join(sorted(uniq))
+
+        stance["verdict"] = stance.apply(_verdict, axis=1)
+        st.dataframe(stance.reset_index(), use_container_width=True, hide_index=True)
+        agree = sum(1 for v in stance["verdict"] if str(v).startswith("ALL AGREE"))
+        conflict = sum(1 for v in stance["verdict"] if str(v).startswith("CONFLICT"))
+        st.caption(f"{agree} of {len(stance)} symbols had every skill agree; "
+                   f"{conflict} had an outright long-vs-short conflict.")
+
+        st.markdown("##### What each skill actually said")
+        wide = latest.pivot_table(index="symbol", columns="skill_id", values="action",
+                                  aggfunc="first")
+        st.dataframe(wide.reset_index(), use_container_width=True, hide_index=True)
+
+        st.markdown("##### Per-skill detail")
+        for sk in skills_present:
+            sub = latest[latest["skill_id"] == sk]
+            errs = sub[sub["error"].notna()]
+            head = f"{sk} — {len(sub)} symbol(s)"
+            if len(errs):
+                head += f" · {len(errs)} error(s)"
+            with st.expander(head):
+                cols = ["time", "symbol", "action", "trade_quality", "confidence", "entry",
+                        "stop_loss", "target1", "risk_reward", "rr_geometric", "latency_ms",
+                        "error"]
+                st.dataframe(sub[cols], use_container_width=True, hide_index=True)
+                if len(sub):
+                    pick = st.selectbox("Raw output", sub["id"].tolist(),
+                                        format_func=lambda i, d=sub: _obs_label(d, i),
+                                        key=f"raw_{sk}")
+                    st.code(sub.loc[sub["id"] == pick, "raw_json"].iloc[0] or "(none)",
+                            language="json")
 
         st.markdown("##### Reported vs geometric R:R")
         st.caption("The skill's own risk_reward against the ratio its entry/stop/target actually "
-                   "express. On 2026-08-04 these diverged 3-15x on the live payload, so a "
-                   "comparison that trusts the reported number ranks skills by how boldly they "
-                   "round up.")
+                   "express. The addendum asks for the R:R to the FINAL rung while target1 is the "
+                   "first — so a gap here is expected and is not the skill lying; it is what made "
+                   "resting the order at T1 incoherent.")
         rr = df.dropna(subset=["risk_reward"]).groupby("skill_id").agg(
             decisions=("id", "count"),
             reported_rr=("risk_reward", "mean"),
@@ -1610,16 +1660,29 @@ def _skill_lab_page() -> None:
             latency_ms=("latency_ms", "mean")).round(2)
         st.dataframe(rr, use_container_width=True)
 
-        st.markdown("##### Every recorded decision")
-        cols = ["time", "skill_id", "symbol", "action", "trade_quality", "confidence", "entry",
-                "stop_loss", "target1", "risk_reward", "rr_geometric", "latency_ms", "error"]
-        st.dataframe(df[cols], use_container_width=True, hide_index=True)
+        with st.expander("Every recorded decision this day"):
+            cols = ["time", "skill_id", "symbol", "action", "trade_quality", "confidence", "entry",
+                    "stop_loss", "target1", "risk_reward", "rr_geometric", "latency_ms", "error"]
+            st.dataframe(df[cols], use_container_width=True, hide_index=True)
 
-        with st.expander("Raw skill output"):
-            pick = st.selectbox("Decision", df["id"].tolist(),
-                                format_func=lambda i: _obs_label(df, i))
-            raw = df.loc[df["id"] == pick, "raw_json"].iloc[0]
-            st.code(raw or "(none)", language="json")
+
+_LONG_ACTIONS = {"BUY_NOW", "BUY_ON_PULLBACK", "BUY_ON_BREAKOUT", "BUY_ON_VWAP_RETEST"}
+_SHORT_ACTIONS = {"SHORT_NOW", "SELL_NOW", "SHORT_ON_BREAKDOWN"}
+
+
+def _stance(action) -> str:
+    """Collapse every skill's dialect onto the one axis they share.
+
+    The JSON schema already forces a common enum, but the skills mean different things by it — a
+    breakout desk's IGNITION_BUY and an analyst's BUY_NOW arrive as the same token from very
+    different reasoning. Direction is the part that genuinely compares.
+    """
+    a = str(action or "").upper()
+    if a in _LONG_ACTIONS:
+        return "long"
+    if a in _SHORT_ACTIONS:
+        return "short"
+    return "stand aside"
 
 
 def _obs_label(df, i) -> str:
