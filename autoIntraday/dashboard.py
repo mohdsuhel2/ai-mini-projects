@@ -386,8 +386,19 @@ html, body, [data-testid="stAppViewContainer"] {
 .ai-swt .c-status { flex: 0 0 11%; opacity: .82; }
 .ai-swt .c-qty { flex: 0 0 6%; text-align: right; }
 .ai-swt .c-avg { flex: 0 0 9%; text-align: right; }
-.ai-swt .c-swing, .ai-swt .c-ss { flex: 1 1 20%; min-width: 0;
+.ai-swt .c-swing, .ai-swt .c-ss { flex: 1 1 17%; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-swt .c-pnl { flex: 0 0 13%; text-align: right; white-space: nowrap; font-variant-numeric:
+  tabular-nums; font-size: .82rem; }
+.ai-swt .c-pnl small { opacity: .7; }
+.ai-pos { color: #30a46c; }
+.ai-neg { color: #e5484d; }
+.ai-econ { display: flex; flex-wrap: wrap; gap: .5rem 1.4rem; align-items: center;
+  margin: 0 0 .55rem; padding: .5rem .7rem; border-radius: 8px; background: var(--ai-tint);
+  border: 1px solid var(--ai-line-soft); font-size: .82rem; }
+.ai-econ-inv { flex: 1 1 100%; opacity: .8; }
+.ai-econ-leg { display: flex; gap: .7rem; align-items: baseline; }
+.ai-econ-leg b { opacity: .75; font-weight: 600; }
 .ai-swt .c-when { flex: 0 0 11%; opacity: .68; font-size: .78rem; white-space: nowrap; }
 .ai-swt .c-act { flex: 0 0 2.2rem; text-align: right; }
 .ai-act { display: inline-block; text-decoration: none; font-size: 1rem; line-height: 1;
@@ -1114,21 +1125,84 @@ def _swre_link(symbol: str, busy: bool) -> str:
             f'title="{html.escape(title)}">↻</a>')
 
 
+def _outcome_cell(o) -> str:
+    """Compact signed rupees + percent, or an em dash when the level is unknown."""
+    if not o:
+        return "—"
+    cls = "ai-pos" if o["amount"] >= 0 else "ai-neg"
+    return (f'<span class="{cls}">{o["amount"]:+,.0f} '
+            f'<small>({o["pct"]:+.1f}%)</small></span>')
+
+
+def _econ_block(v: dict, econ: dict) -> str:
+    """What each leg's target and stop is worth on the quantity actually held.
+
+    Shown for BOTH legs and for the stop as well as the target, because on an underwater holding
+    the analyst's target can sit below cost — the live book on 2026-08-07 held GREENPOWER at 23.62
+    against a target of 10.60. Calling any of this "expected profit" would be wrong, so the
+    heading says what it is: the value of reaching that level.
+    """
+    inv = econ.get("invested")
+    if not inv:
+        return ""
+    cells = []
+    for leg, label in (("swing", "Swing"), ("ss", "Short-swing")):
+        t, stp = econ.get(f"{leg}_target"), econ.get(f"{leg}_stop")
+        if not (t or stp):
+            continue
+        cells.append(
+            f'<div class="ai-econ-leg"><b>{label}</b>'
+            f'<span>at target {_outcome_cell(t)}</span>'
+            f'<span>at stop {_outcome_cell(stp)}</span></div>')
+    if not cells:
+        return ""
+    return (f'<div class="ai-econ"><div class="ai-econ-inv">Holding '
+            f'{_num(v.get("quantity"))} @ {_num(v.get("avg_price"))} '
+            f'= <b>₹{inv:,.0f}</b> invested</div>{"".join(cells)}</div>')
+
+
+def _swing_book_totals(verdicts: list[dict]) -> None:
+    """What the analysed book is worth at its targets and at its stops, in rupees on the quantity
+    actually held. Rows with no level are skipped rather than counted as zero — a missing target
+    is unknown, not neutral — so the counts say how much of the book each number covers."""
+    from swing_engine import book_totals
+    t = book_totals(verdicts, "swing")
+    if not t["invested"]:
+        return
+    _tiles([
+        _tile("Invested", f"₹{t['invested']:,.0f}", f"{len(verdicts)} holdings"),
+        _tile("At swing targets", f"₹{t['at_target']:+,.0f}",
+              (f"{t['at_target_pct']:+.1f}% · {t['targets_known']} priced"
+               if t["at_target_pct"] is not None else ""),
+              tone="good" if t["at_target"] >= 0 else "bad"),
+        _tile("At swing stops", f"₹{t['at_stop']:+,.0f}",
+              (f"{t['at_stop_pct']:+.1f}% · {t['stops_known']} priced"
+               if t["at_stop_pct"] is not None else ""),
+              tone="good" if t["at_stop"] >= 0 else "bad"),
+    ])
+    st.caption("Value of every analysed holding reaching its swing target / stop, on the quantity "
+               "you actually hold, measured against your average price. A target BELOW your cost "
+               "shows as a loss — that is the analyst saying the position is impaired, not a bug.")
+
+
 def _swing_verdicts_table(verdicts: list[dict], running: bool) -> None:
     """Analysis results as a bordered table (self-built HTML — the PyArrow-safe path). Each row
     is a <details>: the summary shows Symbol/Status/Qty/Avg/Swing/Short-swing + a ↻ re-analyze
     link and stays visible; clicking the row expands the swing + short-swing rationale. The ↻
     is disabled (dimmed) while the run is RUNNING or that row is ANALYZING."""
     import html
+    from swing_engine import verdict_economics
     head = ('<div class="ai-swt-head">'
             '<span class="ai-caret"></span>'
             '<span class="c-sym">Symbol</span><span class="c-status">Status</span>'
             '<span class="c-qty">Qty</span><span class="c-avg">Avg</span>'
             '<span class="c-swing">Swing</span><span class="c-ss">Short-swing</span>'
+            '<span class="c-pnl">At target</span>'
             '<span class="c-when">Analyzed</span><span class="c-act"></span></div>')
     rows = []
     for v in verdicts:
         busy = running or v.get("status") == "ANALYZING"
+        econ = verdict_economics(v)
         summary = (
             '<summary>'
             '<span class="ai-caret">▸</span>'
@@ -1140,6 +1214,7 @@ def _swing_verdicts_table(verdicts: list[dict], running: bool) -> None:
             f'<span class="c-avg">{_num(v["avg_price"])}</span>'
             f'<span class="c-swing">{html.escape(_swing_verdict_cell(v["swing_action"], v["swing_conviction"], v["swing_target"], v["swing_stop"]))}</span>'
             f'<span class="c-ss">{html.escape(_swing_verdict_cell(v["ss_action"], v["ss_conviction"], v["ss_target"], v["ss_stop"]))}</span>'
+            f'<span class="c-pnl">{_outcome_cell(econ.get("swing_target"))}</span>'
             f'<span class="c-when">{_fmt_ist_short(v.get("analyzed_at")) or "—"}</span>'
             f'<span class="c-act">{_swre_link(v["symbol"], busy)}</span>'
             '</summary>')
@@ -1150,7 +1225,7 @@ def _swing_verdicts_table(verdicts: list[dict], running: bool) -> None:
             parts.append(f'<b>Short-swing:</b> {html.escape(v["ss_rationale"])}')
         reason = "<br>".join(parts) or "No rationale recorded for this stock yet."
         rows.append(f'<details class="ai-swt-row">{summary}'
-                    f'<div class="ai-swt-reason">{reason}</div></details>')
+                    f'<div class="ai-swt-reason">{_econ_block(v, econ)}{reason}</div></details>')
     st.markdown(f'<div class="ai-swt">{head}{"".join(rows)}</div>', unsafe_allow_html=True)
 
 
@@ -1225,6 +1300,7 @@ def _swing_live() -> None:
                        "held stock(s) not analyzed yet — hit ↻ on those rows.")
         else:
             st.caption("Click a row to see the reasoning · ↻ re-analyzes that stock in place.")
+        _swing_book_totals(shown)
         if shown:
             _swing_verdicts_table(shown, running)
         else:

@@ -216,3 +216,61 @@ class SwingEngine:
         if not out or not out.strip():
             raise SwingEngineError("claude CLI returned empty output")
         return _parse(_result_text(out))
+
+
+# --- what a verdict is worth on the stock you actually hold ------------------------------------
+def level_outcome(quantity, avg_price, level) -> dict | None:
+    """What reaching `level` is worth on this holding, in % and in rupees.
+
+    Signed against the AVERAGE PRICE — the real cost basis — because the question the swing page
+    answers is "what does this verdict mean for money I have already committed", not "what is the
+    move from here". Holdings are long-only, so above avg is a gain and below is a loss.
+
+    Deliberately NOT called "profit": on 2026-08-07 the live book held HDFCSILVER at 277.83 with an
+    analyst target of 230.00 and GREENPOWER at 23.62 with a target of 10.60. A target can sit well
+    BELOW cost on an underwater holding, and labelling that "expected profit" would misrepresent
+    a 55% loss as an objective.
+    """
+    if level is None or avg_price in (None, 0) or quantity in (None, 0):
+        return None
+    try:
+        q, avg, lv = float(quantity), float(avg_price), float(level)
+    except (TypeError, ValueError):
+        return None
+    if avg <= 0:
+        return None
+    return {"pct": (lv - avg) / avg * 100.0, "amount": (lv - avg) * q,
+            "invested": avg * q, "level": lv}
+
+
+def verdict_economics(verdict: dict) -> dict:
+    """Both legs' target/stop economics for one holding, keyed swing_/ss_ to match the row."""
+    q, avg = verdict.get("quantity"), verdict.get("avg_price")
+    out = {}
+    for leg in ("swing", "ss"):
+        for kind in ("target", "stop"):
+            out[f"{leg}_{kind}"] = level_outcome(q, avg, verdict.get(f"{leg}_{kind}"))
+    inv = level_outcome(q, avg, avg)
+    out["invested"] = inv["invested"] if inv else None
+    return out
+
+
+def book_totals(verdicts, leg: str = "swing") -> dict:
+    """Portfolio-level roll-up: what the whole analysed book is worth at its targets and at its
+    stops. Rows without a level are skipped rather than counted as zero — a missing target is
+    unknown, not neutral."""
+    inv = tgt = stp = 0.0
+    n_t = n_s = 0
+    for v in verdicts or []:
+        e = verdict_economics(v)
+        if e["invested"]:
+            inv += e["invested"]
+        t, s = e.get(f"{leg}_target"), e.get(f"{leg}_stop")
+        if t:
+            tgt += t["amount"]; n_t += 1
+        if s:
+            stp += s["amount"]; n_s += 1
+    return {"invested": inv, "at_target": tgt, "at_stop": stp,
+            "at_target_pct": (tgt / inv * 100.0) if inv else None,
+            "at_stop_pct": (stp / inv * 100.0) if inv else None,
+            "targets_known": n_t, "stops_known": n_s}
