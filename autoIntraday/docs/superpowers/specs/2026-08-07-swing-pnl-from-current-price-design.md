@@ -39,3 +39,20 @@ from-here, falls back to vs-cost.
 ## Out of scope
 
 Live LTP refresh in the dashboard, changing the book-totals tiles' basis.
+
+## Addendum (same day): refresh-time prices, Total PnL column, sorting
+
+- **Refresh holdings** also fetches LTPs (`client.get_ltp`, already exposed by the VPS
+  gateway's `/v1/ltp`) and stores them on the snapshot (`holdings.ltp REAL`, additive
+  migration). LTP failure degrades to a plain holdings refresh, never an error.
+- **Freshest price wins**: `_attach_live_price` annotates each verdict with the holding's
+  LTP as `current_price` when the snapshot's `fetched_at` is newer than the verdict's
+  `analyzed_at`; `verdict_economics` prefers `current_price` over `price_at_analysis` for
+  the `_here` outcomes and exposes the reference used as `ref_price`. Refreshing therefore
+  re-prices the table without touching the analysis.
+- **Two PnL columns**: "At target" = expected PnL from the current price (— when no price
+  is known; no silent vs-cost fallback). "Total PnL" = the same level vs the average buy
+  price. Both join the column picker.
+- **Sorting**: a "Sort" selectbox beside the existing filters (analysis order, Symbol A→Z,
+  At target ↓/↑, Total PnL ↓/↑, Analyzed newest). Rows whose sort value is unknown go last
+  in either direction — unknown is not zero.
