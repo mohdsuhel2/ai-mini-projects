@@ -420,6 +420,7 @@ CREATE TABLE IF NOT EXISTS holdings (
     symbol TEXT PRIMARY KEY,
     quantity INTEGER,
     avg_price REAL,
+    ltp REAL,
     fetched_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS swing_runs (
@@ -439,9 +440,11 @@ CREATE TABLE IF NOT EXISTS swing_verdicts (
     avg_price REAL,
     status TEXT DEFAULT 'DONE',
     analyzed_at TEXT,
+    price_at_analysis REAL,
     swing_action TEXT, swing_conviction INTEGER, swing_target REAL, swing_stop REAL,
-    swing_rationale TEXT,
-    ss_action TEXT, ss_conviction INTEGER, ss_target REAL, ss_stop REAL, ss_rationale TEXT
+    swing_eta_days INTEGER, swing_rationale TEXT,
+    ss_action TEXT, ss_conviction INTEGER, ss_target REAL, ss_stop REAL,
+    ss_eta_days INTEGER, ss_rationale TEXT
 );
 """
 
@@ -628,6 +631,15 @@ class Store:
                 "ALTER TABLE swing_verdicts ADD COLUMN status TEXT DEFAULT 'DONE'")
         if vcols and "analyzed_at" not in vcols:
             self._conn.execute("ALTER TABLE swing_verdicts ADD COLUMN analyzed_at TEXT")
+        if vcols and "price_at_analysis" not in vcols:
+            self._conn.execute("ALTER TABLE swing_verdicts ADD COLUMN price_at_analysis REAL")
+        if vcols and "swing_eta_days" not in vcols:
+            self._conn.execute("ALTER TABLE swing_verdicts ADD COLUMN swing_eta_days INTEGER")
+        if vcols and "ss_eta_days" not in vcols:
+            self._conn.execute("ALTER TABLE swing_verdicts ADD COLUMN ss_eta_days INTEGER")
+        hcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(holdings)")}
+        if hcols and "ltp" not in hcols:
+            self._conn.execute("ALTER TABLE holdings ADD COLUMN ltp REAL")
         rcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(swing_runs)")}
         if rcols and "pid" not in rcols:
             self._conn.execute("ALTER TABLE swing_runs ADD COLUMN pid INTEGER")
@@ -1321,13 +1333,15 @@ class Store:
         self._conn.execute("DELETE FROM holdings")
         for h in holdings:
             self._conn.execute(
-                "INSERT INTO holdings (symbol, quantity, avg_price, fetched_at) "
-                "VALUES (?,?,?,?)", (h["symbol"], h.get("quantity"), h.get("avg_price"), now))
+                "INSERT INTO holdings (symbol, quantity, avg_price, ltp, fetched_at) "
+                "VALUES (?,?,?,?,?)", (h["symbol"], h.get("quantity"), h.get("avg_price"),
+                                       h.get("ltp"), now))
         self._conn.commit()
 
     def get_holdings(self) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT symbol, quantity, avg_price FROM holdings ORDER BY symbol").fetchall()
+            "SELECT symbol, quantity, avg_price, ltp, fetched_at "
+            "FROM holdings ORDER BY symbol").fetchall()
         return [dict(r) for r in rows]
 
     def holdings_fetched_at(self) -> str | None:
@@ -1390,10 +1404,13 @@ class Store:
         self._conn.commit()
 
     def update_swing_verdict(self, run_id: int, symbol: str, status: str,
-                             swing: dict | None = None, shortswing: dict | None = None) -> None:
+                             swing: dict | None = None, shortswing: dict | None = None,
+                             price_at_analysis: float | None = None) -> None:
         """Move one holding's row to `status` (ANALYZING / DONE / ERROR) and, when the verdict is
-        ready, write its swing + short-swing legs. Terminal states (DONE / ERROR) stamp
-        analyzed_at with the completion time; ANALYZING leaves the prior stamp untouched."""
+        ready, write its swing + short-swing legs plus the market price the analyst saw
+        (`price_at_analysis` — the "from here" basis for the UI's expected-PnL numbers).
+        Terminal states (DONE / ERROR) stamp analyzed_at with the completion time; ANALYZING
+        leaves the prior stamp untouched."""
         stamp = _utc_now() if status in ("DONE", "ERROR") else None
         if swing is None and shortswing is None:
             # COALESCE so a non-terminal transition (ANALYZING) keeps any existing stamp.
@@ -1404,13 +1421,19 @@ class Store:
         else:
             sw, ss = swing or {}, shortswing or {}
             self._conn.execute(
-                "UPDATE swing_verdicts SET status = ?, analyzed_at = ?, swing_action = ?, "
+                "UPDATE swing_verdicts SET status = ?, analyzed_at = ?, price_at_analysis = ?, "
+                "swing_action = ?, "
                 "swing_conviction = ?, swing_target = ?, swing_stop = ?, swing_rationale = ?, "
-                "ss_action = ?, ss_conviction = ?, ss_target = ?, ss_stop = ?, ss_rationale = ? "
+                "swing_eta_days = ?, "
+                "ss_action = ?, ss_conviction = ?, ss_target = ?, ss_stop = ?, ss_rationale = ?, "
+                "ss_eta_days = ? "
                 "WHERE run_id = ? AND symbol = ?",
-                (status, stamp, sw.get("action"), sw.get("conviction"), sw.get("target"),
-                 sw.get("stop"), sw.get("rationale"), ss.get("action"), ss.get("conviction"),
-                 ss.get("target"), ss.get("stop"), ss.get("rationale"), run_id, symbol))
+                (status, stamp, price_at_analysis, sw.get("action"), sw.get("conviction"),
+                 sw.get("target"),
+                 sw.get("stop"), sw.get("rationale"), sw.get("eta_days"),
+                 ss.get("action"), ss.get("conviction"),
+                 ss.get("target"), ss.get("stop"), ss.get("rationale"), ss.get("eta_days"),
+                 run_id, symbol))
         self._conn.commit()
 
     def swing_progress(self, run_id: int) -> dict:

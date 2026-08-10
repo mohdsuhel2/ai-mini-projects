@@ -727,3 +727,37 @@ def test_first_stop_backfills_initial_stop_for_adopted_positions():
     store.update_position_levels(pid, stop_loss=99.5, target_price=None)
     p = store.get_position(pid)
     assert p.stop_loss == 99.5 and p.initial_stop == 98.0
+
+
+def test_holdings_snapshot_carries_the_ltp_when_given():
+    s = Store(":memory:")
+    s.replace_holdings([{"symbol": "GREENPOWER", "quantity": 3919, "avg_price": 23.62,
+                         "ltp": 9.0},
+                        {"symbol": "GOLDBEES", "quantity": 1780, "avg_price": 116.5}])
+    rows = {h["symbol"]: h for h in s.get_holdings()}
+    assert rows["GREENPOWER"]["ltp"] == 9.0
+    assert rows["GOLDBEES"]["ltp"] is None
+    assert rows["GREENPOWER"]["fetched_at"]
+
+
+def test_swing_verdict_eta_days_roundtrip():
+    store = Store(":memory:")
+    rid = store.start_swing_run()
+    store.seed_swing_verdicts(rid, [{"symbol": "ETASTK", "quantity": 5, "avg_price": 100.0}])
+    leg = {"action": "HOLD", "conviction": 60, "target": 120.0, "stop": 95.0,
+           "rationale": "r", "eta_days": 12}
+    ss = dict(leg, eta_days=4)
+    store.update_swing_verdict(rid, "ETASTK", "DONE", swing=leg, shortswing=ss,
+                               price_at_analysis=101.0)
+    row = store.get_swing_verdicts(rid)[0]
+    assert row["swing_eta_days"] == 12 and row["ss_eta_days"] == 4
+
+
+def test_swing_verdict_eta_days_absent_is_null():
+    store = Store(":memory:")
+    rid = store.start_swing_run()
+    store.seed_swing_verdicts(rid, [{"symbol": "OLDSTK", "quantity": 1, "avg_price": 10.0}])
+    leg = {"action": "HOLD", "conviction": 60, "target": 12.0, "stop": 9.0, "rationale": "r"}
+    store.update_swing_verdict(rid, "OLDSTK", "DONE", swing=leg, shortswing=dict(leg))
+    row = store.get_swing_verdicts(rid)[0]
+    assert row["swing_eta_days"] is None and row["ss_eta_days"] is None
