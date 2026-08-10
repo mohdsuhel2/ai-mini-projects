@@ -388,9 +388,11 @@ html, body, [data-testid="stAppViewContainer"] {
 .ai-swt .c-avg { flex: 0 0 9%; text-align: right; }
 .ai-swt .c-swing, .ai-swt .c-ss { flex: 1 1 17%; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ai-swt .c-pnl { flex: 0 0 13%; text-align: right; white-space: nowrap; font-variant-numeric:
-  tabular-nums; font-size: .82rem; }
-.ai-swt .c-pnl small { opacity: .7; }
+.ai-swt .c-pnl, .ai-swt .c-tpnl { flex: 0 0 11%; text-align: right; white-space: nowrap;
+  font-variant-numeric: tabular-nums; font-size: .82rem; }
+.ai-swt .c-pnl small, .ai-swt .c-tpnl small { opacity: .7; }
+.ai-swt .c-eta { flex: 0 0 9%; text-align: right; white-space: nowrap; font-size: .8rem; }
+.ai-eta-past { opacity: .55; }
 .ai-pos { color: #30a46c; }
 .ai-neg { color: #e5484d; }
 .ai-econ { display: flex; flex-wrap: wrap; gap: .5rem 1.4rem; align-items: center;
@@ -1134,31 +1136,66 @@ def _outcome_cell(o) -> str:
             f'<small>({o["pct"]:+.1f}%)</small></span>')
 
 
-def _econ_block(v: dict, econ: dict) -> str:
-    """What each leg's target and stop is worth on the quantity actually held.
+_HOLIDAYS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nse_holidays.txt")
 
-    Shown for BOTH legs and for the stop as well as the target, because on an underwater holding
-    the analyst's target can sit below cost — the live book on 2026-08-07 held GREENPOWER at 23.62
-    against a target of 10.60. Calling any of this "expected profit" would be wrong, so the
-    heading says what it is: the value of reaching that level.
+
+def _eta_cell(eta_days, analyzed_at, holidays, today=None) -> str:
+    """`~7 td · 19 Aug` — the analyst's expected trading-days-to-target converted to a
+    calendar date from the analysis time. Past-due renders dimmed as `was due` (the thesis is
+    late, not wrong). Returns HTML — caller must not escape. Unknown ETA is an em dash."""
+    from trading_calendar import add_trading_days
+    if eta_days is None:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(analyzed_at or "")
+    except (ValueError, TypeError):
+        return f"~{eta_days} td"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    due = add_trading_days(dt.astimezone(IST).date(), int(eta_days), holidays)
+    today = today or datetime.now(IST).date()
+    label = f"{due:%-d %b}"
+    if due < today:
+        return f'<span class="ai-eta-past">was due {label}</span>'
+    return f"~{eta_days} td · {label}"
+
+
+def _econ_block(v: dict, econ: dict) -> str:
+    """What each leg's target and stop is worth on the quantity actually held — on BOTH bases.
+
+    "From here" (vs the price the analyst saw) answers "if it reaches that level, what do I make
+    from here" — the expected move. "Vs cost" answers what the level means for money already
+    committed. Both matter on an underwater holding: the live book on 2026-08-07 held GREENPOWER
+    at 23.62 against a target of 10.60 — a heavy loss vs cost, yet a gain from the then-current
+    price. Neither is called "profit"; each line says which basis it is on.
     """
     inv = econ.get("invested")
     if not inv:
         return ""
+    here = econ.get("ref_price")
     cells = []
     for leg, label in (("swing", "Swing"), ("ss", "Short-swing")):
         t, stp = econ.get(f"{leg}_target"), econ.get(f"{leg}_stop")
-        if not (t or stp):
+        th, sh = econ.get(f"{leg}_target_here"), econ.get(f"{leg}_stop_here")
+        if not (t or stp or th or sh):
             continue
-        cells.append(
-            f'<div class="ai-econ-leg"><b>{label}</b>'
-            f'<span>at target {_outcome_cell(t)}</span>'
-            f'<span>at stop {_outcome_cell(stp)}</span></div>')
+        if th or sh:
+            cells.append(
+                f'<div class="ai-econ-leg"><b>{label} from here</b>'
+                f'<span>at target {_outcome_cell(th)}</span>'
+                f'<span>at stop {_outcome_cell(sh)}</span></div>')
+        if t or stp:
+            cells.append(
+                f'<div class="ai-econ-leg"><b>{label} vs cost</b>'
+                f'<span>at target {_outcome_cell(t)}</span>'
+                f'<span>at stop {_outcome_cell(stp)}</span></div>')
     if not cells:
         return ""
+    label = "last price" if here != econ.get("price_at_analysis") else "analyzed at"
+    at = f' · {label} <b>₹{here:,.2f}</b>' if here else ""
     return (f'<div class="ai-econ"><div class="ai-econ-inv">Holding '
             f'{_num(v.get("quantity"))} @ {_num(v.get("avg_price"))} '
-            f'= <b>₹{inv:,.0f}</b> invested</div>{"".join(cells)}</div>')
+            f'= <b>₹{inv:,.0f}</b> invested{at}</div>{"".join(cells)}</div>')
 
 
 def _swing_book_totals(verdicts: list[dict]) -> None:
@@ -1185,20 +1222,84 @@ def _swing_book_totals(verdicts: list[dict]) -> None:
                "shows as a loss — that is the analyst saying the position is impaired, not a bug.")
 
 
-def _swing_verdicts_table(verdicts: list[dict], running: bool) -> None:
+_SWING_COLS = (("status", "Status"), ("qty", "Qty"), ("avg", "Avg"), ("swing", "Swing"),
+               ("ss", "Short-swing"), ("pnl", "At target"), ("tpnl", "Total PnL"),
+               ("eta", "ETA"), ("when", "Analyzed"))
+
+# Sort choices for the verdicts table. "At target" sorts the from-here expected PnL,
+# "Total PnL" the vs-cost outcome. Rows whose sort value is unknown go LAST in either
+# direction — unknown is not zero, and it should never float above real numbers.
+_SWING_SORTS = ("Sort: analysis order", "Symbol A→Z", "At target ↓", "At target ↑",
+                "Total PnL ↓", "Total PnL ↑", "Analyzed newest")
+
+
+def _sort_swing_rows(rows: list[dict], choice: str | None) -> list[dict]:
+    from swing_engine import verdict_economics
+    if choice == "Symbol A→Z":
+        return sorted(rows, key=lambda v: v.get("symbol") or "")
+    if choice == "Analyzed newest":
+        return sorted(rows, key=lambda v: v.get("analyzed_at") or "", reverse=True)
+    if choice in ("At target ↓", "At target ↑", "Total PnL ↓", "Total PnL ↑"):
+        key = "swing_target_here" if choice.startswith("At target") else "swing_target"
+        desc = choice.endswith("↓")
+
+        def amount(v):
+            o = verdict_economics(v).get(key)
+            return o["amount"] if o else None
+        known = [v for v in rows if amount(v) is not None]
+        unknown = [v for v in rows if amount(v) is None]
+        return sorted(known, key=amount, reverse=desc) + unknown
+    return list(rows)
+
+
+def _attach_live_price(verdicts: list[dict], holdings: list[dict]) -> list[dict]:
+    """Annotate each verdict with its holding's refreshed LTP as `current_price` — but only
+    when the snapshot is NEWER than the analysis. A re-analyzed row already carries the price
+    the analyst just saw; an older LTP must not drag its numbers backwards."""
+    by = {h["symbol"]: h for h in holdings or []}
+    for v in verdicts:
+        h = by.get(v.get("symbol"))
+        ltp = h.get("ltp") if h else None
+        if ltp is None:
+            continue
+        fetched, analyzed = h.get("fetched_at"), v.get("analyzed_at")
+        if analyzed is None or (fetched or "") >= analyzed:
+            v["current_price"] = ltp
+    return verdicts
+
+
+def _swing_table_html(verdicts: list[dict], running: bool, visible: set | None = None) -> str:
     """Analysis results as a bordered table (self-built HTML — the PyArrow-safe path). Each row
-    is a <details>: the summary shows Symbol/Status/Qty/Avg/Swing/Short-swing + a ↻ re-analyze
-    link and stays visible; clicking the row expands the swing + short-swing rationale. The ↻
-    is disabled (dimmed) while the run is RUNNING or that row is ANALYZING."""
+    is a <details>: the summary shows the picked columns + a ↻ re-analyze link and stays
+    visible; clicking the row expands the swing + short-swing rationale. The ↻ is disabled
+    (dimmed) while the run is RUNNING or that row is ANALYZING.
+
+    `visible` is the set of optional column labels (from _SWING_COLS) to render; None means
+    all. Symbol, the caret and the ↻ control always render — a row is meaningless without
+    them. Hidden columns are skipped in header and rows alike, and the flex layout hands
+    their width to the columns that remain."""
     import html
     from swing_engine import verdict_economics
+    from trading_calendar import load_holidays
+    holidays = load_holidays(_HOLIDAYS_PATH)
+    show = [k for k, label in _SWING_COLS if visible is None or label in visible]
+
+    def _cells(by_col: dict) -> str:
+        return "".join(by_col[k] for k in show)
+
     head = ('<div class="ai-swt-head">'
             '<span class="ai-caret"></span>'
-            '<span class="c-sym">Symbol</span><span class="c-status">Status</span>'
-            '<span class="c-qty">Qty</span><span class="c-avg">Avg</span>'
-            '<span class="c-swing">Swing</span><span class="c-ss">Short-swing</span>'
-            '<span class="c-pnl">At target</span>'
-            '<span class="c-when">Analyzed</span><span class="c-act"></span></div>')
+            '<span class="c-sym">Symbol</span>'
+            + _cells({"status": '<span class="c-status">Status</span>',
+                      "qty": '<span class="c-qty">Qty</span>',
+                      "avg": '<span class="c-avg">Avg</span>',
+                      "swing": '<span class="c-swing">Swing</span>',
+                      "ss": '<span class="c-ss">Short-swing</span>',
+                      "pnl": '<span class="c-pnl">At target</span>',
+                      "tpnl": '<span class="c-tpnl">Total PnL</span>',
+                      "eta": '<span class="c-eta">ETA</span>',
+                      "when": '<span class="c-when">Analyzed</span>'})
+            + '<span class="c-act"></span></div>')
     rows = []
     for v in verdicts:
         busy = running or v.get("status") == "ANALYZING"
@@ -1207,26 +1308,39 @@ def _swing_verdicts_table(verdicts: list[dict], running: bool) -> None:
             '<summary>'
             '<span class="ai-caret">▸</span>'
             f'<span class="c-sym">{html.escape(v["symbol"])}</span>'
-            f'<span class="c-status">'
-            f'{html.escape(_SWING_STATUS_LABEL.get(v.get("status"), v.get("status") or "—"))}'
-            '</span>'
-            f'<span class="c-qty">{_num(v["quantity"])}</span>'
-            f'<span class="c-avg">{_num(v["avg_price"])}</span>'
-            f'<span class="c-swing">{html.escape(_swing_verdict_cell(v["swing_action"], v["swing_conviction"], v["swing_target"], v["swing_stop"]))}</span>'
-            f'<span class="c-ss">{html.escape(_swing_verdict_cell(v["ss_action"], v["ss_conviction"], v["ss_target"], v["ss_stop"]))}</span>'
-            f'<span class="c-pnl">{_outcome_cell(econ.get("swing_target"))}</span>'
-            f'<span class="c-when">{_fmt_ist_short(v.get("analyzed_at")) or "—"}</span>'
-            f'<span class="c-act">{_swre_link(v["symbol"], busy)}</span>'
+            + _cells({
+                "status": f'<span class="c-status">'
+                          f'{html.escape(_SWING_STATUS_LABEL.get(v.get("status"), v.get("status") or "—"))}'
+                          '</span>',
+                "qty": f'<span class="c-qty">{_num(v["quantity"])}</span>',
+                "avg": f'<span class="c-avg">{_num(v["avg_price"])}</span>',
+                "swing": f'<span class="c-swing">{html.escape(_swing_verdict_cell(v["swing_action"], v["swing_conviction"], v["swing_target"], v["swing_stop"]))}</span>',
+                "ss": f'<span class="c-ss">{html.escape(_swing_verdict_cell(v["ss_action"], v["ss_conviction"], v["ss_target"], v["ss_stop"]))}</span>',
+                "pnl": f'<span class="c-pnl">{_outcome_cell(econ.get("swing_target_here"))}</span>',
+                "tpnl": f'<span class="c-tpnl">{_outcome_cell(econ.get("swing_target"))}</span>',
+                "eta": f'<span class="c-eta">{_eta_cell(v.get("swing_eta_days"), v.get("analyzed_at"), holidays)}</span>',
+                "when": f'<span class="c-when">{_fmt_ist_short(v.get("analyzed_at")) or "—"}</span>'})
+            + f'<span class="c-act">{_swre_link(v["symbol"], busy)}</span>'
             '</summary>')
+        def _eta_note(days):
+            return (f' <i>· ETA {_eta_cell(days, v.get("analyzed_at"), holidays)}</i>'
+                    if days is not None else "")
         parts = []
         if v.get("swing_rationale"):
-            parts.append(f'<b>Swing:</b> {html.escape(v["swing_rationale"])}')
+            parts.append(f'<b>Swing:</b> {html.escape(v["swing_rationale"])}'
+                         f'{_eta_note(v.get("swing_eta_days"))}')
         if v.get("ss_rationale"):
-            parts.append(f'<b>Short-swing:</b> {html.escape(v["ss_rationale"])}')
+            parts.append(f'<b>Short-swing:</b> {html.escape(v["ss_rationale"])}'
+                         f'{_eta_note(v.get("ss_eta_days"))}')
         reason = "<br>".join(parts) or "No rationale recorded for this stock yet."
         rows.append(f'<details class="ai-swt-row">{summary}'
                     f'<div class="ai-swt-reason">{_econ_block(v, econ)}{reason}</div></details>')
-    st.markdown(f'<div class="ai-swt">{head}{"".join(rows)}</div>', unsafe_allow_html=True)
+    return f'<div class="ai-swt">{head}{"".join(rows)}</div>'
+
+
+def _swing_verdicts_table(verdicts: list[dict], running: bool,
+                          visible: set | None = None) -> None:
+    st.markdown(_swing_table_html(verdicts, running, visible), unsafe_allow_html=True)
 
 
 def _refresh_holdings_from_groww() -> None:
@@ -1237,7 +1351,17 @@ def _refresh_holdings_from_groww() -> None:
     load_settings().apply_to_environ()
     client = GrowwClient(mode="live")
     client.authenticate()
-    _db(lambda s: s.replace_holdings(client.get_holdings()))
+    holdings = client.get_holdings()
+    try:
+        # Current prices ride along with the snapshot so the verdict table can re-price its
+        # "from here" numbers on every refresh. A quote failure degrades to a plain holdings
+        # refresh — prices are an enrichment, not a requirement.
+        ltp = client.get_ltp([h["symbol"] for h in holdings]) if holdings else {}
+    except Exception:                                               # noqa: BLE001
+        ltp = {}
+    for h in holdings:
+        h["ltp"] = ltp.get(h["symbol"])
+    _db(lambda s: s.replace_holdings(holdings))
 
 
 @st.fragment(run_every=4)
@@ -1302,7 +1426,10 @@ def _swing_live() -> None:
             st.caption("Click a row to see the reasoning · ↻ re-analyzes that stock in place.")
         _swing_book_totals(shown)
         if shown:
-            _swing_verdicts_table(shown, running)
+            shown = _attach_live_price(shown, _db(lambda s: s.get_holdings()))
+            shown = _sort_swing_rows(shown, st.session_state.get("swing_sort"))
+            col_sel = st.session_state.get("swing_columns") or None
+            _swing_verdicts_table(shown, running, set(col_sel) if col_sel else None)
         else:
             st.caption("No stock matches your filters.")
 
@@ -1395,7 +1522,7 @@ def _swing_page() -> None:
     # also filters the pre-analysis holdings list below). Verdict options are swing_engine's fixed
     # vocabulary; a row matches if EITHER its swing or short-swing verdict is selected.
     if holdings:
-        fcols = st.columns([2, 1.4], vertical_alignment="center")
+        fcols = st.columns([1.8, 1.2, 1.2, 1.2], vertical_alignment="center")
         with fcols[0]:
             st.text_input("Search stock", key="swing_search", label_visibility="collapsed",
                           placeholder="🔍  Search a stock by symbol…")
@@ -1403,6 +1530,15 @@ def _swing_page() -> None:
             st.multiselect("Verdict", ["HOLD", "ADD", "REDUCE", "EXIT"],
                            key="swing_verdict_filter", label_visibility="collapsed",
                            placeholder="Filter by verdict…")
+        with fcols[2]:
+            # Empty = show everything, same convention as the verdict filter. Symbol and ↻
+            # can't be hidden, so they aren't offered.
+            st.multiselect("Columns", [label for _, label in _SWING_COLS],
+                           key="swing_columns", label_visibility="collapsed",
+                           placeholder="Columns — pick to trim…")
+        with fcols[3]:
+            st.selectbox("Sort", _SWING_SORTS, key="swing_sort",
+                         label_visibility="collapsed")
     query = st.session_state.get("swing_search", "").strip().lower()
 
     if holdings and not (latest and _db(lambda s: s.get_swing_verdicts(latest["id"]))):
