@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from trading_calendar import IST, is_trading_time, load_holidays
+from trading_calendar import IST, add_trading_days, is_trading_time, load_holidays
 
 
 def _ist(y, mo, d, h, mi):
@@ -41,3 +41,31 @@ def test_load_holidays_parses_and_ignores_comments(tmp_path):
 
 def test_load_holidays_missing_file_is_empty():
     assert load_holidays("/no/such/file.txt") == set()
+
+
+# ---- add_trading_days: calendar math for the swing ETA column ---------------------------
+
+
+def test_add_weekdays_advance_simply():
+    # Mon 2026-08-10 + 2 td = Wed 2026-08-12
+    assert add_trading_days(date(2026, 8, 10), 2, set()) == date(2026, 8, 12)
+
+
+def test_add_weekend_is_skipped():
+    # Fri 2026-08-07 + 1 td = Mon 2026-08-10
+    assert add_trading_days(date(2026, 8, 7), 1, set()) == date(2026, 8, 10)
+
+
+def test_add_holiday_is_skipped():
+    # Fri + 1 td, but Monday is a holiday -> Tuesday
+    assert add_trading_days(date(2026, 8, 7), 1, {"2026-08-10"}) == date(2026, 8, 11)
+
+
+def test_add_zero_and_negative_return_start():
+    assert add_trading_days(date(2026, 8, 7), 0, set()) == date(2026, 8, 7)
+    assert add_trading_days(date(2026, 8, 7), -3, set()) == date(2026, 8, 7)
+
+
+def test_add_spans_multiple_weeks():
+    # Fri 2026-08-07 + 10 td = Fri 2026-08-21
+    assert add_trading_days(date(2026, 8, 7), 10, set()) == date(2026, 8, 21)

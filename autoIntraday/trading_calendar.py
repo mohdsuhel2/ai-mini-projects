@@ -4,7 +4,7 @@ docs/superpowers/specs/2026-07-10-scheduler-design.md."""
 from __future__ import annotations
 
 import os
-from datetime import datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -31,3 +31,15 @@ def is_trading_time(now: datetime, holidays: set[str],
         return False
     t = now.timetz().replace(tzinfo=None) if now.tzinfo else now.time()
     return time(*open_time) <= t <= time(*close_time)
+
+
+def add_trading_days(start: date, n: int, holidays: set[str]) -> date:
+    """The date `n` trading days after `start`, skipping weekends and NSE holidays
+    (ISO-date strings). n <= 0 returns `start`. Used to turn the swing analyst's
+    `eta_days` into a calendar date at render time."""
+    d, added = start, 0
+    while added < n:
+        d += timedelta(days=1)
+        if d.weekday() < 5 and d.isoformat() not in holidays:
+            added += 1
+    return d
