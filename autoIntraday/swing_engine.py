@@ -27,9 +27,10 @@ _LEG = {
         "conviction": {"type": "integer"},
         "target": {"type": ["number", "null"]},
         "stop": {"type": ["number", "null"]},
+        "eta_days": {"type": ["integer", "null"]},
         "rationale": {"type": "string"},
     },
-    "required": ["action", "conviction", "target", "stop", "rationale"],
+    "required": ["action", "conviction", "target", "stop", "eta_days", "rationale"],
 }
 SWING_SCHEMA = {
     "type": "object", "additionalProperties": False,
@@ -38,6 +39,7 @@ SWING_SCHEMA = {
             "type": "array",
             "items": {"type": "object", "additionalProperties": False,
                       "properties": {"symbol": {"type": "string"},
+                                     "cmp": {"type": ["number", "null"]},
                                      "swing": _LEG, "shortswing": _LEG},
                       "required": ["symbol", "swing", "shortswing"]},
         },
@@ -48,8 +50,9 @@ SWING_SCHEMA = {
 
 ONE_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "properties": {"swing": _LEG, "shortswing": _LEG},
-    "required": ["swing", "shortswing"],
+    "properties": {"cmp": {"type": ["number", "null"]},
+                   "swing": _LEG, "shortswing": _LEG},
+    "required": ["cmp", "swing", "shortswing"],
 }
 
 
@@ -95,6 +98,15 @@ part), EXIT (sell out). Give `conviction` 0-100, a `target` and `stop` price (or
 applicable), and a one-line `rationale`. The holding's average buy price is provided — factor
 the position's unrealized P&L into the hold/trim/exit judgement.
 
+Each leg also carries `eta_days` — how many TRADING DAYS you expect the move from the current
+price to your `target` to take, judged from the momentum/ATR the data tool shows. Keep it
+within the leg's natural horizon (shortswing 1-5, swing 3-22). Use null when the action is
+EXIT or you give no target.
+
+Also report `cmp` — the stock's CURRENT market price as shown by the data tool you ran (its
+latest close / last traded price). This is the price your target and stop are measured from;
+null only if the data tool gave you no price at all.
+
 Rules:
 - One verdict object per holding, both legs filled. If a symbol's data can't be fetched, omit
   it rather than guessing.
@@ -109,8 +121,10 @@ def _num(v):
 def _leg(raw: dict) -> dict:
     if raw.get("action") not in VALID_ACTIONS:
         raise SwingEngineError(f"invalid action {raw.get('action')!r}")
+    eta = raw.get("eta_days")
     return {"action": raw["action"], "conviction": int(raw["conviction"]),
             "target": _num(raw.get("target")), "stop": _num(raw.get("stop")),
+            "eta_days": int(eta) if eta is not None else None,
             "rationale": str(raw.get("rationale") or "")}
 
 
@@ -132,7 +146,7 @@ def _parse(raw_text: str) -> list[dict]:
         if not isinstance(v, dict) or not isinstance(v.get("symbol"), str) \
                 or not v["symbol"].strip():
             raise SwingEngineError(f"bad verdict entry: {v!r}")
-        out.append({"symbol": v["symbol"].strip().upper(),
+        out.append({"symbol": v["symbol"].strip().upper(), "cmp": _num(v.get("cmp")),
                     "swing": _leg(v.get("swing") or {}),
                     "shortswing": _leg(v.get("shortswing") or {})})
     return out
@@ -197,7 +211,8 @@ class SwingEngine:
             data = json.loads(obj[start:end + 1])
         if not isinstance(data, dict) or "swing" not in data or "shortswing" not in data:
             raise SwingEngineError(f"reply missing swing/shortswing for {symbol}: {obj[:200]!r}")
-        return {"swing": _leg(data["swing"]), "shortswing": _leg(data["shortswing"])}
+        return {"swing": _leg(data["swing"]), "shortswing": _leg(data["shortswing"]),
+                "cmp": _num(data.get("cmp"))}
 
     def analyze(self, holdings: Sequence[dict]) -> list[dict]:
         argv = [self.claude_bin, "-p", "--output-format", "json", "--model", self.model,
@@ -219,39 +234,53 @@ class SwingEngine:
 
 
 # --- what a verdict is worth on the stock you actually hold ------------------------------------
-def level_outcome(quantity, avg_price, level) -> dict | None:
-    """What reaching `level` is worth on this holding, in % and in rupees.
+def level_outcome(quantity, ref_price, level) -> dict | None:
+    """What reaching `level` is worth on this holding relative to `ref_price`, in % and rupees.
 
-    Signed against the AVERAGE PRICE — the real cost basis — because the question the swing page
-    answers is "what does this verdict mean for money I have already committed", not "what is the
-    move from here". Holdings are long-only, so above avg is a gain and below is a loss.
+    Two reference prices matter, and each answers a different question. Against the AVERAGE
+    (cost basis): "what does this verdict mean for money I have already committed". Against the
+    price AT ANALYSIS time: "if it goes from here to that level, what do I make" — the expected
+    move. Holdings are long-only, so above the reference is a gain and below is a loss.
 
     Deliberately NOT called "profit": on 2026-08-07 the live book held HDFCSILVER at 277.83 with an
     analyst target of 230.00 and GREENPOWER at 23.62 with a target of 10.60. A target can sit well
     BELOW cost on an underwater holding, and labelling that "expected profit" would misrepresent
-    a 55% loss as an objective.
+    a 55% loss as an objective — even though from the then-current price it was a gain.
     """
-    if level is None or avg_price in (None, 0) or quantity in (None, 0):
+    if level is None or ref_price in (None, 0) or quantity in (None, 0):
         return None
     try:
-        q, avg, lv = float(quantity), float(avg_price), float(level)
+        q, ref, lv = float(quantity), float(ref_price), float(level)
     except (TypeError, ValueError):
         return None
-    if avg <= 0:
+    if ref <= 0:
         return None
-    return {"pct": (lv - avg) / avg * 100.0, "amount": (lv - avg) * q,
-            "invested": avg * q, "level": lv}
+    return {"pct": (lv - ref) / ref * 100.0, "amount": (lv - ref) * q,
+            "invested": ref * q, "level": lv}
 
 
 def verdict_economics(verdict: dict) -> dict:
-    """Both legs' target/stop economics for one holding, keyed swing_/ss_ to match the row."""
+    """Both legs' target/stop economics for one holding, keyed swing_/ss_ to match the row.
+
+    Each level is priced on BOTH bases: `<leg>_<kind>` vs the average buy price (cost basis)
+    and `<leg>_<kind>_here` vs the freshest known market price — `current_price` (a refreshed
+    LTP, attached by the UI) when present, else `price_at_analysis` (what the analyst saw).
+    `ref_price` reports which one was used. Rows with neither get None for the _here keys:
+    unknown, never zero."""
     q, avg = verdict.get("quantity"), verdict.get("avg_price")
+    here = verdict.get("current_price")
+    if here is None:
+        here = verdict.get("price_at_analysis")
     out = {}
     for leg in ("swing", "ss"):
         for kind in ("target", "stop"):
-            out[f"{leg}_{kind}"] = level_outcome(q, avg, verdict.get(f"{leg}_{kind}"))
+            lv = verdict.get(f"{leg}_{kind}")
+            out[f"{leg}_{kind}"] = level_outcome(q, avg, lv)
+            out[f"{leg}_{kind}_here"] = level_outcome(q, here, lv)
     inv = level_outcome(q, avg, avg)
     out["invested"] = inv["invested"] if inv else None
+    out["ref_price"] = _num(here)
+    out["price_at_analysis"] = _num(verdict.get("price_at_analysis"))
     return out
 
 

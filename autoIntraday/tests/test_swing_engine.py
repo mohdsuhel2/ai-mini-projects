@@ -127,3 +127,55 @@ def test_analyze_one_missing_leg_raises(skills):
     eng = _engine(lambda argv, text: (0, _envelope({"swing": {}}), ""), skills)
     with pytest.raises(SwingEngineError):
         eng.analyze_one("X")
+
+
+def test_analyze_one_returns_cmp_and_tolerates_its_absence(skills):
+    leg = {"action": "HOLD", "conviction": 60, "target": 10.6, "stop": 8.0, "rationale": "x"}
+    with_cmp = {"swing": leg, "shortswing": leg, "cmp": 9.0}
+    eng = _engine(lambda argv, text: (0, _envelope(with_cmp), ""), skills)
+    assert eng.analyze_one("GREENPOWER", 3919, 23.62)["cmp"] == 9.0
+    without = {"swing": leg, "shortswing": leg}
+    eng = _engine(lambda argv, text: (0, _envelope(without), ""), skills)
+    assert eng.analyze_one("GREENPOWER", 3919, 23.62)["cmp"] is None
+
+
+def test_batch_parse_carries_cmp_per_verdict(skills):
+    v = _verdict("RELIANCE")
+    v["cmp"] = 2500.5
+    eng = _engine(lambda argv, text: (0, _envelope({"verdicts": [v, _verdict("TCS")]}), ""),
+                  skills)
+    out = eng.analyze(HOLDINGS)
+    assert out[0]["cmp"] == 2500.5 and out[1]["cmp"] is None
+
+
+def test_schemas_ask_for_cmp():
+    from swing_engine import ONE_SCHEMA
+    assert "cmp" in ONE_SCHEMA["properties"] and "cmp" in ONE_SCHEMA["required"]
+    item = SWING_SCHEMA["properties"]["verdicts"]["items"]
+    assert "cmp" in item["properties"]
+
+
+def test_leg_parses_eta_days(skills):
+    payload = {"verdicts": [_verdict("RELIANCE")]}
+    payload["verdicts"][0]["swing"]["eta_days"] = 12
+    payload["verdicts"][0]["shortswing"]["eta_days"] = 4
+    eng = _engine(lambda argv, text: (0, _envelope(payload), ""), skills)
+    out = eng.analyze(HOLDINGS)
+    assert out[0]["swing"]["eta_days"] == 12
+    assert out[0]["shortswing"]["eta_days"] == 4
+
+
+def test_leg_eta_days_absent_or_null_is_none(skills):
+    payload = {"verdicts": [_verdict("RELIANCE")]}
+    payload["verdicts"][0]["swing"]["eta_days"] = None   # explicit null
+    # shortswing leg omits the key entirely (pre-change reply)
+    eng = _engine(lambda argv, text: (0, _envelope(payload), ""), skills)
+    out = eng.analyze(HOLDINGS)
+    assert out[0]["swing"]["eta_days"] is None
+    assert out[0]["shortswing"]["eta_days"] is None
+
+
+def test_leg_schema_requires_eta_days():
+    from swing_engine import _LEG
+    assert "eta_days" in _LEG["properties"]
+    assert "eta_days" in _LEG["required"]
