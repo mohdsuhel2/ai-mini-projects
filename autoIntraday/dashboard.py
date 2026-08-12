@@ -405,6 +405,12 @@ html, body, [data-testid="stAppViewContainer"] {
 .ai-alevel b { opacity: .6; font-weight: 600; margin-right: .3rem; font-size: .78rem; }
 .ai-asummary { flex: 1 1 100%; opacity: .85; font-style: italic; }
 .ai-aerr { flex: 1 1 100%; color: #e5484d; }
+.ai-mode-live { display: inline-block; padding: .1rem .5rem; border-radius: 999px;
+  background: #e5484d; color: #fff; font-size: .7rem; font-weight: 700;
+  letter-spacing: .04em; }
+.ai-mode-paper { display: inline-block; padding: .1rem .5rem; border-radius: 999px;
+  background: rgba(128,131,141,.25); font-size: .7rem; font-weight: 700;
+  letter-spacing: .04em; }
 .ai-pos { color: #30a46c; }
 .ai-neg { color: #e5484d; }
 .ai-econ { display: flex; flex-wrap: wrap; gap: .5rem 1.4rem; align-items: center;
@@ -1722,6 +1728,154 @@ def _analysis_card(r: dict) -> str:
     return f'<div class="ai-acard">{"".join(bits)}</div>'
 
 
+def _utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _ticket_defaults(r: dict, capital: float) -> dict:
+    """Prefill an order ticket from one analysis result. The target comes from `target1` — the
+    skills' practical first objective, and the only target column an analysis row carries."""
+    from manual_broker import qty_for_capital, side_from_verdict
+    entry = r.get("entry")
+    return {"side": side_from_verdict(r.get("verdict")), "entry": entry,
+            "stop": r.get("stop"), "target": r.get("target1"),
+            "quantity": qty_for_capital(capital, entry)}
+
+
+def _launch_manual_order(order_id: int) -> None:
+    """Fire the order runner detached: a LIMIT entry can rest for hours."""
+    import subprocess
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.Popen([sys.executable, os.path.join(here, "manual_order_job.py"),
+                      "--order", str(order_id)],
+                     cwd=here, env=dict(os.environ), start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _autointraday_live_warning() -> None:
+    """One Groww account: if the BOT is live it adopts MIS positions opened here and cancels
+    their exit orders (orchestrator._reconcile_broker / _takeover_foreign_orders). Code
+    separation cannot prevent that, so say it out loud instead of letting the two fight."""
+    try:
+        bot_live = _db(lambda s: s.get_config()).mode == "live"
+    except Exception:                                                # noqa: BLE001
+        return
+    if bot_live:
+        st.warning("**autoIntraday is LIVE.** It will adopt any MIS position opened here and "
+                   "replace your stop/target with its own analysed levels on its next cycle. "
+                   "Pause it, or expect it to take these trades over.", icon="⚠️")
+
+
+def _order_ticket(r: dict, cfg: dict, skill_id: str | None = None) -> None:
+    """The editable ticket for one analysis result. Everything is prefilled from the skill and
+    everything can be changed before anything is sent. `skill_id` comes from the RUN — an
+    analysis_results row does not carry it — and is recorded as the order's provenance."""
+    from manual_broker import ManualBrokerError, order_economics, validate_bracket
+    d = _ticket_defaults(r, cfg["capital_per_trade"])
+    key = f"tkt_{r['id']}"
+    with st.expander("Place order", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        sides = ["LONG", "SHORT"]
+        side = c1.selectbox("Side", sides, key=f"{key}_side",
+                            index=sides.index(d["side"]) if d["side"] in sides else 0,
+                            help=None if d["side"] else
+                            "This verdict is not an entry instruction — choose the side "
+                            "yourself.")
+        etype = c2.selectbox("Entry", ["MARKET", "LIMIT"], key=f"{key}_type")
+        qty = c3.number_input("Qty", min_value=0, step=1, value=int(d["quantity"]),
+                              key=f"{key}_qty")
+        p1, p2, p3 = st.columns(3)
+        entry = p1.number_input("Entry price", min_value=0.0, step=0.05,
+                                value=float(d["entry"] or 0.0), key=f"{key}_entry")
+        stop = p2.number_input("Stop", min_value=0.0, step=0.05,
+                               value=float(d["stop"] or 0.0), key=f"{key}_stop")
+        target = p3.number_input("Target", min_value=0.0, step=0.05,
+                                 value=float(d["target"] or 0.0), key=f"{key}_target")
+
+        e = order_economics(side, qty, entry or None, stop or None, target or None)
+        bits = []
+        if e["exposure"]:
+            bits.append(f"exposure ₹{e['exposure']:,.0f}")
+        if e["risk"] is not None:
+            bits.append(f"risk ₹{e['risk']:,.0f}")
+        if e["reward"] is not None:
+            bits.append(f"reward ₹{e['reward']:,.0f}")
+        if e["rr"] is not None:
+            bits.append(f"R:R {e['rr']:.2f}")
+        st.caption(" · ".join(bits) or "Fill in the levels to see what this risks.")
+
+        try:
+            validate_bracket(side, entry or None, stop or None, target or None, qty)
+            problem = None
+        except ManualBrokerError as ex:
+            problem = str(ex)
+        if problem:
+            st.error(problem)
+        live = cfg["mode"] == "live"
+        label = (f"⚠ Place LIVE {side} {qty} {r['symbol']}" if live
+                 else f"Place PAPER {side} {qty} {r['symbol']}")
+        if st.button(label, key=f"{key}_go", type="primary", disabled=bool(problem),
+                     use_container_width=True):
+            oid = _db(lambda s: s.create_manual_order(
+                symbol=r["symbol"], side=side, quantity=int(qty), entry_type=etype,
+                entry_price=entry or None, stop=stop or None, target=target or None,
+                mode=cfg["mode"], skill_id=skill_id, result_id=r.get("id")))
+            _launch_manual_order(oid)
+            st.toast(f"{cfg['mode'].upper()} order sent for {r['symbol']}", icon="📤")
+            st.rerun()
+
+
+_MANUAL_STATUS_LABEL = {"PLACING": "· sending", "ENTRY_PENDING": "⏳ waiting for fill",
+                        "FILLED": "⚠ filled, exits NOT armed", "ARMED": "✓ armed",
+                        "REJECTED": "✗ rejected", "CLOSED": "· closed", "ERROR": "⚠ error"}
+
+
+@st.fragment(run_every=5)
+def _manual_orders_section() -> None:
+    """Everything this page has sent, with live status and the two management actions."""
+    from manual_broker import ManualBroker
+    orders = _db(lambda s: s.get_manual_orders(limit=25))
+    if not orders:
+        st.caption("No orders placed from this page yet.")
+        return
+    for o in orders:
+        badge = _MANUAL_STATUS_LABEL.get(o["status"], o["status"])
+        head = f"{o['symbol']} · {o['side']} x{o['quantity']} · {o['mode'].upper()} · {badge}"
+        with st.expander(head, expanded=o["status"] in ("FILLED", "ERROR")):
+            st.caption(f"{o['entry_type']} entry {o['entry_price'] or '—'} · stop {o['stop']} "
+                       f"· target {o['target']} · placed {_fmt_ist_short(o['placed_at']) or ''}"
+                       + (f" · filled @ {o['fill_price']}" if o["fill_price"] else ""))
+            if o["error"]:
+                st.error(o["error"])
+            if o["status"] != "ARMED":
+                continue
+            m1, m2, m3 = st.columns([1.2, 1.2, 1.6])
+            new_t = m1.number_input("Target", min_value=0.0, step=0.05,
+                                    value=float(o["target"] or 0.0), key=f"mo{o['id']}_t")
+            new_s = m2.number_input("Stop", min_value=0.0, step=0.05,
+                                    value=float(o["stop"] or 0.0), key=f"mo{o['id']}_s")
+            b1, b2 = m3.columns(2)
+            if b1.button("Modify exits", key=f"mo{o['id']}_mod", use_container_width=True):
+                try:
+                    ManualBroker(mode=o["mode"]).modify_exits(o["oco_order_id"], new_t, new_s)
+                    _db(lambda s: s.update_manual_order(o["id"], target=new_t, stop=new_s))
+                    st.toast("Exits updated", icon="✅")
+                except Exception as ex:                              # noqa: BLE001
+                    st.error(f"Could not modify: {ex}")
+                st.rerun()
+            if b2.button("Square off", key=f"mo{o['id']}_sq", use_container_width=True):
+                try:
+                    ManualBroker(mode=o["mode"]).square_off(
+                        o["symbol"], o["side"], o["quantity"], o["oco_order_id"])
+                    _db(lambda s: s.update_manual_order(o["id"], status="CLOSED",
+                                                        closed_at=_utc_iso()))
+                    st.toast("Squared off", icon="✅")
+                except Exception as ex:                              # noqa: BLE001
+                    st.error(f"Could not square off: {ex}")
+                st.rerun()
+
+
 def _refresh_positions_from_groww() -> None:
     """Fetch the intraday (MIS) position book and persist the snapshot. Delivery holdings are
     the Swing page's job and deliberately not fetched here."""
@@ -1780,6 +1934,9 @@ def _analysis_live() -> None:
             t_fmt, t_raw = st.tabs(["Formatted", "Raw"])
             with t_fmt:
                 st.markdown(_analysis_card(r), unsafe_allow_html=True)
+                if r["status"] == "DONE":
+                    _order_ticket(r, _db(lambda s: s.get_manual_config()),
+                                  latest["skill_id"])
             with t_raw:
                 if r["report"]:
                     st.markdown(r["report"])
@@ -1793,14 +1950,21 @@ def _analysis_live() -> None:
                     st.caption("No output recorded for this stock.")
 
 
-def _analysis_page() -> None:
+def _manual_intraday_page() -> None:
     import pandas as pd
     from observe import available_skills
 
-    st.markdown('<div class="ai-brand">Analyze<em>.</em></div>', unsafe_allow_html=True)
-    st.caption("Your live Groww intraday positions, analyzed on demand by whichever skill you "
-               "choose — the skill's full reasoning under Raw, its actionable numbers under "
-               "Formatted. Analysis only: this page has no code path to an order.")
+    mcfg = _db(lambda s: s.get_manual_config())
+    st.markdown('<div class="ai-brand">Manual Intraday<em>.</em></div>',
+                unsafe_allow_html=True)
+    badge = ('<span class="ai-mode-live">LIVE — REAL ORDERS</span>' if mcfg["mode"] == "live"
+             else '<span class="ai-mode-paper">PAPER</span>')
+    st.markdown(f"{badge} &nbsp; your own desk — independent of autoIntraday's mode.",
+                unsafe_allow_html=True)
+    st.caption("Analyse your live Groww intraday positions with any skill, then place the "
+               "trade from the same screen. Orders here go to YOUR Groww account using this "
+               "page's own mode below — autoIntraday's paper/live setting does not apply.")
+    _autointraday_live_warning()
 
     positions = _db(lambda s: s.get_broker_positions())
     fetched_at = _db(lambda s: s.broker_positions_fetched_at())
@@ -1864,8 +2028,23 @@ def _analysis_page() -> None:
             st.caption("Top 5 is a single call — the skill runs its own screen and picks its "
                        "own names.")
 
+    with st.expander("Manual Intraday settings"):
+        s1, s2 = st.columns(2)
+        want_live = s1.toggle("LIVE mode (places REAL orders on Groww)",
+                              value=mcfg["mode"] == "live", key="manual_mode")
+        cap = s2.number_input("Capital per trade (₹)", min_value=0.0, step=1000.0,
+                              value=float(mcfg["capital_per_trade"]), key="manual_cap")
+        if st.button("Save settings", use_container_width=True):
+            _db(lambda s: s.set_manual_config(mode="live" if want_live else "paper",
+                                              capital_per_trade=float(cap)))
+            st.rerun()
+
     st.divider()
     _analysis_live()
+
+    st.divider()
+    st.subheader("Orders placed from this page")
+    _manual_orders_section()
 
 
 def _skill_lab_page() -> None:
@@ -2427,8 +2606,9 @@ def main() -> None:
     live = st.Page(_live_page, title="Live Intraday", url_path="live-intraday")
     ashort = st.Page(_active_short_page, title="Active Short", url_path="active-short")
     lab = st.Page(_skill_lab_page, title="Skill Lab", url_path="skill-lab")
-    analyze = st.Page(_analysis_page, title="Analyze", url_path="analysis")
-    pages = [intraday, swing, live, ashort, lab, analyze]
+    manual = st.Page(_manual_intraday_page, title="Manual Intraday",
+                     url_path="manual-intraday")
+    pages = [intraday, swing, live, ashort, lab, manual]
     # The Compare tab appears only when Compare Testing is on, so the app looks exactly like today
     # when it's off (enable it from Settings ▸ Strategies).
     try:

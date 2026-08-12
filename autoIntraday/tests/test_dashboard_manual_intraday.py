@@ -64,4 +64,31 @@ def test_card_for_an_errored_row_reports_the_error():
 
 def test_page_is_registered_in_navigation():
     src = open(dashboard.__file__, encoding="utf-8").read()
-    assert 'url_path="analysis"' in src and "_analysis_page" in src
+    assert 'url_path="manual-intraday"' in src and "_manual_intraday_page" in src
+    assert 'title="Manual Intraday"' in src
+
+
+# ---- order ticket -----------------------------------------------------------------------
+
+def test_ticket_defaults_come_from_the_result():
+    d = dashboard._ticket_defaults(R, capital=30000.0)
+    assert d["side"] == "LONG"                 # from the BUY NOW verdict
+    assert d["entry"] == 1842.0 and d["stop"] == 1808.0
+    assert d["quantity"] == 16                 # floor(30000 / 1842)
+
+
+def test_ticket_target_comes_from_target1():
+    d = dashboard._ticket_defaults(R, capital=30000.0)
+    assert d["target"] == R["target1"]
+
+
+def test_ticket_defaults_leave_side_blank_on_an_exit_verdict():
+    """EXIT means close what you hold, not open a short — the operator must choose."""
+    d = dashboard._ticket_defaults(dict(R, verdict="EXIT"), capital=30000.0)
+    assert d["side"] is None
+
+
+def test_ticket_defaults_survive_a_result_with_no_levels():
+    bare = dict(R, entry=None, stop=None, target1=None)
+    d = dashboard._ticket_defaults(bare, capital=30000.0)
+    assert d["entry"] is None and d["quantity"] == 0
