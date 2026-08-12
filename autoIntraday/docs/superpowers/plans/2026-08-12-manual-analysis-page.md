@@ -13,7 +13,8 @@
 - Run tests with: `cd /Users/mohdsuhel/ai-mini-projects/autoIntraday && .venv/bin/python -m pytest tests/<file> -q` (there is no bare `python` on this machine).
 - `manual_engine.py` MUST NOT import a broker client — the no-orders property is structural, exactly as documented in `observe.py`.
 - Levels (`entry`, `stop`, `target1..3`, `risk_reward`, `conviction`) are nullable everywhere. A skill omitting them is a valid answer, never a parse error. Unknown is never zero.
-- Positions come from `get_positions()` (intraday/MIS) only — never `get_holdings()`.
+- Positions come from the Groww client's `get_positions()` (intraday/MIS) only — never `get_holdings()`.
+- The broker snapshot table is `broker_positions`, NOT `positions`. `positions` is already this system's own trade ledger (side / entry_price / realized_pnl); an early draft of this plan collided with it, and because `CREATE TABLE IF NOT EXISTS` silently no-ops on an existing table, `replace_positions`'s `DELETE FROM positions` would have wiped real trade records. Store methods are therefore `replace_broker_positions` / `get_broker_positions` / `broker_positions_fetched_at`.
 - All new tables are additive; migrations follow the `price_at_analysis` / `swing_eta_days` pattern in `store.py`.
 - `_STOCKANALYZE = "/Users/mohdsuhel/ai-mini-projects/StockAnalayze"` — the same constant `skill_screen_engine.py` and `swing_engine.py` already use.
 - Do NOT `git add` these files, which carry unrelated uncommitted work: `groww_client.py`, `swing_job.py`, `observe_job.py`, `tests/test_groww_client.py`, `tests/test_observe.py`, `tests/test_swing_economics.py`, `tests/test_swing_job.py`. Stage only the files each task names.
@@ -452,7 +453,7 @@ git commit -m "feat(analyze): generic manual skill runner"
 **Interfaces:**
 - Consumes: engine item dicts from Task 1 (`symbol, report, verdict, conviction, entry, stop, target1..3, risk_reward, summary, raw`).
 - Produces, on `Store`:
-  - `replace_positions(positions: list[dict]) -> None` / `get_positions() -> list[dict]` / `positions_fetched_at() -> str | None`
+  - `replace_broker_positions(positions: list[dict]) -> None` / `get_positions() -> list[dict]` / `broker_positions_fetched_at() -> str | None`
   - `start_analysis_run(skill_id: str, mode: str) -> int` (mode is `"symbols"` or `"top5"`)
   - `set_analysis_pid(run_id: int, pid: int) -> None`
   - `seed_analysis_results(run_id: int, symbols: list[str]) -> None`
@@ -480,16 +481,16 @@ def _item(symbol="KEI", **kw):
 
 def test_positions_snapshot_roundtrips_and_replaces():
     store = Store(":memory:")
-    assert store.get_positions() == []
-    assert store.positions_fetched_at() is None
-    store.replace_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
+    assert store.get_broker_positions() == []
+    assert store.broker_positions_fetched_at() is None
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
                               "product": "MIS"}])
-    rows = store.get_positions()
+    rows = store.get_broker_positions()
     assert len(rows) == 1 and rows[0]["symbol"] == "KEI" and rows[0]["product"] == "MIS"
-    assert store.positions_fetched_at()
-    store.replace_positions([{"symbol": "PNGSREVA", "quantity": 10, "avg_price": 99.0,
+    assert store.broker_positions_fetched_at()
+    store.replace_broker_positions([{"symbol": "PNGSREVA", "quantity": 10, "avg_price": 99.0,
                               "product": "CNC"}])
-    assert [r["symbol"] for r in store.get_positions()] == ["PNGSREVA"]
+    assert [r["symbol"] for r in store.get_broker_positions()] == ["PNGSREVA"]
 
 
 def test_analysis_run_seeds_and_fills():
@@ -556,14 +557,14 @@ def test_analysis_pid_roundtrips():
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_store.py -q -k "positions_snapshot or analysis"`
-Expected: FAIL — `AttributeError: 'Store' object has no attribute 'replace_positions'`
+Expected: FAIL — `AttributeError: 'Store' object has no attribute 'replace_broker_positions'`
 
 - [ ] **Step 3: Implement**
 
 In `_SCHEMA`, after the `holdings` table's closing `);` and before `CREATE TABLE IF NOT EXISTS swing_runs`:
 
 ```sql
-CREATE TABLE IF NOT EXISTS positions (
+CREATE TABLE IF NOT EXISTS broker_positions (
     symbol TEXT PRIMARY KEY,
     quantity INTEGER,
     avg_price REAL,
@@ -599,14 +600,14 @@ Add these methods to `Store`, immediately after `holdings_fetched_at`:
 
 ```python
     # ---- Analyze page: live position snapshot + manual skill runs -------------------------
-    def replace_positions(self, positions: list[dict]) -> None:
+    def replace_broker_positions(self, positions: list[dict]) -> None:
         """Persist the latest intraday (MIS) position snapshot, replacing the previous one, so
         the Analyze page survives Streamlit's reruns without re-hitting the broker."""
         now = _utc_now()
-        self._conn.execute("DELETE FROM positions")
+        self._conn.execute("DELETE FROM broker_positions")
         for p in positions:
             self._conn.execute(
-                "INSERT INTO positions (symbol, quantity, avg_price, product, fetched_at) "
+                "INSERT INTO broker_positions (symbol, quantity, avg_price, product, fetched_at) "
                 "VALUES (?,?,?,?,?)", (p["symbol"], p.get("quantity"), p.get("avg_price"),
                                        p.get("product"), now))
         self._conn.commit()
@@ -614,11 +615,11 @@ Add these methods to `Store`, immediately after `holdings_fetched_at`:
     def get_positions(self) -> list[dict]:
         rows = self._conn.execute(
             "SELECT symbol, quantity, avg_price, product, fetched_at "
-            "FROM positions ORDER BY symbol").fetchall()
+            "FROM broker_positions ORDER BY symbol").fetchall()
         return [dict(r) for r in rows]
 
-    def positions_fetched_at(self) -> str | None:
-        r = self._conn.execute("SELECT MAX(fetched_at) AS t FROM positions").fetchone()
+    def broker_positions_fetched_at(self) -> str | None:
+        r = self._conn.execute("SELECT MAX(fetched_at) AS t FROM broker_positions").fetchone()
         return r["t"] if r and r["t"] else None
 
     def start_analysis_run(self, skill_id: str, mode: str) -> int:
@@ -802,7 +803,7 @@ def test_one_failure_does_not_stop_the_run():
 
 def test_position_context_is_passed_when_the_symbol_is_held():
     store, rid = _run_with(["KEI"])
-    store.replace_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
                               "product": "MIS"}])
     eng = _Engine()
     run_analysis(store, eng, rid)
@@ -895,7 +896,7 @@ def run_analysis(store, engine, run_id: int) -> int:
     progress. Held symbols get their position as context. Never raises."""
     _install_quiet_sigterm()
     store.set_analysis_pid(run_id, os.getpid())
-    by_symbol = {p["symbol"]: p for p in store.get_positions()}
+    by_symbol = {p["symbol"]: p for p in store.get_broker_positions()}
     pending = [r["symbol"] for r in store.get_analysis_results(run_id)
                if r["status"] == "PENDING"]
     for symbol in pending:
@@ -1137,7 +1138,7 @@ def _refresh_positions_from_groww() -> None:
     load_settings().apply_to_environ()
     client = GrowwClient(mode="live")
     client.authenticate()
-    _db(lambda s: s.replace_positions(client.get_positions()))
+    _db(lambda s: s.replace_broker_positions(client.get_positions()))
 
 
 def _launch_analysis(run_id: int) -> None:
@@ -1207,8 +1208,8 @@ def _analysis_page() -> None:
                "choose — the skill's full reasoning under Raw, its actionable numbers under "
                "Formatted. Analysis only: this page has no code path to an order.")
 
-    positions = _db(lambda s: s.get_positions())
-    fetched_at = _db(lambda s: s.positions_fetched_at())
+    positions = _db(lambda s: s.get_broker_positions())
+    fetched_at = _db(lambda s: s.broker_positions_fetched_at())
     latest = _db(lambda s: s.latest_analysis_run())
     running = bool(latest and latest["status"] == "RUNNING")
 

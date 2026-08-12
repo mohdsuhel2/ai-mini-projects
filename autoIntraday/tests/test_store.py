@@ -761,3 +761,99 @@ def test_swing_verdict_eta_days_absent_is_null():
     store.update_swing_verdict(rid, "OLDSTK", "DONE", swing=leg, shortswing=dict(leg))
     row = store.get_swing_verdicts(rid)[0]
     assert row["swing_eta_days"] is None and row["ss_eta_days"] is None
+
+
+# ---- Analyze page: positions snapshot + manual analysis runs ---------------------------
+
+def _item(symbol="KEI", **kw):
+    base = {"symbol": symbol, "report": "## Analysis\nfull text", "verdict": "BUY NOW",
+            "conviction": 78, "entry": 1842.0, "stop": 1808.0, "target1": 1905.0,
+            "target2": None, "target3": None, "risk_reward": 1.9, "summary": "one line"}
+    base.update(kw)
+    return base
+
+
+def test_broker_positions_snapshot_roundtrips_and_replaces():
+    store = Store(":memory:")
+    assert store.get_broker_positions() == []
+    assert store.broker_positions_fetched_at() is None
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
+                                     "product": "MIS"}])
+    rows = store.get_broker_positions()
+    assert len(rows) == 1 and rows[0]["symbol"] == "KEI" and rows[0]["product"] == "MIS"
+    assert store.broker_positions_fetched_at()
+    store.replace_broker_positions([{"symbol": "PNGSREVA", "quantity": 10, "avg_price": 99.0,
+                                     "product": "CNC"}])
+    assert [r["symbol"] for r in store.get_broker_positions()] == ["PNGSREVA"]
+
+
+def test_broker_snapshot_never_touches_the_trade_ledger():
+    """`positions` is this system's trade ledger; a broker refresh must not delete from it.
+    The two tables collided by name in an early draft — this pins them apart."""
+    store = Store(":memory:")
+    pid = store.open_position(symbol="KEI", exchange="NSE", side="BUY", quantity=10,
+                              entry_price=100.0, mode="paper")
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
+                                     "product": "MIS"}])
+    assert [p.id for p in store.get_open_positions()] == [pid]
+
+
+def test_analysis_run_seeds_and_fills():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("intraday-analyst-2", "symbols")
+    store.seed_analysis_results(rid, ["KEI", "PNGSREVA"])
+    assert store.analysis_progress(rid) == {"total": 2, "done": 0, "pending": 2,
+                                            "analyzing": 0, "errors": 0}
+    store.update_analysis_result(rid, "KEI", "ANALYZING")
+    store.update_analysis_result(rid, "KEI", "DONE", item=_item(), raw='{"envelope": 1}')
+    store.update_analysis_result(rid, "PNGSREVA", "ERROR", error="tool timeout")
+    store.finish_analysis_run(rid, "SUCCESS", num_symbols=2)
+
+    run = store.latest_analysis_run()
+    assert run["status"] == "SUCCESS" and run["skill_id"] == "intraday-analyst-2"
+    assert run["mode"] == "symbols" and run["finished_at"]
+    rows = {r["symbol"]: r for r in store.get_analysis_results(rid)}
+    assert rows["KEI"]["verdict"] == "BUY NOW" and rows["KEI"]["entry"] == 1842.0
+    assert rows["KEI"]["report"].startswith("## Analysis")
+    assert rows["KEI"]["raw_json"] == '{"envelope": 1}' and rows["KEI"]["analyzed_at"]
+    assert rows["KEI"]["target2"] is None
+    assert rows["PNGSREVA"]["status"] == "ERROR" and rows["PNGSREVA"]["error"] == "tool timeout"
+    p = store.analysis_progress(rid)
+    assert p["done"] == 2 and p["errors"] == 1 and p["pending"] == 0
+
+
+def test_add_analysis_result_inserts_for_top5():
+    """Top-5 mode learns its symbols only from the reply, so rows are inserted, not seeded."""
+    store = Store(":memory:")
+    rid = store.start_analysis_run("intraday-breakout", "top5")
+    assert store.get_analysis_results(rid) == []
+    store.add_analysis_result(rid, _item("CELLO"), '{"e": 1}')
+    store.add_analysis_result(rid, _item("OMNI", verdict="WAIT"), '{"e": 2}')
+    rows = store.get_analysis_results(rid)
+    assert [r["symbol"] for r in rows] == ["CELLO", "OMNI"]
+    assert rows[0]["status"] == "DONE" and rows[1]["verdict"] == "WAIT"
+    assert store.analysis_progress(rid)["done"] == 2
+
+
+def test_analysis_run_failure_records_error():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("swing-analyst", "top5")
+    store.finish_analysis_run(rid, "FAILED", error="no groww creds")
+    run = store.latest_analysis_run()
+    assert run["status"] == "FAILED" and run["error"] == "no groww creds"
+
+
+def test_analysis_runs_empty_and_newest_first():
+    store = Store(":memory:")
+    assert store.latest_analysis_run() is None and store.get_analysis_runs() == []
+    a = store.start_analysis_run("s1", "symbols")
+    b = store.start_analysis_run("s2", "top5")
+    assert [r["id"] for r in store.get_analysis_runs()] == [b, a]
+    assert store.latest_analysis_run()["id"] == b
+
+
+def test_analysis_pid_roundtrips():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("s1", "symbols")
+    store.set_analysis_pid(rid, 4242)
+    assert store.latest_analysis_run()["pid"] == 4242

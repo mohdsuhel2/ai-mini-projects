@@ -423,6 +423,37 @@ CREATE TABLE IF NOT EXISTS holdings (
     ltp REAL,
     fetched_at TEXT NOT NULL
 );
+-- The BROKER's live position book, a read-only snapshot for the Analyze page. Deliberately
+-- NOT named `positions`: that is this system's own trade ledger (side/entry_price/realized_pnl)
+-- and must never be confused with — or deleted by — a broker refresh.
+CREATE TABLE IF NOT EXISTS broker_positions (
+    symbol TEXT PRIMARY KEY,
+    quantity INTEGER,
+    avg_price REAL,
+    product TEXT,
+    fetched_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS analysis_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    status TEXT NOT NULL,
+    skill_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    num_symbols INTEGER,
+    error TEXT,
+    pid INTEGER
+);
+CREATE TABLE IF NOT EXISTS analysis_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL REFERENCES analysis_runs(id),
+    symbol TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    analyzed_at TEXT,
+    verdict TEXT, conviction INTEGER,
+    entry REAL, stop REAL, target1 REAL, target2 REAL, target3 REAL, risk_reward REAL,
+    summary TEXT, report TEXT, raw_json TEXT, error TEXT
+);
 CREATE TABLE IF NOT EXISTS swing_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
@@ -1347,6 +1378,116 @@ class Store:
     def holdings_fetched_at(self) -> str | None:
         r = self._conn.execute("SELECT MAX(fetched_at) AS t FROM holdings").fetchone()
         return r["t"] if r and r["t"] else None
+
+    # ---- Analyze page: live position snapshot + manual skill runs -------------------------
+    def replace_broker_positions(self, positions: list[dict]) -> None:
+        """Persist the latest intraday (MIS) snapshot of the BROKER's position book, replacing
+        the previous one, so the Analyze page survives Streamlit's reruns without re-hitting
+        Groww. Touches `broker_positions` only — never this system's own trade ledger."""
+        now = _utc_now()
+        self._conn.execute("DELETE FROM broker_positions")
+        for p in positions:
+            self._conn.execute(
+                "INSERT INTO broker_positions (symbol, quantity, avg_price, product, "
+                "fetched_at) VALUES (?,?,?,?,?)",
+                (p["symbol"], p.get("quantity"), p.get("avg_price"), p.get("product"), now))
+        self._conn.commit()
+
+    def get_broker_positions(self) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT symbol, quantity, avg_price, product, fetched_at "
+            "FROM broker_positions ORDER BY symbol").fetchall()
+        return [dict(r) for r in rows]
+
+    def broker_positions_fetched_at(self) -> str | None:
+        r = self._conn.execute(
+            "SELECT MAX(fetched_at) AS t FROM broker_positions").fetchone()
+        return r["t"] if r and r["t"] else None
+
+    def start_analysis_run(self, skill_id: str, mode: str) -> int:
+        cur = self._conn.execute(
+            "INSERT INTO analysis_runs (started_at, status, skill_id, mode) "
+            "VALUES (?, 'RUNNING', ?, ?)", (_utc_now(), skill_id, mode))
+        self._conn.commit()
+        return int(cur.lastrowid)
+
+    def set_analysis_pid(self, run_id: int, pid: int) -> None:
+        self._conn.execute("UPDATE analysis_runs SET pid = ? WHERE id = ?", (pid, run_id))
+        self._conn.commit()
+
+    def finish_analysis_run(self, run_id: int, status: str, num_symbols: int = 0,
+                            error: str | None = None) -> None:
+        self._conn.execute(
+            "UPDATE analysis_runs SET finished_at = ?, status = ?, num_symbols = ?, error = ? "
+            "WHERE id = ?", (_utc_now(), status, num_symbols, error, run_id))
+        self._conn.commit()
+
+    def seed_analysis_results(self, run_id: int, symbols: list[str]) -> None:
+        for sym in symbols:
+            self._conn.execute(
+                "INSERT INTO analysis_results (run_id, symbol, status) VALUES (?,?, 'PENDING')",
+                (run_id, sym))
+        self._conn.commit()
+
+    _ANALYSIS_COLS = ("verdict", "conviction", "entry", "stop", "target1", "target2",
+                      "target3", "risk_reward", "summary", "report")
+
+    def update_analysis_result(self, run_id: int, symbol: str, status: str,
+                               item: dict | None = None, raw: str | None = None,
+                               error: str | None = None) -> None:
+        """Move one seeded row to `status` and, when the analysis is ready, write its fields.
+        Terminal states (DONE / ERROR) stamp analyzed_at; ANALYZING leaves the prior stamp."""
+        stamp = _utc_now() if status in ("DONE", "ERROR") else None
+        if item is None:
+            self._conn.execute(
+                "UPDATE analysis_results SET status = ?, "
+                "analyzed_at = COALESCE(?, analyzed_at), error = COALESCE(?, error) "
+                "WHERE run_id = ? AND symbol = ?", (status, stamp, error, run_id, symbol))
+        else:
+            sets = ", ".join(f"{c} = ?" for c in self._ANALYSIS_COLS)
+            vals = [item.get(c) for c in self._ANALYSIS_COLS]
+            self._conn.execute(
+                f"UPDATE analysis_results SET status = ?, analyzed_at = ?, raw_json = ?, "
+                f"error = ?, {sets} WHERE run_id = ? AND symbol = ?",
+                [status, stamp, raw, error, *vals, run_id, symbol])
+        self._conn.commit()
+
+    def add_analysis_result(self, run_id: int, item: dict, raw: str | None = None) -> None:
+        """Insert a finished row whose symbol was not known when the run started — the top-5
+        mode learns its names only from the skill's reply."""
+        cols = ", ".join(self._ANALYSIS_COLS)
+        marks = ", ".join("?" for _ in self._ANALYSIS_COLS)
+        self._conn.execute(
+            f"INSERT INTO analysis_results (run_id, symbol, status, analyzed_at, raw_json, "
+            f"{cols}) VALUES (?,?,'DONE',?,?,{marks})",
+            [run_id, item["symbol"], _utc_now(), raw,
+             *[item.get(c) for c in self._ANALYSIS_COLS]])
+        self._conn.commit()
+
+    def analysis_progress(self, run_id: int) -> dict:
+        rows = self._conn.execute(
+            "SELECT status, COUNT(*) n FROM analysis_results WHERE run_id = ? GROUP BY status",
+            (run_id,)).fetchall()
+        by = {r["status"]: r["n"] for r in rows}
+        return {"total": sum(by.values()),
+                "done": by.get("DONE", 0) + by.get("ERROR", 0),
+                "pending": by.get("PENDING", 0), "analyzing": by.get("ANALYZING", 0),
+                "errors": by.get("ERROR", 0)}
+
+    def latest_analysis_run(self) -> dict | None:
+        r = self._conn.execute(
+            "SELECT * FROM analysis_runs ORDER BY id DESC LIMIT 1").fetchone()
+        return dict(r) if r else None
+
+    def get_analysis_runs(self, limit: int = 30) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM analysis_runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_analysis_results(self, run_id: int) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM analysis_results WHERE run_id = ? ORDER BY id", (run_id,)).fetchall()
+        return [dict(r) for r in rows]
 
     def start_swing_run(self) -> int:
         cur = self._conn.execute(
