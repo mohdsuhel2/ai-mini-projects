@@ -393,6 +393,18 @@ html, body, [data-testid="stAppViewContainer"] {
 .ai-swt .c-pnl small, .ai-swt .c-tpnl small { opacity: .7; }
 .ai-swt .c-eta { flex: 0 0 9%; text-align: right; white-space: nowrap; font-size: .8rem; }
 .ai-eta-past { opacity: .55; }
+
+/* ---- Analyze page: result card ------------------------------------------------------ */
+.ai-acard { display: flex; flex-wrap: wrap; gap: .55rem 1.2rem; align-items: center;
+  margin: 0 0 .6rem; padding: .6rem .75rem; border-radius: 10px; background: var(--ai-tint);
+  border: 1px solid var(--ai-line-soft); font-size: .86rem; }
+.ai-averdict { font-weight: 700; letter-spacing: .02em; }
+.ai-aconv { opacity: .7; font-size: .8rem; }
+.ai-alevels { display: flex; flex-wrap: wrap; gap: .3rem .9rem; flex: 1 1 100%;
+  font-variant-numeric: tabular-nums; }
+.ai-alevel b { opacity: .6; font-weight: 600; margin-right: .3rem; font-size: .78rem; }
+.ai-asummary { flex: 1 1 100%; opacity: .85; font-style: italic; }
+.ai-aerr { flex: 1 1 100%; color: #e5484d; }
 .ai-pos { color: #30a46c; }
 .ai-neg { color: #e5484d; }
 .ai-econ { display: flex; flex-wrap: wrap; gap: .5rem 1.4rem; align-items: center;
@@ -1668,6 +1680,194 @@ def _obs_db(fn):
         st_.close()
 
 
+# ---- Analyze: manual, on-demand skill runs against the live position book -----------------
+_ANALYSIS_LEVELS = (("entry", "Entry"), ("stop", "Stop"), ("target1", "T1"),
+                    ("target2", "T2"), ("target3", "T3"), ("risk_reward", "R:R"))
+
+
+def _selected_symbols(rows) -> list[str]:
+    """The symbols ticked in the position editor, in display order."""
+    return [str(r["Symbol"]) for r in (rows or [])
+            if r.get("Analyze") and r.get("Symbol")]
+
+
+def _analysis_levels(r: dict) -> list[tuple[str, str]]:
+    """Label/value pairs for the levels the skill ACTUALLY produced. A null level is dropped
+    rather than shown as a dash — the scanner genuinely has no entry price, and a row of
+    em dashes reads like a bug."""
+    out = []
+    for key, label in _ANALYSIS_LEVELS:
+        v = r.get(key)
+        if v is None:
+            continue
+        out.append((label, f"{v:,.2f}" if key != "risk_reward" else f"{v:g}"))
+    return out
+
+
+def _analysis_card(r: dict) -> str:
+    """The Formatted tab: verdict, conviction, the levels that exist, and the one-liner."""
+    import html
+    bits = [f'<span class="ai-averdict">{html.escape(str(r.get("verdict") or "—"))}</span>']
+    if r.get("conviction") is not None:
+        bits.append(f'<span class="ai-aconv">conviction {int(r["conviction"])}</span>')
+    levels = _analysis_levels(r)
+    if levels:
+        cells = "".join(f'<span class="ai-alevel"><b>{html.escape(lbl)}</b>{val}</span>'
+                        for lbl, val in levels)
+        bits.append(f'<div class="ai-alevels">{cells}</div>')
+    if r.get("summary"):
+        bits.append(f'<div class="ai-asummary">{html.escape(str(r["summary"]))}</div>')
+    if r.get("error"):
+        bits.append(f'<div class="ai-aerr">⚠ {html.escape(str(r["error"]))}</div>')
+    return f'<div class="ai-acard">{"".join(bits)}</div>'
+
+
+def _refresh_positions_from_groww() -> None:
+    """Fetch the intraday (MIS) position book and persist the snapshot. Delivery holdings are
+    the Swing page's job and deliberately not fetched here."""
+    from settings import load_settings
+    from groww_client import GrowwClient
+    load_settings().apply_to_environ()
+    client = GrowwClient(mode="live")
+    client.authenticate()
+    _db(lambda s: s.replace_broker_positions(client.get_positions()))
+
+
+def _launch_analysis(run_id: int) -> None:
+    """Fire the analysis as a detached subprocess so the UI never blocks."""
+    import subprocess
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.Popen([sys.executable, os.path.join(here, "analysis_job.py"),
+                      "--run", str(run_id)],
+                     cwd=here, env=dict(os.environ), start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+@st.fragment(run_every=4)
+def _analysis_live() -> None:
+    """Progress + results for the latest run, auto-refreshing so a running analysis fills in
+    without a manual reload."""
+    import json as _json
+    latest = _db(lambda s: s.latest_analysis_run())
+    if latest is None:
+        st.caption("No analysis run yet — pick a skill and some stocks above.")
+        return
+    results = _db(lambda s: s.get_analysis_results(latest["id"]))
+    head = (f"Run #{latest['id']} · **{latest['skill_id']}** · "
+            f"{'top 5' if latest['mode'] == 'top5' else 'selected positions'} · "
+            f"{_fmt_ist_short(latest['started_at']) or ''}")
+    st.markdown(head)
+    if latest["status"] == "RUNNING":
+        prog = _db(lambda s: s.analysis_progress(latest["id"]))
+        if prog["total"]:
+            st.progress(prog["done"] / prog["total"],
+                        text=f"⏳ {prog['done']}/{prog['total']} done"
+                             + (f" · {prog['errors']} errors" if prog["errors"] else ""))
+        else:
+            st.progress(0.0, text="⏳ Asking the skill for its top picks…")
+    elif latest["status"] == "FAILED":
+        st.error(latest["error"] or "The run failed.")
+
+    for r in results:
+        if r["status"] in ("PENDING", "ANALYZING"):
+            st.caption(f"{r['symbol']} — "
+                       f"{'⏳ analyzing' if r['status'] == 'ANALYZING' else '· waiting'}")
+            continue
+        label = (f"{r['symbol']} — "
+                 f"{r['verdict'] or ('⚠ error' if r['status'] == 'ERROR' else '—')}")
+        with st.expander(label, expanded=len(results) == 1):
+            t_fmt, t_raw = st.tabs(["Formatted", "Raw"])
+            with t_fmt:
+                st.markdown(_analysis_card(r), unsafe_allow_html=True)
+            with t_raw:
+                if r["report"]:
+                    st.markdown(r["report"])
+                if r["raw_json"]:
+                    st.caption("Claude CLI envelope")
+                    try:
+                        st.json(_json.loads(r["raw_json"]))
+                    except Exception:                                # noqa: BLE001
+                        st.code(r["raw_json"])
+                if not r["report"] and not r["raw_json"]:
+                    st.caption("No output recorded for this stock.")
+
+
+def _analysis_page() -> None:
+    import pandas as pd
+    from observe import available_skills
+
+    st.markdown('<div class="ai-brand">Analyze<em>.</em></div>', unsafe_allow_html=True)
+    st.caption("Your live Groww intraday positions, analyzed on demand by whichever skill you "
+               "choose — the skill's full reasoning under Raw, its actionable numbers under "
+               "Formatted. Analysis only: this page has no code path to an order.")
+
+    positions = _db(lambda s: s.get_broker_positions())
+    fetched_at = _db(lambda s: s.broker_positions_fetched_at())
+    latest = _db(lambda s: s.latest_analysis_run())
+    running = bool(latest and latest["status"] == "RUNNING")
+
+    skills = available_skills()
+    if not skills:
+        st.error("No skills found in ~/.claude/skills")
+        return
+
+    top = st.columns([1.4, 2.2, 2.4], vertical_alignment="center")
+    with top[0]:
+        if st.button("Fetch positions", use_container_width=True, disabled=running):
+            try:
+                with st.spinner("Fetching from Groww…"):
+                    _refresh_positions_from_groww()
+            except Exception as e:                                   # noqa: BLE001
+                st.error(f"Could not load positions: {e}")
+            st.rerun()
+    with top[1]:
+        skill = st.selectbox("Skill", skills, key="analysis_skill",
+                             label_visibility="collapsed")
+    with top[2]:
+        if fetched_at:
+            st.caption(f"Positions as of {_fmt_ist(fetched_at) or fetched_at} · "
+                       f"{len(positions)} open")
+        else:
+            st.caption("No positions loaded — click **Fetch positions**.")
+
+    picked: list[str] = []
+    if positions:
+        table = [{"Analyze": False, "Symbol": p["symbol"], "Qty": p.get("quantity"),
+                  "Avg": p.get("avg_price"), "Product": p.get("product")}
+                 for p in positions]
+        edited = st.data_editor(
+            pd.DataFrame(table), hide_index=True, use_container_width=True,
+            disabled=["Symbol", "Qty", "Avg", "Product"], key="analysis_pick",
+            column_config={"Analyze": st.column_config.CheckboxColumn(
+                "Analyze", help="Tick the stocks to send to the chosen skill.")})
+        picked = _selected_symbols(edited.to_dict("records"))
+
+    act = st.columns([1.6, 1.6, 3], vertical_alignment="center")
+    with act[0]:
+        if st.button(f"Analyze {len(picked)} selected", use_container_width=True,
+                     type="primary", disabled=running or not picked):
+            rid = _db(lambda s: s.start_analysis_run(skill, "symbols"))
+            _db(lambda s: s.seed_analysis_results(rid, picked))
+            _launch_analysis(rid)
+            st.rerun()
+    with act[1]:
+        if st.button("Top 5 from this skill", use_container_width=True, disabled=running):
+            rid = _db(lambda s: s.start_analysis_run(skill, "top5"))
+            _launch_analysis(rid)
+            st.rerun()
+    with act[2]:
+        if picked:
+            st.caption(f"{len(picked)} stock(s) x ~2 min ≈ **{len(picked) * 2} minutes**. "
+                       "The run continues if you navigate away.")
+        else:
+            st.caption("Top 5 is a single call — the skill runs its own screen and picks its "
+                       "own names.")
+
+    st.divider()
+    _analysis_live()
+
+
 def _skill_lab_page() -> None:
     import pandas as pd
     from observe import available_skills
@@ -2227,7 +2427,8 @@ def main() -> None:
     live = st.Page(_live_page, title="Live Intraday", url_path="live-intraday")
     ashort = st.Page(_active_short_page, title="Active Short", url_path="active-short")
     lab = st.Page(_skill_lab_page, title="Skill Lab", url_path="skill-lab")
-    pages = [intraday, swing, live, ashort, lab]
+    analyze = st.Page(_analysis_page, title="Analyze", url_path="analysis")
+    pages = [intraday, swing, live, ashort, lab, analyze]
     # The Compare tab appears only when Compare Testing is on, so the app looks exactly like today
     # when it's off (enable it from Settings ▸ Strategies).
     try:
