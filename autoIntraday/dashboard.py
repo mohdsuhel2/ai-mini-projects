@@ -411,6 +411,11 @@ html, body, [data-testid="stAppViewContainer"] {
 .ai-mode-paper { display: inline-block; padding: .1rem .5rem; border-radius: 999px;
   background: rgba(128,131,141,.25); font-size: .7rem; font-weight: 700;
   letter-spacing: .04em; }
+.ai-tone-good { color: #30a46c; }
+.ai-tone-bad  { color: #e5484d; }
+.ai-tone-flat { opacity: .7; }
+.ai-strip-fact { font-size: .82rem; opacity: .8; }
+.ai-strip-fact b { opacity: 1; font-weight: 650; }
 .ai-pos { color: #30a46c; }
 .ai-neg { color: #e5484d; }
 .ai-econ { display: flex; flex-wrap: wrap; gap: .5rem 1.4rem; align-items: center;
@@ -1820,63 +1825,107 @@ def _autointraday_live_warning() -> None:
                    "Pause it, or expect it to take these trades over.", icon="⚠️")
 
 
-def _order_ticket(r: dict, cfg: dict, skill_id: str | None = None) -> None:
+def _mode_pill(mode: str) -> str:
+    return ('<span class="ai-mode-live">LIVE — REAL ORDERS</span>' if mode == "live"
+            else '<span class="ai-mode-paper">PAPER</span>')
+
+
+@st.fragment(run_every=4)
+def _manual_status_strip() -> None:
+    """Mode, positions, run progress and alerts — visible from EVERY tab. An unprotected live
+    position must not depend on which tab happens to be open."""
+    import html
+    cfg = _db(lambda s: s.get_manual_config())
+    run = _db(lambda s: s.latest_analysis_run())
+    prog = (_db(lambda s: s.analysis_progress(run["id"]))
+            if run else {"done": 0, "total": 0, "errors": 0})
+    f = _strip_facts(_db(lambda s: s.get_broker_positions()),
+                     _db(lambda s: s.broker_positions_fetched_at()),
+                     run, prog, _db(lambda s: s.get_manual_orders(limit=50)))
+    with st.container(border=True):
+        c1, c2, c3 = st.columns([1.1, 1.3, 2.6], vertical_alignment="center")
+        c1.markdown(_mode_pill(cfg["mode"]), unsafe_allow_html=True)
+        when = _fmt_ist_short(f["fetched_at"]) if f["fetched_at"] else None
+        c2.markdown(f'<span class="ai-strip-fact"><b>{f["positions"]}</b> positions'
+                    + (f' · {when}' if when else ' · not fetched')
+                    + '</span>', unsafe_allow_html=True)
+        if f["run_status"] == "RUNNING":
+            total = f["total"] or 1
+            c3.progress(f["done"] / total,
+                        text=f"⏳ {f['run_skill']} — {f['done']}/{f['total'] or '?'}"
+                             + (f" · {f['errors']} errors" if f["errors"] else ""))
+        elif f["run_skill"]:
+            c3.markdown(f'<span class="ai-strip-fact">last run '
+                        f'<b>{html.escape(str(f["run_skill"]))}</b> · '
+                        f'{str(f["run_status"]).lower()}</span>', unsafe_allow_html=True)
+        else:
+            c3.markdown('<span class="ai-strip-fact">no analysis run yet</span>',
+                        unsafe_allow_html=True)
+        if f["unprotected"]:
+            syms = ", ".join(sorted({o["symbol"] for o in f["unprotected"]}))
+            st.error(f"⚠ {len(f['unprotected'])} position(s) FILLED but exits NOT armed "
+                     f"({syms}) — live and UNPROTECTED. Open **Orders** and fix now.")
+        if f["errored"]:
+            st.warning(f"{len(f['errored'])} order(s) errored — see **Orders**.")
+    _autointraday_live_warning()
+
+
+def _order_ticket_body(r: dict, cfg: dict, skill_id: str | None = None) -> None:
     """The editable ticket for one analysis result. Everything is prefilled from the skill and
     everything can be changed before anything is sent. `skill_id` comes from the RUN — an
     analysis_results row does not carry it — and is recorded as the order's provenance."""
     from manual_broker import ManualBrokerError, order_economics, validate_bracket
     d = _ticket_defaults(r, cfg["capital_per_trade"])
     key = f"tkt_{r['id']}"
-    with st.expander("Place order", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        sides = ["LONG", "SHORT"]
-        side = c1.selectbox("Side", sides, key=f"{key}_side",
-                            index=sides.index(d["side"]) if d["side"] in sides else 0,
-                            help=None if d["side"] else
-                            "This verdict is not an entry instruction — choose the side "
-                            "yourself.")
-        etype = c2.selectbox("Entry", ["MARKET", "LIMIT"], key=f"{key}_type")
-        qty = c3.number_input("Qty", min_value=0, step=1, value=int(d["quantity"]),
-                              key=f"{key}_qty")
-        p1, p2, p3 = st.columns(3)
-        entry = p1.number_input("Entry price", min_value=0.0, step=0.05,
-                                value=float(d["entry"] or 0.0), key=f"{key}_entry")
-        stop = p2.number_input("Stop", min_value=0.0, step=0.05,
-                               value=float(d["stop"] or 0.0), key=f"{key}_stop")
-        target = p3.number_input("Target", min_value=0.0, step=0.05,
-                                 value=float(d["target"] or 0.0), key=f"{key}_target")
+    c1, c2, c3 = st.columns(3)
+    sides = ["LONG", "SHORT"]
+    side = c1.selectbox("Side", sides, key=f"{key}_side",
+                        index=sides.index(d["side"]) if d["side"] in sides else 0,
+                        help=None if d["side"] else
+                        "This verdict is not an entry instruction — choose the side "
+                        "yourself.")
+    etype = c2.selectbox("Entry", ["MARKET", "LIMIT"], key=f"{key}_type")
+    qty = c3.number_input("Qty", min_value=0, step=1, value=int(d["quantity"]),
+                          key=f"{key}_qty")
+    p1, p2, p3 = st.columns(3)
+    entry = p1.number_input("Entry price", min_value=0.0, step=0.05,
+                            value=float(d["entry"] or 0.0), key=f"{key}_entry")
+    stop = p2.number_input("Stop", min_value=0.0, step=0.05,
+                           value=float(d["stop"] or 0.0), key=f"{key}_stop")
+    target = p3.number_input("Target", min_value=0.0, step=0.05,
+                             value=float(d["target"] or 0.0), key=f"{key}_target")
 
-        e = order_economics(side, qty, entry or None, stop or None, target or None)
-        bits = []
-        if e["exposure"]:
-            bits.append(f"exposure ₹{e['exposure']:,.0f}")
-        if e["risk"] is not None:
-            bits.append(f"risk ₹{e['risk']:,.0f}")
-        if e["reward"] is not None:
-            bits.append(f"reward ₹{e['reward']:,.0f}")
-        if e["rr"] is not None:
-            bits.append(f"R:R {e['rr']:.2f}")
-        st.caption(" · ".join(bits) or "Fill in the levels to see what this risks.")
+    e = order_economics(side, qty, entry or None, stop or None, target or None)
+    bits = []
+    if e["exposure"]:
+        bits.append(f"exposure ₹{e['exposure']:,.0f}")
+    if e["risk"] is not None:
+        bits.append(f"risk ₹{e['risk']:,.0f}")
+    if e["reward"] is not None:
+        bits.append(f"reward ₹{e['reward']:,.0f}")
+    if e["rr"] is not None:
+        bits.append(f"R:R {e['rr']:.2f}")
+    st.caption(" · ".join(bits) or "Fill in the levels to see what this risks.")
 
-        try:
-            validate_bracket(side, entry or None, stop or None, target or None, qty)
-            problem = None
-        except ManualBrokerError as ex:
-            problem = str(ex)
-        if problem:
-            st.error(problem)
-        live = cfg["mode"] == "live"
-        label = (f"⚠ Place LIVE {side} {qty} {r['symbol']}" if live
-                 else f"Place PAPER {side} {qty} {r['symbol']}")
-        if st.button(label, key=f"{key}_go", type="primary", disabled=bool(problem),
-                     use_container_width=True):
-            oid = _db(lambda s: s.create_manual_order(
-                symbol=r["symbol"], side=side, quantity=int(qty), entry_type=etype,
-                entry_price=entry or None, stop=stop or None, target=target or None,
-                mode=cfg["mode"], skill_id=skill_id, result_id=r.get("id")))
-            _launch_manual_order(oid)
-            st.toast(f"{cfg['mode'].upper()} order sent for {r['symbol']}", icon="📤")
-            st.rerun()
+    try:
+        validate_bracket(side, entry or None, stop or None, target or None, qty)
+        problem = None
+    except ManualBrokerError as ex:
+        problem = str(ex)
+    if problem:
+        st.error(problem)
+    live = cfg["mode"] == "live"
+    label = (f"⚠ Place LIVE {side} {qty} {r['symbol']}" if live
+             else f"Place PAPER {side} {qty} {r['symbol']}")
+    if st.button(label, key=f"{key}_go", type="primary", disabled=bool(problem),
+                 use_container_width=True):
+        oid = _db(lambda s: s.create_manual_order(
+            symbol=r["symbol"], side=side, quantity=int(qty), entry_type=etype,
+            entry_price=entry or None, stop=stop or None, target=target or None,
+            mode=cfg["mode"], skill_id=skill_id, result_id=r.get("id")))
+        _launch_manual_order(oid)
+        st.toast(f"{cfg['mode'].upper()} order sent for {r['symbol']}", icon="📤")
+        st.rerun()
 
 
 _MANUAL_STATUS_LABEL = {"PLACING": "· sending", "ENTRY_PENDING": "⏳ waiting for fill",
@@ -1884,18 +1933,143 @@ _MANUAL_STATUS_LABEL = {"PLACING": "· sending", "ENTRY_PENDING": "⏳ waiting f
                         "REJECTED": "✗ rejected", "CLOSED": "· closed", "ERROR": "⚠ error"}
 
 
+def _refresh_positions_from_groww() -> None:
+    """Fetch the intraday (MIS) position book and persist the snapshot. Delivery holdings are
+    the Swing page's job and deliberately not fetched here."""
+    from settings import load_settings
+    from groww_client import GrowwClient
+    load_settings().apply_to_environ()
+    client = GrowwClient(mode="live")
+    client.authenticate()
+    _db(lambda s: s.replace_broker_positions(client.get_positions()))
+
+
+def _launch_analysis(run_id: int) -> None:
+    """Fire the analysis as a detached subprocess so the UI never blocks."""
+    import subprocess
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.Popen([sys.executable, os.path.join(here, "analysis_job.py"),
+                      "--run", str(run_id)],
+                     cwd=here, env=dict(os.environ), start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _mi_positions_tab(skills: list) -> None:
+    import pandas as pd
+    positions = _db(lambda s: s.get_broker_positions())
+    fetched_at = _db(lambda s: s.broker_positions_fetched_at())
+    latest = _db(lambda s: s.latest_analysis_run())
+    running = bool(latest and latest["status"] == "RUNNING")
+
+    top = st.columns([1.4, 2.2, 2.4], vertical_alignment="center")
+    with top[0]:
+        if st.button("Fetch positions", use_container_width=True, disabled=running):
+            try:
+                with st.spinner("Fetching from Groww…"):
+                    _refresh_positions_from_groww()
+            except Exception as e:                                   # noqa: BLE001
+                st.error(f"Could not load positions: {e}")
+            st.rerun()
+    with top[1]:
+        skill = st.selectbox("Skill", skills, key="analysis_skill",
+                             label_visibility="collapsed")
+    with top[2]:
+        if fetched_at:
+            st.caption(f"Positions as of {_fmt_ist(fetched_at) or fetched_at}")
+        else:
+            st.caption("No positions loaded — click **Fetch positions**.")
+
+    picked: list[str] = []
+    if positions:
+        table = [{"Analyze": False, "Symbol": p["symbol"], "Qty": p.get("quantity"),
+                  "Avg": p.get("avg_price"), "Product": p.get("product")}
+                 for p in positions]
+        edited = st.data_editor(
+            pd.DataFrame(table), hide_index=True, use_container_width=True,
+            disabled=["Symbol", "Qty", "Avg", "Product"], key="analysis_pick",
+            column_config={"Analyze": st.column_config.CheckboxColumn(
+                "Analyze", help="Tick the stocks to send to the chosen skill.")})
+        picked = _selected_symbols(edited.to_dict("records"))
+
+    act = st.columns([1.6, 1.6, 3], vertical_alignment="center")
+    with act[0]:
+        if st.button(f"Analyze {len(picked)} selected", use_container_width=True,
+                     type="primary", disabled=running or not picked):
+            rid = _db(lambda s: s.start_analysis_run(skill, "symbols"))
+            _db(lambda s: s.seed_analysis_results(rid, picked))
+            _launch_analysis(rid)
+            st.query_params["mi"] = "Results"
+            st.rerun()
+    with act[1]:
+        if st.button("Top 5 from this skill", use_container_width=True, disabled=running):
+            rid = _db(lambda s: s.start_analysis_run(skill, "top5"))
+            _launch_analysis(rid)
+            st.query_params["mi"] = "Results"
+            st.rerun()
+    with act[2]:
+        if picked:
+            st.caption(f"{len(picked)} stock(s) x ~2 min ≈ **{len(picked) * 2} minutes**. "
+                       "The run continues if you navigate away.")
+        else:
+            st.caption("Top 5 is a single call — the skill runs its own screen and picks its "
+                       "own names.")
+
+
+@st.fragment(run_every=4)
+def _mi_results_tab() -> None:
+    """One bordered card per result: the verdict and levels first, the Trade ticket next, and
+    the reading material last. The ticket used to sit three clicks deep, which is the wrong
+    depth for the action this page exists to perform."""
+    import json as _json
+    latest = _db(lambda s: s.latest_analysis_run())
+    if latest is None:
+        st.caption("No analysis run yet — pick a skill and some stocks under **Positions**.")
+        return
+    results = _db(lambda s: s.get_analysis_results(latest["id"]))
+    st.caption(f"Run #{latest['id']} · {latest['skill_id']} · "
+               f"{'top 5' if latest['mode'] == 'top5' else 'selected positions'} · "
+               f"{_fmt_ist_short(latest['started_at']) or ''}")
+    if latest["status"] == "FAILED":
+        st.error(latest["error"] or "The run failed.")
+    cfg = _db(lambda s: s.get_manual_config())
+    waiting = [r for r in results if r["status"] in ("PENDING", "ANALYZING")]
+    for r in results:
+        if r["status"] in ("PENDING", "ANALYZING"):
+            continue
+        with st.container(border=True):
+            st.markdown(_analysis_card(r), unsafe_allow_html=True)
+            if r["status"] == "DONE":
+                with st.expander(f"Trade {r['symbol']}",
+                                 expanded=_ticket_open_default(r["verdict"])):
+                    _order_ticket_body(r, cfg, latest["skill_id"])
+            t_an, t_raw = st.tabs(["Analysis", "Raw"])
+            with t_an:
+                st.markdown(r["report"] or "_No analysis recorded for this stock._")
+            with t_raw:
+                if r["raw_json"]:
+                    try:
+                        st.json(_json.loads(r["raw_json"]))
+                    except Exception:                                # noqa: BLE001
+                        st.code(r["raw_json"])
+                else:
+                    st.caption("No raw output recorded.")
+    for r in waiting:
+        st.caption(f"{r['symbol']} — "
+                   f"{'⏳ analyzing' if r['status'] == 'ANALYZING' else '· waiting'}")
+
+
 @st.fragment(run_every=5)
-def _manual_orders_section() -> None:
-    """Everything this page has sent, with live status and the two management actions."""
+def _mi_orders_tab() -> None:
     from manual_broker import ManualBroker
-    orders = _db(lambda s: s.get_manual_orders(limit=25))
+    orders = _orders_for_display(_db(lambda s: s.get_manual_orders(limit=25)))
     if not orders:
         st.caption("No orders placed from this page yet.")
         return
     for o in orders:
         badge = _MANUAL_STATUS_LABEL.get(o["status"], o["status"])
         head = f"{o['symbol']} · {o['side']} x{o['quantity']} · {o['mode'].upper()} · {badge}"
-        with st.expander(head, expanded=o["status"] in ("FILLED", "ERROR")):
+        with st.expander(head, expanded=o["status"] in _ATTENTION_STATES):
             st.caption(f"{o['entry_type']} entry {o['entry_price'] or '—'} · stop {o['stop']} "
                        f"· target {o['target']} · placed {_fmt_ist_short(o['placed_at']) or ''}"
                        + (f" · filled @ {o['fill_price']}" if o["fill_price"] else ""))
@@ -1929,175 +2103,47 @@ def _manual_orders_section() -> None:
                 st.rerun()
 
 
-def _refresh_positions_from_groww() -> None:
-    """Fetch the intraday (MIS) position book and persist the snapshot. Delivery holdings are
-    the Swing page's job and deliberately not fetched here."""
-    from settings import load_settings
-    from groww_client import GrowwClient
-    load_settings().apply_to_environ()
-    client = GrowwClient(mode="live")
-    client.authenticate()
-    _db(lambda s: s.replace_broker_positions(client.get_positions()))
-
-
-def _launch_analysis(run_id: int) -> None:
-    """Fire the analysis as a detached subprocess so the UI never blocks."""
-    import subprocess
-    import sys
-    here = os.path.dirname(os.path.abspath(__file__))
-    subprocess.Popen([sys.executable, os.path.join(here, "analysis_job.py"),
-                      "--run", str(run_id)],
-                     cwd=here, env=dict(os.environ), start_new_session=True,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-
-@st.fragment(run_every=4)
-def _analysis_live() -> None:
-    """Progress + results for the latest run, auto-refreshing so a running analysis fills in
-    without a manual reload."""
-    import json as _json
-    latest = _db(lambda s: s.latest_analysis_run())
-    if latest is None:
-        st.caption("No analysis run yet — pick a skill and some stocks above.")
-        return
-    results = _db(lambda s: s.get_analysis_results(latest["id"]))
-    head = (f"Run #{latest['id']} · **{latest['skill_id']}** · "
-            f"{'top 5' if latest['mode'] == 'top5' else 'selected positions'} · "
-            f"{_fmt_ist_short(latest['started_at']) or ''}")
-    st.markdown(head)
-    if latest["status"] == "RUNNING":
-        prog = _db(lambda s: s.analysis_progress(latest["id"]))
-        if prog["total"]:
-            st.progress(prog["done"] / prog["total"],
-                        text=f"⏳ {prog['done']}/{prog['total']} done"
-                             + (f" · {prog['errors']} errors" if prog["errors"] else ""))
-        else:
-            st.progress(0.0, text="⏳ Asking the skill for its top picks…")
-    elif latest["status"] == "FAILED":
-        st.error(latest["error"] or "The run failed.")
-
-    for r in results:
-        if r["status"] in ("PENDING", "ANALYZING"):
-            st.caption(f"{r['symbol']} — "
-                       f"{'⏳ analyzing' if r['status'] == 'ANALYZING' else '· waiting'}")
-            continue
-        label = (f"{r['symbol']} — "
-                 f"{r['verdict'] or ('⚠ error' if r['status'] == 'ERROR' else '—')}")
-        with st.expander(label, expanded=len(results) == 1):
-            t_fmt, t_raw = st.tabs(["Formatted", "Raw"])
-            with t_fmt:
-                st.markdown(_analysis_card(r), unsafe_allow_html=True)
-                if r["status"] == "DONE":
-                    _order_ticket(r, _db(lambda s: s.get_manual_config()),
-                                  latest["skill_id"])
-            with t_raw:
-                if r["report"]:
-                    st.markdown(r["report"])
-                if r["raw_json"]:
-                    st.caption("Claude CLI envelope")
-                    try:
-                        st.json(_json.loads(r["raw_json"]))
-                    except Exception:                                # noqa: BLE001
-                        st.code(r["raw_json"])
-                if not r["report"] and not r["raw_json"]:
-                    st.caption("No output recorded for this stock.")
+def _mi_settings_tab() -> None:
+    cfg = _db(lambda s: s.get_manual_config())
+    s1, s2 = st.columns(2)
+    want_live = s1.toggle("LIVE mode (places REAL orders on Groww)",
+                          value=cfg["mode"] == "live", key="manual_mode")
+    cap = s2.number_input("Capital per trade (₹)", min_value=0.0, step=1000.0,
+                          value=float(cfg["capital_per_trade"]), key="manual_cap")
+    if want_live and cfg["mode"] != "live":
+        st.warning("Saving this sends REAL orders to your Groww account from the Trade "
+                   "tickets. autoIntraday's own paper/live setting does not apply here.")
+    st.caption("Quantity prefills as capital ÷ entry price, and is editable on every ticket.")
+    if st.button("Save settings", use_container_width=True):
+        _db(lambda s: s.set_manual_config(mode="live" if want_live else "paper",
+                                          capital_per_trade=float(cap)))
+        st.rerun()
 
 
 def _manual_intraday_page() -> None:
-    import pandas as pd
     from observe import available_skills
 
-    mcfg = _db(lambda s: s.get_manual_config())
     st.markdown('<div class="ai-brand">Manual Intraday<em>.</em></div>',
                 unsafe_allow_html=True)
-    badge = ('<span class="ai-mode-live">LIVE — REAL ORDERS</span>' if mcfg["mode"] == "live"
-             else '<span class="ai-mode-paper">PAPER</span>')
-    st.markdown(f"{badge} &nbsp; your own desk — independent of autoIntraday's mode.",
-                unsafe_allow_html=True)
     st.caption("Analyse your live Groww intraday positions with any skill, then place the "
-               "trade from the same screen. Orders here go to YOUR Groww account using this "
-               "page's own mode below — autoIntraday's paper/live setting does not apply.")
-    _autointraday_live_warning()
-
-    positions = _db(lambda s: s.get_broker_positions())
-    fetched_at = _db(lambda s: s.broker_positions_fetched_at())
-    latest = _db(lambda s: s.latest_analysis_run())
-    running = bool(latest and latest["status"] == "RUNNING")
+               "trade from the same screen. Orders use THIS page's mode — autoIntraday's "
+               "paper/live setting does not apply.")
+    _manual_status_strip()
 
     skills = available_skills()
     if not skills:
         st.error("No skills found in ~/.claude/skills")
         return
 
-    top = st.columns([1.4, 2.2, 2.4], vertical_alignment="center")
-    with top[0]:
-        if st.button("Fetch positions", use_container_width=True, disabled=running):
-            try:
-                with st.spinner("Fetching from Groww…"):
-                    _refresh_positions_from_groww()
-            except Exception as e:                                   # noqa: BLE001
-                st.error(f"Could not load positions: {e}")
-            st.rerun()
-    with top[1]:
-        skill = st.selectbox("Skill", skills, key="analysis_skill",
-                             label_visibility="collapsed")
-    with top[2]:
-        if fetched_at:
-            st.caption(f"Positions as of {_fmt_ist(fetched_at) or fetched_at} · "
-                       f"{len(positions)} open")
-        else:
-            st.caption("No positions loaded — click **Fetch positions**.")
-
-    picked: list[str] = []
-    if positions:
-        table = [{"Analyze": False, "Symbol": p["symbol"], "Qty": p.get("quantity"),
-                  "Avg": p.get("avg_price"), "Product": p.get("product")}
-                 for p in positions]
-        edited = st.data_editor(
-            pd.DataFrame(table), hide_index=True, use_container_width=True,
-            disabled=["Symbol", "Qty", "Avg", "Product"], key="analysis_pick",
-            column_config={"Analyze": st.column_config.CheckboxColumn(
-                "Analyze", help="Tick the stocks to send to the chosen skill.")})
-        picked = _selected_symbols(edited.to_dict("records"))
-
-    act = st.columns([1.6, 1.6, 3], vertical_alignment="center")
-    with act[0]:
-        if st.button(f"Analyze {len(picked)} selected", use_container_width=True,
-                     type="primary", disabled=running or not picked):
-            rid = _db(lambda s: s.start_analysis_run(skill, "symbols"))
-            _db(lambda s: s.seed_analysis_results(rid, picked))
-            _launch_analysis(rid)
-            st.rerun()
-    with act[1]:
-        if st.button("Top 5 from this skill", use_container_width=True, disabled=running):
-            rid = _db(lambda s: s.start_analysis_run(skill, "top5"))
-            _launch_analysis(rid)
-            st.rerun()
-    with act[2]:
-        if picked:
-            st.caption(f"{len(picked)} stock(s) x ~2 min ≈ **{len(picked) * 2} minutes**. "
-                       "The run continues if you navigate away.")
-        else:
-            st.caption("Top 5 is a single call — the skill runs its own screen and picks its "
-                       "own names.")
-
-    with st.expander("Manual Intraday settings"):
-        s1, s2 = st.columns(2)
-        want_live = s1.toggle("LIVE mode (places REAL orders on Groww)",
-                              value=mcfg["mode"] == "live", key="manual_mode")
-        cap = s2.number_input("Capital per trade (₹)", min_value=0.0, step=1000.0,
-                              value=float(mcfg["capital_per_trade"]), key="manual_cap")
-        if st.button("Save settings", use_container_width=True):
-            _db(lambda s: s.set_manual_config(mode="live" if want_live else "paper",
-                                              capital_per_trade=float(cap)))
-            st.rerun()
-
-    st.divider()
-    _analysis_live()
-
-    st.divider()
-    st.subheader("Orders placed from this page")
-    _manual_orders_section()
+    section = _url_tabs("mi", ["Positions", "Results", "Orders", "Settings"])
+    if section == "Positions":
+        _mi_positions_tab(skills)
+    elif section == "Results":
+        _mi_results_tab()
+    elif section == "Orders":
+        _mi_orders_tab()
+    else:
+        _mi_settings_tab()
 
 
 def _skill_lab_page() -> None:

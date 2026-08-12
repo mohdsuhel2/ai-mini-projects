@@ -184,3 +184,16 @@ def test_orders_for_display_loses_nothing():
 
 def test_orders_for_display_handles_empty():
     assert dashboard._orders_for_display([]) == []
+
+
+def test_page_uses_url_persisted_tabs():
+    src = open(dashboard.__file__, encoding="utf-8").read()
+    assert '_url_tabs("mi"' in src
+    for label in ('"Positions"', '"Results"', '"Orders"', '"Settings"'):
+        assert label in src
+
+
+def test_mode_pill_distinguishes_live_from_paper():
+    assert "ai-mode-live" in dashboard._mode_pill("live")
+    assert "LIVE" in dashboard._mode_pill("live")
+    assert "ai-mode-paper" in dashboard._mode_pill("paper")
