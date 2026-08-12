@@ -1710,10 +1710,63 @@ def _analysis_levels(r: dict) -> list[tuple[str, str]]:
     return out
 
 
+# A verdict's colour. Exits are RED, not neutral: "EXIT"/"REDUCE" instruct you to get out, and
+# showing that in the same grey as "WAIT" would flatten an instruction into a non-event.
+_TONE_BAD = ("SHORT", "EXIT", "REDUCE", "SELL")
+_TONE_GOOD = ("BUY", "LONG", "IGNITION")
+
+
+def _verdict_tone(verdict) -> str:
+    v = str(verdict or "").upper()
+    if not v:
+        return "flat"
+    if any(w in v for w in _TONE_BAD):
+        return "bad"
+    if any(w in v for w in _TONE_GOOD) or v.strip() == "ADD":
+        return "good"
+    return "flat"
+
+
+def _ticket_open_default(verdict) -> bool:
+    """Open the ticket only when the verdict actually instructs an entry, so a WAIT does not
+    push the other results off the screen."""
+    from manual_broker import side_from_verdict
+    return side_from_verdict(verdict) is not None
+
+
+# Orders that need the operator NOW. FILLED means the entry filled but the OCO did not arm —
+# a live position with no protection resting against it. ERROR is anything else that broke.
+# REJECTED is deliberately absent: nothing reached the market, so there is nothing to fix.
+_ATTENTION_STATES = ("FILLED", "ERROR")
+
+
+def _strip_facts(positions, fetched_at, run, progress, orders) -> dict:
+    """Everything the status strip renders, as plain data."""
+    unprotected = [o for o in (orders or []) if o.get("status") == "FILLED"]
+    errored = [o for o in (orders or []) if o.get("status") == "ERROR"]
+    return {"positions": len(positions or []), "fetched_at": fetched_at,
+            "run_status": run["status"] if run else None,
+            "run_skill": run["skill_id"] if run else None,
+            "run_mode": run["mode"] if run else None,
+            "done": (progress or {}).get("done", 0),
+            "total": (progress or {}).get("total", 0),
+            "errors": (progress or {}).get("errors", 0),
+            "unprotected": unprotected, "errored": errored,
+            "attention": len(unprotected) + len(errored)}
+
+
+def _orders_for_display(orders) -> list:
+    """Attention-first, then the caller's order (the store already returns newest-first)."""
+    att = [o for o in (orders or []) if o.get("status") in _ATTENTION_STATES]
+    rest = [o for o in (orders or []) if o.get("status") not in _ATTENTION_STATES]
+    return att + rest
+
+
 def _analysis_card(r: dict) -> str:
     """The Formatted tab: verdict, conviction, the levels that exist, and the one-liner."""
     import html
-    bits = [f'<span class="ai-averdict">{html.escape(str(r.get("verdict") or "—"))}</span>']
+    bits = [f'<span class="ai-averdict ai-tone-{_verdict_tone(r.get("verdict"))}">'
+            f'{html.escape(str(r.get("verdict") or "—"))}</span>']
     if r.get("conviction") is not None:
         bits.append(f'<span class="ai-aconv">conviction {int(r["conviction"])}</span>')
     levels = _analysis_levels(r)

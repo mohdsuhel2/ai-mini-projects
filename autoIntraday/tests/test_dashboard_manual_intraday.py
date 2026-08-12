@@ -92,3 +92,95 @@ def test_ticket_defaults_survive_a_result_with_no_levels():
     bare = dict(R, entry=None, stop=None, target1=None)
     d = dashboard._ticket_defaults(bare, capital=30000.0)
     assert d["entry"] is None and d["quantity"] == 0
+
+
+# ---- page structure helpers -------------------------------------------------------------
+
+import pytest
+
+
+@pytest.mark.parametrize("verdict", ["BUY NOW", "BUY ON PULLBACK", "IGNITION_BUY", "ADD",
+                                     "MARKET EXCEPTION LONG"])
+def test_entry_verdicts_tone_good(verdict):
+    assert dashboard._verdict_tone(verdict) == "good"
+
+
+@pytest.mark.parametrize("verdict", ["SHORT NOW", "SELL NOW", "EXIT", "REDUCE"])
+def test_exit_and_short_verdicts_tone_bad(verdict):
+    """EXIT/REDUCE are red because they instruct you to get OUT, not to stand still."""
+    assert dashboard._verdict_tone(verdict) == "bad"
+
+
+@pytest.mark.parametrize("verdict", ["WAIT", "HOLD", "NO TRADE", "", None])
+def test_standstill_verdicts_tone_flat(verdict):
+    assert dashboard._verdict_tone(verdict) == "flat"
+
+
+def test_card_carries_the_tone_class():
+    assert "ai-tone-good" in dashboard._analysis_card(R)
+    assert "ai-tone-bad" in dashboard._analysis_card(dict(R, verdict="SHORT NOW"))
+    assert "ai-tone-flat" in dashboard._analysis_card(dict(R, verdict="WAIT"))
+
+
+def test_ticket_opens_only_for_an_actionable_entry():
+    assert dashboard._ticket_open_default("BUY NOW") is True
+    assert dashboard._ticket_open_default("SHORT NOW") is True
+    assert dashboard._ticket_open_default("WAIT") is False
+    assert dashboard._ticket_open_default("EXIT") is False
+
+
+_RUN = {"id": 3, "status": "RUNNING", "skill_id": "intraday-analyst-2", "mode": "symbols"}
+_PROG = {"done": 3, "total": 5, "errors": 1, "pending": 1, "analyzing": 1}
+
+
+def _o(status, oid=1):
+    return {"id": oid, "status": status, "symbol": "KEI"}
+
+
+def test_strip_facts_summarises_positions_and_run():
+    f = dashboard._strip_facts([{"symbol": "KEI"}, {"symbol": "BSE"}], "2026-08-12T04:00:00Z",
+                               _RUN, _PROG, [])
+    assert f["positions"] == 2 and f["fetched_at"] == "2026-08-12T04:00:00Z"
+    assert f["run_status"] == "RUNNING" and f["run_skill"] == "intraday-analyst-2"
+    assert f["done"] == 3 and f["total"] == 5 and f["errors"] == 1
+
+
+def test_strip_facts_with_no_run_at_all():
+    f = dashboard._strip_facts([], None, None, {"done": 0, "total": 0, "errors": 0}, [])
+    assert f["positions"] == 0 and f["run_status"] is None and f["run_skill"] is None
+    assert f["attention"] == 0
+
+
+def test_strip_facts_counts_unprotected_and_errored():
+    """FILLED means the entry filled but the OCO did NOT arm — a live, unprotected position."""
+    orders = [_o("ARMED", 1), _o("FILLED", 2), _o("ERROR", 3), _o("FILLED", 4)]
+    f = dashboard._strip_facts([], None, None, _PROG, orders)
+    assert len(f["unprotected"]) == 2 and len(f["errored"]) == 1
+    assert f["attention"] == 3
+
+
+def test_strip_facts_does_not_flag_rejected_or_closed():
+    """A REJECTED order never reached the market and a CLOSED one is done — neither is urgent."""
+    orders = [_o("REJECTED", 1), _o("CLOSED", 2), _o("ARMED", 3), _o("ENTRY_PENDING", 4)]
+    f = dashboard._strip_facts([], None, None, _PROG, orders)
+    assert f["attention"] == 0
+
+
+def test_orders_for_display_pins_attention_first():
+    orders = [_o("ARMED", 1), _o("CLOSED", 2), _o("FILLED", 3), _o("REJECTED", 4),
+              _o("ERROR", 5)]
+    out = dashboard._orders_for_display(orders)
+    assert [o["id"] for o in out[:2]] == [3, 5]          # FILLED and ERROR pinned
+    assert [o["id"] for o in out[2:]] == [1, 2, 4]       # rest keep their order
+
+
+def test_orders_for_display_loses_nothing():
+    orders = [_o(s, i) for i, s in enumerate(
+        ["ARMED", "FILLED", "CLOSED", "ERROR", "REJECTED", "ENTRY_PENDING", "PLACING"])]
+    out = dashboard._orders_for_display(orders)
+    assert sorted(o["id"] for o in out) == sorted(o["id"] for o in orders)
+    assert len(out) == len(orders)
+
+
+def test_orders_for_display_handles_empty():
+    assert dashboard._orders_for_display([]) == []
