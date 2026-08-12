@@ -857,3 +857,68 @@ def test_analysis_pid_roundtrips():
     rid = store.start_analysis_run("s1", "symbols")
     store.set_analysis_pid(rid, 4242)
     assert store.latest_analysis_run()["pid"] == 4242
+
+
+# ---- Manual Intraday: its own config and order book ------------------------------------
+
+def test_manual_config_defaults_to_paper_and_roundtrips():
+    store = Store(":memory:")
+    cfg = store.get_manual_config()
+    assert cfg["mode"] == "paper" and cfg["capital_per_trade"] == 25000.0
+    store.set_manual_config(mode="live", capital_per_trade=40000.0)
+    cfg = store.get_manual_config()
+    assert cfg["mode"] == "live" and cfg["capital_per_trade"] == 40000.0
+
+
+def test_manual_config_partial_update_keeps_the_rest():
+    store = Store(":memory:")
+    store.set_manual_config(mode="live")
+    assert store.get_manual_config()["capital_per_trade"] == 25000.0
+
+
+def test_manual_config_rejects_unknown_field():
+    store = Store(":memory:")
+    with pytest.raises(StoreError):
+        store.set_manual_config(nonsense=1)
+
+
+def test_manual_order_lifecycle_roundtrips():
+    store = Store(":memory:")
+    oid = store.create_manual_order(symbol="KEI", side="LONG", quantity=16,
+                                    entry_type="MARKET", entry_price=1842.0, stop=1808.0,
+                                    target=1905.0, mode="paper", skill_id="intraday-analyst-2",
+                                    result_id=7)
+    row = store.get_manual_order(oid)
+    assert row["status"] == "PLACING" and row["symbol"] == "KEI" and row["quantity"] == 16
+    assert row["skill_id"] == "intraday-analyst-2" and row["result_id"] == 7
+    assert row["placed_at"]
+
+    store.update_manual_order(oid, status="ENTRY_PENDING", entry_order_id="OID1")
+    store.update_manual_order(oid, status="FILLED", fill_price=1843.5,
+                              filled_at="2026-08-12T04:00:00+00:00")
+    store.update_manual_order(oid, status="ARMED", oco_order_id="OCO1")
+    row = store.get_manual_order(oid)
+    assert row["status"] == "ARMED" and row["oco_order_id"] == "OCO1"
+    assert row["entry_order_id"] == "OID1" and row["fill_price"] == 1843.5
+
+
+def test_manual_orders_newest_first_and_limited():
+    store = Store(":memory:")
+    a = store.create_manual_order(symbol="A", side="LONG", quantity=1, entry_type="MARKET",
+                                  entry_price=10.0, stop=9.0, target=12.0, mode="paper")
+    b = store.create_manual_order(symbol="B", side="SHORT", quantity=1, entry_type="LIMIT",
+                                  entry_price=10.0, stop=11.0, target=8.0, mode="live")
+    assert [r["id"] for r in store.get_manual_orders()] == [b, a]
+    assert len(store.get_manual_orders(limit=1)) == 1
+
+
+def test_update_manual_order_rejects_unknown_field():
+    store = Store(":memory:")
+    oid = store.create_manual_order(symbol="A", side="LONG", quantity=1, entry_type="MARKET",
+                                    entry_price=10.0, stop=9.0, target=12.0, mode="paper")
+    with pytest.raises(StoreError):
+        store.update_manual_order(oid, nonsense=1)
+
+
+def test_get_manual_order_unknown_is_none():
+    assert Store(":memory:").get_manual_order(999) is None

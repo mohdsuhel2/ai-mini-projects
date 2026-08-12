@@ -433,6 +433,36 @@ CREATE TABLE IF NOT EXISTS broker_positions (
     product TEXT,
     fetched_at TEXT NOT NULL
 );
+-- Manual Intraday's OWN settings and order book. Separate from the config/positions tables
+-- on purpose: that page is the operator's desk, not part of autoIntraday, and takes its
+-- paper/live mode from here rather than from the trading config.
+CREATE TABLE IF NOT EXISTS manual_config (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    mode TEXT NOT NULL DEFAULT 'paper',
+    capital_per_trade REAL NOT NULL DEFAULT 25000,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS manual_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    entry_type TEXT NOT NULL,
+    entry_price REAL,
+    stop REAL,
+    target REAL,
+    mode TEXT NOT NULL,
+    status TEXT NOT NULL,
+    entry_order_id TEXT,
+    oco_order_id TEXT,
+    fill_price REAL,
+    placed_at TEXT NOT NULL,
+    filled_at TEXT,
+    closed_at TEXT,
+    error TEXT,
+    skill_id TEXT,
+    result_id INTEGER
+);
 CREATE TABLE IF NOT EXISTS analysis_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
@@ -1488,6 +1518,70 @@ class Store:
         rows = self._conn.execute(
             "SELECT * FROM analysis_results WHERE run_id = ? ORDER BY id", (run_id,)).fetchall()
         return [dict(r) for r in rows]
+
+    # ---- Manual Intraday: its own config and order book ----------------------------------
+    _MANUAL_CONFIG_FIELDS = ("mode", "capital_per_trade")
+
+    def get_manual_config(self) -> dict:
+        """Manual Intraday's OWN mode and sizing — never autoIntraday's. Seeded on first read
+        so the page works on an existing database with no migration step."""
+        r = self._conn.execute("SELECT * FROM manual_config WHERE id = 1").fetchone()
+        if r is None:
+            self._conn.execute(
+                "INSERT INTO manual_config (id, mode, capital_per_trade, updated_at) "
+                "VALUES (1, 'paper', 25000, ?)", (_utc_now(),))
+            self._conn.commit()
+            r = self._conn.execute("SELECT * FROM manual_config WHERE id = 1").fetchone()
+        return {"mode": r["mode"], "capital_per_trade": float(r["capital_per_trade"])}
+
+    def set_manual_config(self, **fields) -> None:
+        unknown = set(fields) - set(self._MANUAL_CONFIG_FIELDS)
+        if unknown:
+            raise StoreError(f"unknown manual config field(s): {', '.join(sorted(unknown))}")
+        if not fields:
+            return
+        self.get_manual_config()                 # ensure the row exists
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        self._conn.execute(f"UPDATE manual_config SET {sets}, updated_at = ? WHERE id = 1",
+                           [*fields.values(), _utc_now()])
+        self._conn.commit()
+
+    _MANUAL_ORDER_FIELDS = ("status", "entry_order_id", "oco_order_id", "fill_price",
+                            "filled_at", "closed_at", "error", "stop", "target", "quantity")
+
+    def create_manual_order(self, symbol: str, side: str, quantity: int, entry_type: str,
+                            entry_price, stop, target, mode: str,
+                            skill_id: str | None = None,
+                            result_id: int | None = None) -> int:
+        cur = self._conn.execute(
+            "INSERT INTO manual_orders (symbol, side, quantity, entry_type, entry_price, "
+            "stop, target, mode, status, placed_at, skill_id, result_id) "
+            "VALUES (?,?,?,?,?,?,?,?, 'PLACING', ?,?,?)",
+            (symbol, side, int(quantity), entry_type, entry_price, stop, target, mode,
+             _utc_now(), skill_id, result_id))
+        self._conn.commit()
+        return int(cur.lastrowid)
+
+    def update_manual_order(self, order_id: int, **fields) -> None:
+        unknown = set(fields) - set(self._MANUAL_ORDER_FIELDS)
+        if unknown:
+            raise StoreError(f"unknown manual order field(s): {', '.join(sorted(unknown))}")
+        if not fields:
+            return
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        self._conn.execute(f"UPDATE manual_orders SET {sets} WHERE id = ?",
+                           [*fields.values(), order_id])
+        self._conn.commit()
+
+    def get_manual_orders(self, limit: int = 50) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM manual_orders ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_manual_order(self, order_id: int) -> dict | None:
+        r = self._conn.execute("SELECT * FROM manual_orders WHERE id = ?",
+                               (order_id,)).fetchone()
+        return dict(r) if r else None
 
     def start_swing_run(self) -> int:
         cur = self._conn.execute(
