@@ -2188,10 +2188,13 @@ def _refresh_positions_from_groww() -> None:
     deliberately not fetched here."""
     from settings import load_settings
     from groww_client import GrowwClient
+    from manual_broker import net_positions
     load_settings().apply_to_environ()
     client = GrowwClient(mode="live")
     client.authenticate()
-    positions = client.get_positions()
+    # Groww returns one row per LEG and includes CNC rows; net to one MIS row per symbol
+    # before anything touches a table keyed by symbol.
+    positions = net_positions(client.get_positions())
     try:
         # A quote failure degrades to a plain refresh — the price is an enrichment, not a
         # requirement, and losing the book because a quote timed out would be absurd.

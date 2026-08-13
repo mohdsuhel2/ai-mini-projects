@@ -201,3 +201,65 @@ def test_rejected_entry_raises_with_the_reason():
 
 def test_mode_defaults_to_paper():
     assert ManualBroker().mode == "paper"
+
+
+# ---- netting the broker's position legs -------------------------------------------------
+
+from manual_broker import net_positions
+
+
+def test_multiple_legs_of_one_symbol_are_netted():
+    """Groww returns one row PER LEG, not per symbol. Inserting them verbatim into a
+    symbol-keyed table raised 'UNIQUE constraint failed: broker_positions.symbol'."""
+    out = net_positions([
+        {"symbol": "KEI", "quantity": 10, "avg_price": 100.0, "product": "MIS"},
+        {"symbol": "KEI", "quantity": 5, "avg_price": 102.0, "product": "MIS"}])
+    assert len(out) == 1
+    assert out[0]["symbol"] == "KEI" and out[0]["quantity"] == 15
+
+
+def test_delivery_rows_are_excluded():
+    """CNC rows are the delivery portfolio — the Swing page's job, not this page's, and a
+    CNC row colliding with an MIS one for the same stock is what triggered the crash."""
+    out = net_positions([
+        {"symbol": "KEI", "quantity": 10, "avg_price": 100.0, "product": "MIS"},
+        {"symbol": "KEI", "quantity": 40, "avg_price": 90.0, "product": "CNC"},
+        {"symbol": "AARTIIND", "quantity": 100, "avg_price": 500.0, "product": "CNC"}])
+    assert [r["symbol"] for r in out] == ["KEI"]
+    assert out[0]["quantity"] == 10          # the CNC 40 is not added in
+
+
+def test_legs_that_net_to_flat_are_dropped():
+    out = net_positions([
+        {"symbol": "KEI", "quantity": 10, "avg_price": 100.0, "product": "MIS"},
+        {"symbol": "KEI", "quantity": -10, "avg_price": 105.0, "product": "MIS"}])
+    assert out == []
+
+
+def test_a_net_short_survives_as_a_negative_quantity():
+    out = net_positions([
+        {"symbol": "MCX", "quantity": 4, "avg_price": 100.0, "product": "MIS"},
+        {"symbol": "MCX", "quantity": -10, "avg_price": 100.0, "product": "MIS"}])
+    assert out[0]["quantity"] == -6
+
+
+def test_missing_product_is_treated_as_mis():
+    out = net_positions([{"symbol": "KEI", "quantity": 10, "avg_price": 100.0}])
+    assert [r["symbol"] for r in out] == ["KEI"]
+
+
+def test_rows_without_a_symbol_are_skipped():
+    out = net_positions([{"quantity": 10, "avg_price": 100.0, "product": "MIS"},
+                         {"symbol": "KEI", "quantity": 1, "avg_price": 100.0,
+                          "product": "MIS"}])
+    assert [r["symbol"] for r in out] == ["KEI"]
+
+
+def test_ltp_rides_through_when_present():
+    out = net_positions([{"symbol": "KEI", "quantity": 10, "avg_price": 100.0,
+                          "product": "MIS", "ltp": 110.0}])
+    assert out[0]["ltp"] == 110.0
+
+
+def test_empty_input_is_empty_output():
+    assert net_positions([]) == [] and net_positions(None) == []

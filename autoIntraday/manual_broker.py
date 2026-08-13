@@ -135,6 +135,41 @@ def validate_bracket(side, entry, stop, target, quantity) -> None:
                 f"a SHORT target must sit BELOW entry (target {t} >= entry {e})")
 
 
+def net_positions(rows) -> list[dict]:
+    """Collapse Groww's raw position rows into ONE row per symbol, intraday only.
+
+    `get_positions` returns a row per LEG, not per symbol, and includes CNC (delivery) rows
+    alongside MIS ones. Persisting them verbatim into a symbol-keyed table raised
+    "UNIQUE constraint failed: broker_positions.symbol", and would also have shown the
+    delivery portfolio — the Swing page's job — as intraday positions.
+
+    Mirrors orchestrator._broker_state, the proven reference for this payload: filter to MIS,
+    sum the quantities, and take the average from the last leg that carries one. That average
+    is approximate when legs genuinely differ (a partial exit leaves the remaining shares at
+    the original cost, not a blend); the netted quantity is the number that must be right, and
+    it is.
+
+    A symbol whose legs net to zero is dropped — it is flat, not held."""
+    out: dict[str, dict] = {}
+    for p in (rows or []):
+        if str(p.get("product") or "MIS").upper() != "MIS":
+            continue
+        sym = p.get("symbol")
+        if not sym:
+            continue
+        row = out.setdefault(sym, {"symbol": sym, "quantity": 0, "avg_price": None,
+                                   "product": "MIS", "ltp": None})
+        try:
+            row["quantity"] += int(p.get("quantity") or 0)
+        except (TypeError, ValueError):
+            continue
+        if p.get("avg_price"):
+            row["avg_price"] = float(p["avg_price"])
+        if p.get("ltp") is not None:
+            row["ltp"] = p["ltp"]
+    return [r for r in out.values() if r["quantity"] != 0]
+
+
 class ManualBroker:
     """Thin, testable wrapper over GrowwClient for the Manual Intraday desk."""
 
