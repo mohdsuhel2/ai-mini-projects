@@ -119,5 +119,8 @@ def test_eta_column_renders_and_hides():
 
 
 def test_expanded_row_shows_both_leg_etas():
+    """Both legs carry an ETA annotation. Asserted on "· ETA " rather than "ETA ~" because a
+    due date that has passed renders as "was due 12 Aug" — the earlier assertion silently
+    became date-dependent and broke once the seeded dates fell into the past."""
     h = dashboard._swing_table_html([VE], running=False)
-    assert h.count("ETA ~") >= 2   # swing + short-swing lines both carry an ETA
+    assert h.count("· ETA ") >= 2   # swing + short-swing lines both carry an ETA

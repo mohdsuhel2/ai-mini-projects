@@ -1960,6 +1960,41 @@ def _autointraday_live_warning() -> None:
                    "Pause it, or expect it to take these trades over.", icon="⚠️")
 
 
+def _stop_analysis_job(run_id: int) -> None:
+    """Mark the run STOPPED and best-effort signal its process. The DB state is what unlocks
+    the page, so it is written first and the kill is allowed to fail — the process may already
+    be gone, which is exactly the case this exists for."""
+    import signal
+    pid = _db(lambda s: s.stop_analysis_run(run_id))
+    if pid:
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, TypeError, ValueError):
+            pass
+
+
+def _notice(kind: str, text: str) -> None:
+    """Record a durable receipt for the next render. Toasts vanish in seconds and placing an
+    order also switches tabs, so a toast alone can be missed entirely."""
+    st.session_state["mi_notice"] = {"kind": kind, "text": text}
+
+
+def _render_notice() -> None:
+    n = st.session_state.get("mi_notice")
+    if not n:
+        return
+    {"ok": st.success, "warn": st.warning, "err": st.error}.get(n["kind"], st.info)(n["text"])
+
+
+def _show_error(prefix: str, exc: Exception) -> None:
+    """Headline in plain language, raw text kept one click away — never hidden."""
+    head, raw = _friendly_error(exc)
+    st.error(f"{prefix}: {head}")
+    if raw and raw != head:
+        with st.expander("Technical detail"):
+            st.code(raw)
+
+
 def _mode_pill(mode: str) -> str:
     return ('<span class="ai-mode-live">LIVE — REAL ORDERS</span>' if mode == "live"
             else '<span class="ai-mode-paper">PAPER</span>')
@@ -1974,9 +2009,14 @@ def _manual_status_strip() -> None:
     run = _db(lambda s: s.latest_analysis_run())
     prog = (_db(lambda s: s.analysis_progress(run["id"]))
             if run else {"done": 0, "total": 0, "errors": 0})
+    orders = _db(lambda s: s.get_manual_orders(limit=50))
     f = _strip_facts(_db(lambda s: s.get_broker_positions()),
                      _db(lambda s: s.broker_positions_fetched_at()),
-                     run, prog, _db(lambda s: s.get_manual_orders(limit=50)))
+                     run, prog, orders)
+    last_activity = _db(lambda s: s.analysis_last_activity(run["id"])) if run else None
+    health = _run_health(run, last_activity, datetime.now(timezone.utc),
+                         _pid_alive(run.get("pid")) if run else False)
+    elapsed = _age_seconds((run or {}).get("started_at")) or 0
     with st.container(border=True):
         c1, c2, c3 = st.columns([1.1, 1.3, 2.6], vertical_alignment="center")
         c1.markdown(_mode_pill(cfg["mode"]), unsafe_allow_html=True)
@@ -1984,11 +2024,11 @@ def _manual_status_strip() -> None:
         c2.markdown(f'<span class="ai-strip-fact"><b>{f["positions"]}</b> positions'
                     + (f' · {when}' if when else ' · not fetched')
                     + '</span>', unsafe_allow_html=True)
-        if f["run_status"] == "RUNNING":
-            total = f["total"] or 1
-            c3.progress(f["done"] / total,
-                        text=f"⏳ {f['run_skill']} — {f['done']}/{f['total'] or '?'}"
-                             + (f" · {f['errors']} errors" if f["errors"] else ""))
+        if f["run_status"] == "RUNNING" and health != "dead":
+            # A top-5 run is ONE call, so a fraction would be a lie — show an idle bar and let
+            # the text carry the elapsed time instead.
+            frac = 0.0 if f["run_mode"] == "top5" else min(1.0, f["done"] / (f["total"] or 1))
+            c3.progress(frac, text=_run_progress_text(run, prog, elapsed))
         elif f["run_skill"]:
             c3.markdown(f'<span class="ai-strip-fact">last run '
                         f'<b>{html.escape(str(f["run_skill"]))}</b> · '
@@ -1996,12 +2036,33 @@ def _manual_status_strip() -> None:
         else:
             c3.markdown('<span class="ai-strip-fact">no analysis run yet</span>',
                         unsafe_allow_html=True)
+        if health == "dead":
+            st.error(f"The analysis job for run #{run['id']} is no longer running (started "
+                     f"{_fmt_duration(elapsed)} ago). Nothing is being analysed, and the "
+                     f"buttons stay locked until this run is cleared.")
+        elif health == "stalled":
+            st.info(f"No stock has finished for "
+                    f"{_fmt_duration(_age_seconds(last_activity) or elapsed)} — the skill may "
+                    f"still be thinking. Stop the run if it looks wedged.")
+        if f["run_status"] == "RUNNING":
+            if st.button("⏹ Stop run", key=f"mi_stop_{run['id']}"):
+                _stop_analysis_job(run["id"])
+                _notice("warn", f"Run #{run['id']} stopped.")
+                # scope="app": this is a fragment, and a plain rerun would refresh only the
+                # strip, leaving the Positions tab's buttons disabled.
+                st.rerun(scope="app")
         if f["unprotected"]:
             syms = ", ".join(sorted({o["symbol"] for o in f["unprotected"]}))
             st.error(f"⚠ {len(f['unprotected'])} position(s) FILLED but exits NOT armed "
                      f"({syms}) — live and UNPROTECTED. Open **Orders** and fix now.")
         if f["errored"]:
             st.warning(f"{len(f['errored'])} order(s) errored — see **Orders**.")
+        inflight = _inflight_orders(orders)
+        if inflight:
+            bits = ", ".join(
+                f"{o['symbol']} ({_fmt_duration(_age_seconds(o['placed_at']) or 0)})"
+                for o in inflight)
+            st.info(f"{len(inflight)} order(s) still working at the broker — {bits}.")
     _autointraday_live_warning()
 
 
@@ -2059,6 +2120,8 @@ def _order_ticket_body(r: dict, cfg: dict, skill_id: str | None = None) -> None:
             entry_price=entry or None, stop=stop or None, target=target or None,
             mode=cfg["mode"], skill_id=skill_id, result_id=r.get("id")))
         _launch_manual_order(oid)
+        _notice("ok", f"Order #{oid} sent — {cfg['mode'].upper()} {side} {int(qty)} "
+                      f"{r['symbol']}, {etype} entry. Track it under **Orders**.")
         st.toast(f"{cfg['mode'].upper()} order sent for {r['symbol']}", icon="📤")
         st.rerun()
 
@@ -2101,10 +2164,14 @@ def _mi_positions_tab(skills: list) -> None:
     with top[0]:
         if st.button("Fetch positions", use_container_width=True, disabled=running):
             try:
-                with st.spinner("Fetching from Groww…"):
+                with st.spinner("Authenticating with Groww and fetching your intraday "
+                                "position book…"):
                     _refresh_positions_from_groww()
+                n = len(_db(lambda s: s.get_broker_positions()))
+                _notice("ok", f"Fetched {n} intraday position(s) from Groww.")
             except Exception as e:                                   # noqa: BLE001
-                st.error(f"Could not load positions: {e}")
+                _show_error("Could not load positions", e)
+                st.stop()
             st.rerun()
     with top[1]:
         skill = st.selectbox("Skill", skills, key="analysis_skill",
@@ -2208,6 +2275,7 @@ def _mi_orders_tab() -> None:
             st.caption(f"{o['entry_type']} entry {o['entry_price'] or '—'} · stop {o['stop']} "
                        f"· target {o['target']} · placed {_fmt_ist_short(o['placed_at']) or ''}"
                        + (f" · filled @ {o['fill_price']}" if o["fill_price"] else ""))
+            st.caption(_MANUAL_STATUS_HELP.get(o["status"], ""))
             if o["error"]:
                 st.error(o["error"])
             if o["status"] != "ARMED":
@@ -2222,20 +2290,24 @@ def _mi_orders_tab() -> None:
                 try:
                     ManualBroker(mode=o["mode"]).modify_exits(o["oco_order_id"], new_t, new_s)
                     _db(lambda s: s.update_manual_order(o["id"], target=new_t, stop=new_s))
+                    _notice("ok", f"Order #{o['id']} ({o['symbol']}) exits moved — target "
+                                  f"{new_t}, stop {new_s}.")
                     st.toast("Exits updated", icon="✅")
+                    st.rerun(scope="app")
                 except Exception as ex:                              # noqa: BLE001
-                    st.error(f"Could not modify: {ex}")
-                st.rerun()
+                    _show_error("Could not modify the exits", ex)
             if b2.button("Square off", key=f"mo{o['id']}_sq", use_container_width=True):
                 try:
                     ManualBroker(mode=o["mode"]).square_off(
                         o["symbol"], o["side"], o["quantity"], o["oco_order_id"])
                     _db(lambda s: s.update_manual_order(o["id"], status="CLOSED",
                                                         closed_at=_utc_iso()))
+                    _notice("ok", f"Order #{o['id']} ({o['symbol']}) squared off — resting "
+                                  f"OCO cancelled and a market exit sent.")
                     st.toast("Squared off", icon="✅")
+                    st.rerun(scope="app")
                 except Exception as ex:                              # noqa: BLE001
-                    st.error(f"Could not square off: {ex}")
-                st.rerun()
+                    _show_error("Could not square off", ex)
 
 
 def _mi_settings_tab() -> None:
@@ -2264,6 +2336,7 @@ def _manual_intraday_page() -> None:
                "trade from the same screen. Orders use THIS page's mode — autoIntraday's "
                "paper/live setting does not apply.")
     _manual_status_strip()
+    _render_notice()
 
     skills = available_skills()
     if not skills:

@@ -317,3 +317,10 @@ def test_every_order_status_has_an_explanation():
     for status in ("PLACING", "ENTRY_PENDING", "FILLED", "ARMED", "REJECTED", "CLOSED",
                    "ERROR"):
         assert dashboard._MANUAL_STATUS_HELP[status].strip()
+
+
+def test_notice_helpers_round_trip_through_session_state():
+    dashboard.st.session_state.clear()
+    dashboard._notice("ok", "Order #12 sent")
+    assert dashboard.st.session_state["mi_notice"]["text"] == "Order #12 sent"
+    assert dashboard.st.session_state["mi_notice"]["kind"] == "ok"
