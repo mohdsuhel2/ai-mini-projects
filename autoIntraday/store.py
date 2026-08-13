@@ -431,6 +431,7 @@ CREATE TABLE IF NOT EXISTS broker_positions (
     quantity INTEGER,
     avg_price REAL,
     product TEXT,
+    ltp REAL,
     fetched_at TEXT NOT NULL
 );
 -- Manual Intraday's OWN settings and order book. Separate from the config/positions tables
@@ -698,6 +699,11 @@ class Store:
             self._conn.execute("ALTER TABLE swing_verdicts ADD COLUMN swing_eta_days INTEGER")
         if vcols and "ss_eta_days" not in vcols:
             self._conn.execute("ALTER TABLE swing_verdicts ADD COLUMN ss_eta_days INTEGER")
+        # broker_positions predates the ltp column in every live database, and
+        # CREATE TABLE IF NOT EXISTS silently skips an existing table — only ALTER adds it.
+        bpcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(broker_positions)")}
+        if bpcols and "ltp" not in bpcols:
+            self._conn.execute("ALTER TABLE broker_positions ADD COLUMN ltp REAL")
         hcols = {r["name"] for r in self._conn.execute("PRAGMA table_info(holdings)")}
         if hcols and "ltp" not in hcols:
             self._conn.execute("ALTER TABLE holdings ADD COLUMN ltp REAL")
@@ -1418,14 +1424,15 @@ class Store:
         self._conn.execute("DELETE FROM broker_positions")
         for p in positions:
             self._conn.execute(
-                "INSERT INTO broker_positions (symbol, quantity, avg_price, product, "
-                "fetched_at) VALUES (?,?,?,?,?)",
-                (p["symbol"], p.get("quantity"), p.get("avg_price"), p.get("product"), now))
+                "INSERT INTO broker_positions (symbol, quantity, avg_price, product, ltp, "
+                "fetched_at) VALUES (?,?,?,?,?,?)",
+                (p["symbol"], p.get("quantity"), p.get("avg_price"), p.get("product"),
+                 p.get("ltp"), now))
         self._conn.commit()
 
     def get_broker_positions(self) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT symbol, quantity, avg_price, product, fetched_at "
+            "SELECT symbol, quantity, avg_price, product, ltp, fetched_at "
             "FROM broker_positions ORDER BY symbol").fetchall()
         return [dict(r) for r in rows]
 

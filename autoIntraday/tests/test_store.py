@@ -963,3 +963,32 @@ def test_analysis_last_activity_is_the_newest_completion():
     assert first
     store.update_analysis_result(rid, "B", "ERROR", error="boom")
     assert store.analysis_last_activity(rid) >= first
+
+
+def test_broker_positions_store_the_live_price():
+    store = Store(":memory:")
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
+                                     "product": "MIS", "ltp": 1868.0}])
+    assert store.get_broker_positions()[0]["ltp"] == 1868.0
+
+
+def test_broker_positions_tolerate_a_missing_price():
+    store = Store(":memory:")
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 1830.5,
+                                     "product": "MIS"}])
+    assert store.get_broker_positions()[0]["ltp"] is None
+
+
+def test_ltp_column_is_migrated_onto_an_older_database(tmp_path):
+    """broker_positions already exists in the live DB, so CREATE TABLE IF NOT EXISTS would
+    silently skip the new column — only an ALTER TABLE adds it."""
+    import sqlite3 as _sq
+    db = str(tmp_path / "old.db")
+    con = _sq.connect(db)
+    con.execute("CREATE TABLE broker_positions (symbol TEXT PRIMARY KEY, quantity INTEGER, "
+                "avg_price REAL, product TEXT, fetched_at TEXT NOT NULL)")
+    con.commit()
+    con.close()
+    store = Store(db)
+    cols = {r["name"] for r in store._conn.execute("PRAGMA table_info(broker_positions)")}
+    assert "ltp" in cols
