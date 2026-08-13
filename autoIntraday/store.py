@@ -1519,6 +1519,30 @@ class Store:
             "SELECT * FROM analysis_results WHERE run_id = ? ORDER BY id", (run_id,)).fetchall()
         return [dict(r) for r in rows]
 
+    def stop_analysis_run(self, run_id: int) -> int | None:
+        """Mark the run STOPPED and reset any mid-flight symbol back to PENDING. Returns the
+        stored pid (None if never set) so the caller can signal the process. Mirrors
+        stop_swing_run. The page treats anything other than RUNNING as unlocked, so this is
+        also the recovery path when a detached job has died."""
+        row = self._conn.execute(
+            "SELECT pid FROM analysis_runs WHERE id = ?", (run_id,)).fetchone()
+        self._conn.execute(
+            "UPDATE analysis_results SET status = 'PENDING' "
+            "WHERE run_id = ? AND status = 'ANALYZING'", (run_id,))
+        self._conn.execute(
+            "UPDATE analysis_runs SET status = 'STOPPED', finished_at = ? WHERE id = ?",
+            (_utc_now(), run_id))
+        self._conn.commit()
+        return row["pid"] if row else None
+
+    def analysis_last_activity(self, run_id: int) -> str | None:
+        """When a row of this run last reached a terminal state. Used to tell a slow run from
+        a stalled one without pulling every report body on a 4-second refresh."""
+        r = self._conn.execute(
+            "SELECT MAX(analyzed_at) AS t FROM analysis_results WHERE run_id = ?",
+            (run_id,)).fetchone()
+        return r["t"] if r and r["t"] else None
+
     # ---- Manual Intraday: its own config and order book ----------------------------------
     _MANUAL_CONFIG_FIELDS = ("mode", "capital_per_trade")
 

@@ -922,3 +922,44 @@ def test_update_manual_order_rejects_unknown_field():
 
 def test_get_manual_order_unknown_is_none():
     assert Store(":memory:").get_manual_order(999) is None
+
+
+def test_stop_analysis_run_marks_stopped_and_returns_pid():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("intraday-analyst-2", "symbols")
+    store.set_analysis_pid(rid, 4242)
+    store.seed_analysis_results(rid, ["KEI", "BSE"])
+    store.update_analysis_result(rid, "KEI", "ANALYZING")
+    assert store.stop_analysis_run(rid) == 4242
+    assert store.latest_analysis_run()["status"] == "STOPPED"
+    rows = {r["symbol"]: r for r in store.get_analysis_results(rid)}
+    assert rows["KEI"]["status"] == "PENDING"        # mid-flight row reset
+    assert rows["BSE"]["status"] == "PENDING"
+
+
+def test_stop_analysis_run_without_a_pid_returns_none():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("s", "top5")
+    assert store.stop_analysis_run(rid) is None
+    assert store.latest_analysis_run()["status"] == "STOPPED"
+
+
+def test_stop_analysis_run_leaves_finished_rows_alone():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("s", "symbols")
+    store.seed_analysis_results(rid, ["KEI"])
+    store.update_analysis_result(rid, "KEI", "DONE", item=_item(), raw="{}")
+    store.stop_analysis_run(rid)
+    assert store.get_analysis_results(rid)[0]["status"] == "DONE"
+
+
+def test_analysis_last_activity_is_the_newest_completion():
+    store = Store(":memory:")
+    rid = store.start_analysis_run("s", "symbols")
+    store.seed_analysis_results(rid, ["A", "B"])
+    assert store.analysis_last_activity(rid) is None      # nothing finished yet
+    store.update_analysis_result(rid, "A", "DONE", item=_item("A"), raw="{}")
+    first = store.analysis_last_activity(rid)
+    assert first
+    store.update_analysis_result(rid, "B", "ERROR", error="boom")
+    assert store.analysis_last_activity(rid) >= first
