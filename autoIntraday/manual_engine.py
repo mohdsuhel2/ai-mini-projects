@@ -136,6 +136,72 @@ def _loads(text: str) -> dict:
             raise ManualEngineError(f"could not parse JSON: {e}") from e
 
 
+def position_pnl(position) -> dict | None:
+    """Unrealised P&L on a held intraday position, or None when the price, average or size is
+    unknown — never a fabricated zero.
+
+    Groww reports a SHORT as a negative quantity, so `(ltp - avg) * quantity` is right for both
+    sides with no branching: a short whose price fell multiplies two negatives into a profit.
+    The percentage is sign-corrected the same way, so that short reads as a gain, not a loss."""
+    if not position:
+        return None
+    try:
+        qty = int(position.get("quantity") or 0)
+        avg = float(position.get("avg_price") or 0)
+        ltp = float(position.get("ltp") or 0)
+    except (TypeError, ValueError):
+        return None
+    if qty == 0 or avg <= 0 or ltp <= 0:
+        return None
+    sign = 1 if qty > 0 else -1
+    return {"pnl": (ltp - avg) * qty,
+            "pct": (ltp - avg) / avg * 100.0 * sign,
+            "side": "LONG" if qty > 0 else "SHORT",
+            "value": abs(qty) * ltp}
+
+
+def held_line(position) -> str:
+    """What the operator holds, and what it is currently worth to them."""
+    if not position:
+        return ""
+    txt = (f"You currently HOLD this: {position.get('quantity')} shares @ avg "
+           f"₹{position.get('avg_price')} ({position.get('product') or 'MIS'}).")
+    p = position_pnl(position)
+    if p:
+        txt += (f"\nLive price ₹{position.get('ltp')} — unrealised {p['pnl']:+,.0f} "
+                f"({p['pct']:+.2f}%) on ₹{p['value']:,.0f} of exposure.")
+    return txt
+
+
+def resting_line(resting) -> str:
+    """Exits already live at the broker for this symbol. Without this the skill quotes fresh
+    levels as though the position were unprotected, and nothing tells the operator that acting
+    on them REPLACES what is already resting."""
+    if not resting:
+        return ""
+    stop, target = resting.get("stop"), resting.get("target")
+    if stop is None and target is None:
+        return ""
+    return (f"You ALREADY have exits resting at Groww from an earlier order: "
+            f"stop ₹{stop}, target ₹{target} on {resting.get('quantity')} shares. "
+            f"New levels REPLACE these, they do not add to them.")
+
+
+def book_summary(positions) -> str:
+    """The whole open book, for the screening mode — so a pick you already hold is called out
+    rather than presented as a fresh idea."""
+    rows = [p for p in (positions or []) if p.get("symbol")]
+    if not rows:
+        return ""
+    bits = []
+    for p in rows:
+        pnl = position_pnl(p)
+        bits.append(f"{p['symbol']} {p.get('quantity')} @ {p.get('avg_price')}"
+                    + (f" ({pnl['pct']:+.2f}%)" if pnl else ""))
+    return ("Positions you already hold: " + ", ".join(bits)
+            + ". Say so plainly if a pick is something already held.")
+
+
 class ManualSkillEngine:
     """Runs ONE installed skill, either on a named symbol or as its own top-5 screen."""
 
@@ -179,23 +245,29 @@ class ManualSkillEngine:
             raise ManualEngineError(f"claude CLI returned empty output for {self.skill_id}")
         return out, _loads(_result_text(out))
 
-    def run_symbol(self, symbol: str, position: dict | None = None) -> dict:
-        """Full analysis of ONE symbol. `position` (quantity/avg_price/product) is passed to
-        the skill as held-position context so its exit logic can engage."""
+    def run_symbol(self, symbol: str, position: dict | None = None,
+                   resting: dict | None = None) -> dict:
+        """Full analysis of ONE symbol, with everything decision-relevant about an existing
+        position: size, average, live price, unrealised P&L, and any exits already resting."""
+        parts = [f"Analyze {symbol.upper()} now."]
         if position:
-            ctx = (f"You currently HOLD this: {position.get('quantity')} @ avg "
-                   f"₹{position.get('avg_price')} ({position.get('product') or 'MIS'}).")
+            parts.append(held_line(position))
+            rest = resting_line(resting)
+            if rest:
+                parts.append(rest)
         else:
-            ctx = "You have no open position in this stock — judge it as a fresh entry."
-        msg = f"Analyze {symbol.upper()} now.\n{ctx}"
-        raw, obj = self._call("one", ONE_SCHEMA, msg)
+            parts.append("You have no open position in this stock — judge it as a fresh entry.")
+        raw, obj = self._call("one", ONE_SCHEMA, "\n".join(parts))
         return dict(_parse_item(obj, symbol), raw=raw)
 
-    def run_top5(self) -> list[dict]:
+    def run_top5(self, positions=None) -> list[dict]:
         """The skill's own screen — it picks the names. One call, up to MAX_PICKS items."""
-        msg = (f"Run your screening mode and give me your top {MAX_PICKS} candidates right "
-               "now, best first.")
-        raw, obj = self._call("top5", TOP5_SCHEMA, msg)
+        parts = [f"Run your screening mode and give me your top {MAX_PICKS} candidates right "
+                 "now, best first."]
+        book = book_summary(positions)
+        if book:
+            parts.append(book)
+        raw, obj = self._call("top5", TOP5_SCHEMA, "\n".join(parts))
         picks = obj.get("picks")
         if not isinstance(picks, list):
             raise ManualEngineError(f"reply missing 'picks' list: {str(obj)[:200]!r}")
