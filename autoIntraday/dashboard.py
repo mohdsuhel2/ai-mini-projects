@@ -1771,6 +1771,22 @@ _RESULT_WIP_LABEL = {"ANALYZING": "⏳ analyzing", "PENDING": "· waiting",
                      "ERROR": "⚠ error"}
 
 
+def _position_table_rows(positions) -> list[dict]:
+    """The Positions table, carrying the same P&L the skill is told about. An unknown price
+    leaves the cells blank rather than showing a zero that reads as break-even."""
+    from manual_engine import position_pnl
+    rows = []
+    for p in (positions or []):
+        pnl = position_pnl(p)
+        rows.append({"Analyze": False, "Symbol": p.get("symbol"),
+                     "Qty": p.get("quantity"), "Avg": p.get("avg_price"),
+                     "LTP": p.get("ltp"),
+                     "P&L": round(pnl["pnl"], 2) if pnl else None,
+                     "P&L %": round(pnl["pct"], 2) if pnl else None,
+                     "Product": p.get("product")})
+    return rows
+
+
 def _results_table_rows(results) -> list[dict]:
     """One comparable row per result, in the RUN'S OWN ORDER — a top-5 run returns its picks
     best-first and re-sorting here would silently throw that ranking away. Unknown numbers stay
@@ -2167,14 +2183,24 @@ _MANUAL_STATUS_LABEL = {"PLACING": "· sending", "ENTRY_PENDING": "⏳ waiting f
 
 
 def _refresh_positions_from_groww() -> None:
-    """Fetch the intraday (MIS) position book and persist the snapshot. Delivery holdings are
-    the Swing page's job and deliberately not fetched here."""
+    """Fetch the intraday (MIS) position book and persist the snapshot, with live prices so the
+    page and the skill both see the same P&L. Delivery holdings are the Swing page's job and
+    deliberately not fetched here."""
     from settings import load_settings
     from groww_client import GrowwClient
     load_settings().apply_to_environ()
     client = GrowwClient(mode="live")
     client.authenticate()
-    _db(lambda s: s.replace_broker_positions(client.get_positions()))
+    positions = client.get_positions()
+    try:
+        # A quote failure degrades to a plain refresh — the price is an enrichment, not a
+        # requirement, and losing the book because a quote timed out would be absurd.
+        ltp = client.get_ltp([p["symbol"] for p in positions]) if positions else {}
+    except Exception:                                               # noqa: BLE001
+        ltp = {}
+    for p in positions:
+        p["ltp"] = ltp.get(p["symbol"])
+    _db(lambda s: s.replace_broker_positions(positions))
 
 
 def _launch_analysis(run_id: int) -> None:
@@ -2219,12 +2245,11 @@ def _mi_positions_tab(skills: list) -> None:
 
     picked: list[str] = []
     if positions:
-        table = [{"Analyze": False, "Symbol": p["symbol"], "Qty": p.get("quantity"),
-                  "Avg": p.get("avg_price"), "Product": p.get("product")}
-                 for p in positions]
+        table = _position_table_rows(positions)
         edited = st.data_editor(
             pd.DataFrame(table), hide_index=True, use_container_width=True,
-            disabled=["Symbol", "Qty", "Avg", "Product"], key="analysis_pick",
+            disabled=["Symbol", "Qty", "Avg", "LTP", "P&L", "P&L %", "Product"],
+            key="analysis_pick",
             column_config={"Analyze": st.column_config.CheckboxColumn(
                 "Analyze", help="Tick the stocks to send to the chosen skill.")})
         picked = _selected_symbols(edited.to_dict("records"))

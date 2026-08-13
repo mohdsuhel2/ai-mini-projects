@@ -391,3 +391,19 @@ def test_pick_result_falls_back_to_the_first_row_when_none_have_verdicts():
 def test_pick_result_on_an_empty_run_is_none():
     assert dashboard._pick_result([], "KEI") is None
     assert dashboard._pick_result(None, None) is None
+
+
+def test_position_rows_show_price_and_pnl():
+    rows = dashboard._position_table_rows([
+        {"symbol": "KEI", "quantity": 40, "avg_price": 100.0, "product": "MIS", "ltp": 110.0},
+        {"symbol": "BSE", "quantity": 10, "avg_price": 99.0, "product": "MIS", "ltp": None}])
+    assert rows[0]["LTP"] == 110.0 and rows[0]["P&L"] == 400.0
+    assert rows[0]["P&L %"] == 10.0
+    assert rows[1]["LTP"] is None and rows[1]["P&L"] is None   # unknown, not zero
+    assert rows[0]["Analyze"] is False and rows[0]["Symbol"] == "KEI"
+
+
+def test_position_rows_show_a_short_as_a_gain_when_it_falls():
+    rows = dashboard._position_table_rows([
+        {"symbol": "MCX", "quantity": -10, "avg_price": 100.0, "product": "MIS", "ltp": 90.0}])
+    assert rows[0]["P&L"] == 100.0 and rows[0]["P&L %"] == 10.0
