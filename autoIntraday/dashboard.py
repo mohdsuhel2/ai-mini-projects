@@ -1767,6 +1767,41 @@ def _orders_for_display(orders) -> list:
     return att + rest
 
 
+_RESULT_WIP_LABEL = {"ANALYZING": "⏳ analyzing", "PENDING": "· waiting",
+                     "ERROR": "⚠ error"}
+
+
+def _results_table_rows(results) -> list[dict]:
+    """One comparable row per result, in the RUN'S OWN ORDER — a top-5 run returns its picks
+    best-first and re-sorting here would silently throw that ranking away. Unknown numbers stay
+    None so the table shows a blank rather than a misleading zero."""
+    rows = []
+    for r in (results or []):
+        rows.append({
+            "Symbol": r.get("symbol"),
+            "Verdict": r.get("verdict") or _RESULT_WIP_LABEL.get(r.get("status"), "—"),
+            "Conv": r.get("conviction"),
+            "Entry": r.get("entry"), "Stop": r.get("stop"), "T1": r.get("target1"),
+            "R:R": r.get("risk_reward"),
+            "Status": r.get("status"),
+        })
+    return rows
+
+
+def _pick_result(results, symbol):
+    """The result to show in the detail panel. Selection travels as a SYMBOL because the table
+    refreshes while a run fills in — a row index would drift onto a different stock. A stale or
+    missing selection falls back to the first row that actually has a verdict."""
+    rows = list(results or [])
+    if not rows:
+        return None
+    if symbol:
+        for r in rows:
+            if r.get("symbol") == symbol:
+                return r
+    return next((r for r in rows if r.get("verdict")), rows[0])
+
+
 def _fmt_duration(seconds) -> str:
     """A duration a person reads at a glance. Seconds under a minute, minutes-and-seconds up
     to ten, then whole minutes, then hours."""

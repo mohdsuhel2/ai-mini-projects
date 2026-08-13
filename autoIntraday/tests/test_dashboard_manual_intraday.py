@@ -324,3 +324,70 @@ def test_notice_helpers_round_trip_through_session_state():
     dashboard._notice("ok", "Order #12 sent")
     assert dashboard.st.session_state["mi_notice"]["text"] == "Order #12 sent"
     assert dashboard.st.session_state["mi_notice"]["kind"] == "ok"
+
+
+def _res(symbol="KEI", status="DONE", verdict="BUY NOW", **kw):
+    base = {"symbol": symbol, "status": status, "verdict": verdict, "conviction": 73,
+            "entry": 103.0, "stop": 98.0, "target1": 123.0, "risk_reward": 2.0,
+            "summary": "s", "report": "r", "raw_json": "{}", "error": None, "id": 1}
+    base.update(kw)
+    return base
+
+
+def test_table_rows_carry_the_comparable_numbers():
+    rows = dashboard._results_table_rows([_res()])
+    assert rows[0]["Symbol"] == "KEI" and rows[0]["Verdict"] == "BUY NOW"
+    assert rows[0]["Conv"] == 73 and rows[0]["Entry"] == 103.0
+    assert rows[0]["Stop"] == 98.0 and rows[0]["T1"] == 123.0 and rows[0]["R:R"] == 2.0
+
+
+def test_table_rows_preserve_the_runs_own_order():
+    """A top-5 run returns its picks best-first — re-sorting would discard that ranking."""
+    results = [_res("CELLO", conviction=70), _res("OMNI", conviction=90),
+               _res("BSE", conviction=60)]
+    assert [r["Symbol"] for r in dashboard._results_table_rows(results)] == \
+        ["CELLO", "OMNI", "BSE"]
+
+
+def test_table_rows_leave_unknowns_blank_not_zero():
+    rows = dashboard._results_table_rows([_res(entry=None, stop=None, target1=None,
+                                               risk_reward=None, conviction=None)])
+    for col in ("Entry", "Stop", "T1", "R:R", "Conv"):
+        assert rows[0][col] is None
+
+
+def test_table_rows_label_work_in_progress_by_status():
+    rows = dashboard._results_table_rows([
+        _res("A", status="ANALYZING", verdict=None),
+        _res("B", status="PENDING", verdict=None),
+        _res("C", status="ERROR", verdict=None)])
+    assert "analyz" in rows[0]["Verdict"].lower()
+    assert "wait" in rows[1]["Verdict"].lower()
+    assert "error" in rows[2]["Verdict"].lower()
+
+
+def test_table_rows_report_status_separately():
+    rows = dashboard._results_table_rows([_res(), _res("B", status="ERROR", verdict=None)])
+    assert rows[0]["Status"] == "DONE" and rows[1]["Status"] == "ERROR"
+
+
+def test_pick_result_finds_the_named_symbol():
+    results = [_res("CELLO"), _res("OMNI"), _res("BSE")]
+    assert dashboard._pick_result(results, "OMNI")["symbol"] == "OMNI"
+
+
+def test_pick_result_falls_back_to_the_first_with_a_verdict():
+    """A stale selection must not blank the panel — and must not pick a row still analysing."""
+    results = [_res("A", status="ANALYZING", verdict=None), _res("B"), _res("C")]
+    assert dashboard._pick_result(results, "GONE")["symbol"] == "B"
+    assert dashboard._pick_result(results, None)["symbol"] == "B"
+
+
+def test_pick_result_falls_back_to_the_first_row_when_none_have_verdicts():
+    results = [_res("A", status="ANALYZING", verdict=None)]
+    assert dashboard._pick_result(results, None)["symbol"] == "A"
+
+
+def test_pick_result_on_an_empty_run_is_none():
+    assert dashboard._pick_result([], "KEI") is None
+    assert dashboard._pick_result(None, None) is None
