@@ -31,12 +31,20 @@ def run_analysis(store, engine, run_id: int) -> int:
     _install_quiet_sigterm()
     store.set_analysis_pid(run_id, os.getpid())
     by_symbol = {p["symbol"]: p for p in store.get_broker_positions()}
+    # Exits already resting at the broker. Only an ARMED order actually has a live OCO — a
+    # rejected, closed or still-pending one rests nothing. get_manual_orders is newest-first,
+    # so the first hit per symbol is the current bracket.
+    resting = {}
+    for o in store.get_manual_orders(limit=200):
+        if o["status"] == "ARMED" and o["symbol"] not in resting:
+            resting[o["symbol"]] = o
     pending = [r["symbol"] for r in store.get_analysis_results(run_id)
                if r["status"] == "PENDING"]
     for symbol in pending:
         store.update_analysis_result(run_id, symbol, "ANALYZING")
         try:
-            item = engine.run_symbol(symbol, position=by_symbol.get(symbol))
+            item = engine.run_symbol(symbol, position=by_symbol.get(symbol),
+                                     resting=resting.get(symbol))
             store.update_analysis_result(run_id, symbol, "DONE", item=item,
                                          raw=item.get("raw"))
         except Exception as e:                                       # noqa: BLE001
@@ -54,7 +62,7 @@ def run_top5(store, engine, run_id: int) -> int:
     _install_quiet_sigterm()
     store.set_analysis_pid(run_id, os.getpid())
     try:
-        picks = engine.run_top5()
+        picks = engine.run_top5(positions=store.get_broker_positions())
     except Exception as e:                                           # noqa: BLE001
         log.exception("top-5 run failed")
         store.finish_analysis_run(run_id, "FAILED", error=str(e)[:500])

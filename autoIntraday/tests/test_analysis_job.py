@@ -22,13 +22,14 @@ class _Engine:
     def __init__(self, fail_on=(), picks=None):
         self.fail_on, self.picks, self.seen = set(fail_on), picks or [], []
 
-    def run_symbol(self, symbol, position=None):
+    def run_symbol(self, symbol, position=None, resting=None):
         self.seen.append((symbol, position))
         if symbol in self.fail_on:
             raise RuntimeError("tool blew up")
         return dict(_item(symbol), raw='{"env": 1}')
 
-    def run_top5(self):
+    def run_top5(self, positions=None):
+        self.top5_positions = positions
         return [dict(p, raw='{"env": 1}') for p in self.picks]
 
 
@@ -95,7 +96,7 @@ def test_top5_inserts_each_pick():
 
 def test_top5_engine_failure_marks_run_failed():
     class Boom:
-        def run_top5(self):
+        def run_top5(self, positions=None):
             raise RuntimeError("screener down")
     store = Store(":memory:")
     rid = store.start_analysis_run("intraday-breakout", "top5")
@@ -110,3 +111,69 @@ def test_top5_empty_is_a_successful_run():
     run_top5(store, _Engine(picks=[]), rid)
     assert store.latest_analysis_run()["status"] == "SUCCESS"
     assert store.get_analysis_results(rid) == []
+
+
+class _CtxEngine(_Engine):
+    """Records the extra context the job hands to the engine."""
+
+    def __init__(self):
+        super().__init__()
+        self.resting = {}
+
+    def run_symbol(self, symbol, position=None, resting=None):
+        self.resting[symbol] = resting
+        return dict(_item(symbol), raw='{"env": 1}')
+
+
+def _armed(store, symbol, stop=95.0, target=120.0, status="ARMED"):
+    o = store.create_manual_order(symbol=symbol, side="LONG", quantity=13,
+                                  entry_type="MARKET", entry_price=100.0, stop=stop,
+                                  target=target, mode="paper")
+    store.update_manual_order(o, status=status, oco_order_id="OCO1")
+    return o
+
+
+def test_resting_armed_exits_are_passed_for_that_symbol():
+    store, rid = _run_with(["KEI", "BSE"])
+    _armed(store, "KEI")
+    eng = _CtxEngine()
+    run_analysis(store, eng, rid)
+    assert eng.resting["KEI"]["stop"] == 95.0 and eng.resting["KEI"]["target"] == 120.0
+    assert eng.resting["BSE"] is None
+
+
+def test_only_armed_orders_count_as_resting():
+    """A rejected, closed or still-pending order rests nothing at the broker."""
+    store, rid = _run_with(["KEI"])
+    for status in ("REJECTED", "CLOSED", "ENTRY_PENDING"):
+        _armed(store, "KEI", status=status)
+    eng = _CtxEngine()
+    run_analysis(store, eng, rid)
+    assert eng.resting["KEI"] is None
+
+
+def test_newest_armed_order_wins_when_a_symbol_has_several():
+    store, rid = _run_with(["KEI"])
+    _armed(store, "KEI", stop=90.0, target=110.0)
+    _armed(store, "KEI", stop=95.0, target=120.0)     # newer
+    eng = _CtxEngine()
+    run_analysis(store, eng, rid)
+    assert eng.resting["KEI"]["stop"] == 95.0
+
+
+def test_top5_receives_the_open_book():
+    store = Store(":memory:")
+    store.replace_broker_positions([{"symbol": "KEI", "quantity": 40, "avg_price": 100.0,
+                                     "product": "MIS", "ltp": 110.0}])
+    rid = store.start_analysis_run("intraday-breakout", "top5")
+
+    class E:
+        def __init__(self):
+            self.seen = None
+
+        def run_top5(self, positions=None):
+            self.seen = positions
+            return []
+    eng = E()
+    run_top5(store, eng, rid)
+    assert [p["symbol"] for p in eng.seen] == ["KEI"]
