@@ -1767,6 +1767,141 @@ def _orders_for_display(orders) -> list:
     return att + rest
 
 
+def _fmt_duration(seconds) -> str:
+    """A duration a person reads at a glance. Seconds under a minute, minutes-and-seconds up
+    to ten, then whole minutes, then hours."""
+    try:
+        s = int(max(0, float(seconds)))
+    except (TypeError, ValueError):
+        return "?"
+    if s < 60:
+        return f"{s}s"
+    m, sec = divmod(s, 60)
+    if m < 10:
+        return f"{m}m{sec:02d}s"
+    h, m = divmod(m, 60)
+    return f"{h}h {m}m" if h else f"{m}m"
+
+
+def _age_seconds(iso, now=None):
+    """Seconds since an ISO timestamp, or None when it is missing or unparseable. Never
+    guesses — an unknown age must not render as 0."""
+    if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(iso))
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return ((now or datetime.now(timezone.utc)) - dt).total_seconds()
+
+
+def _pid_alive(pid) -> bool:
+    """Is that process still there? Signal 0 checks existence without touching it. A
+    PermissionError means it exists but belongs to someone else — still alive."""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+# A run with no completed row for this long is reported as stalled rather than silently
+# spinning. Generous: a single skill call legitimately takes minutes.
+_STALL_AFTER_S = 300
+
+
+def _run_health(run, last_activity, now, alive) -> str:
+    """`ok` | `stalled` | `dead` for the CURRENT run. `dead` means the detached job is gone,
+    which matters because the page's buttons stay disabled while a run says RUNNING — without
+    this the UI would claim to be working forever and lock the operator out."""
+    if not run or run.get("status") != "RUNNING":
+        return "ok"
+    if not alive:
+        return "dead"
+    age = _age_seconds(last_activity or run.get("started_at"), now)
+    return "stalled" if age is not None and age > _STALL_AFTER_S else "ok"
+
+
+def _run_progress_text(run, progress, elapsed_s) -> str:
+    """The strip's progress line. A top-5 run is ONE call, so a fraction would be meaningless
+    and is deliberately absent."""
+    skill = (run or {}).get("skill_id") or "skill"
+    if (run or {}).get("mode") == "top5":
+        return (f"⏳ {skill} — single call, screening the market · 2–4 min typical · "
+                f"running {_fmt_duration(elapsed_s)}")
+    done = (progress or {}).get("done", 0)
+    total = (progress or {}).get("total", 0)
+    errors = (progress or {}).get("errors", 0)
+    txt = f"⏳ {skill} — {done}/{total} · {_fmt_duration(elapsed_s)} elapsed"
+    if total and done < total:
+        per = (elapsed_s / done) if done else 120.0
+        txt += f" · ~{_fmt_duration((total - done) * per)} left"
+    if errors:
+        txt += f" · {errors} errors"
+    return txt
+
+
+# Substrings that identify a failure the operator can actually do something about.
+_ERROR_HINTS = (
+    (("authenticat", "unauthor", "401", "invalid api", "api key", "token"),
+     "Groww login failed — check GROWW_API_KEY / GROWW_API_SECRET in your .env."),
+    (("margin", "insufficient funds", "insufficient"),
+     "Groww rejected this for insufficient margin."),
+    (("timed out", "timeout", "connection", "network", "unreachable", "resolve"),
+     "Could not reach Groww — network trouble or the API is down."),
+)
+
+
+def _friendly_error(exc) -> tuple[str, str]:
+    """(headline, raw). The raw text is always returned so the caller can keep it visible in
+    a collapsed expander — a hidden error is worse than an ugly one."""
+    from manual_broker import ManualBrokerError
+    raw = str(exc) or exc.__class__.__name__
+    if isinstance(exc, ManualBrokerError):
+        return raw, raw                      # already written for a human
+    low = raw.lower()
+    for needles, msg in _ERROR_HINTS:
+        if any(n in low for n in needles):
+            return msg, raw
+    return "Something went wrong — the details are below.", raw
+
+
+_INFLIGHT_STATES = ("PLACING", "ENTRY_PENDING")
+
+
+def _inflight_orders(orders) -> list:
+    """Orders still working at the broker. A resting LIMIT can sit for hours and is otherwise
+    invisible outside the Orders tab."""
+    return [o for o in (orders or []) if o.get("status") in _INFLIGHT_STATES]
+
+
+_MANUAL_STATUS_HELP = {
+    "PLACING": "Being sent to Groww now.",
+    "ENTRY_PENDING": "Sent — waiting for the entry to fill. A LIMIT can rest all session.",
+    "FILLED": "The position is OPEN but the exits did NOT arm — it has no protection "
+              "resting against it. Re-place the exits or square off now.",
+    "ARMED": "Filled, and both exits are resting at Groww as a native OCO. One filling "
+             "cancels the other.",
+    "REJECTED": "Groww refused the entry — nothing reached the market, so there is no "
+                "position and nothing to unwind.",
+    "CLOSED": "Squared off from this page.",
+    "ERROR": "Something failed after the order was created — read the message and check the "
+             "broker before acting.",
+}
+
+
 def _analysis_card(r: dict) -> str:
     """The Formatted tab: verdict, conviction, the levels that exist, and the one-liner."""
     import html

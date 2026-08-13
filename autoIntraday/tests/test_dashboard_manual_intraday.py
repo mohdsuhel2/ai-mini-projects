@@ -197,3 +197,123 @@ def test_mode_pill_distinguishes_live_from_paper():
     assert "ai-mode-live" in dashboard._mode_pill("live")
     assert "LIVE" in dashboard._mode_pill("live")
     assert "ai-mode-paper" in dashboard._mode_pill("paper")
+
+
+from datetime import datetime, timedelta, timezone
+
+
+def test_fmt_duration_scales_its_units():
+    assert dashboard._fmt_duration(45) == "45s"
+    assert dashboard._fmt_duration(100) == "1m40s"
+    assert dashboard._fmt_duration(700) == "11m"
+    assert dashboard._fmt_duration(3900) == "1h 5m"
+    assert dashboard._fmt_duration(-5) == "0s"
+
+
+def test_age_seconds_and_its_unknowns():
+    now = datetime(2026, 8, 13, 10, 0, tzinfo=timezone.utc)
+    assert dashboard._age_seconds("2026-08-13T09:58:00+00:00", now) == 120
+    assert dashboard._age_seconds(None, now) is None
+    assert dashboard._age_seconds("not a date", now) is None
+
+
+def test_pid_alive_for_this_process_and_a_dead_one():
+    import os
+    assert dashboard._pid_alive(os.getpid()) is True
+    assert dashboard._pid_alive(None) is False
+    assert dashboard._pid_alive(0) is False
+    assert dashboard._pid_alive("nonsense") is False
+    assert dashboard._pid_alive(999999) is False
+
+
+_NOW = datetime(2026, 8, 13, 10, 0, tzinfo=timezone.utc)
+
+
+def _run(status="RUNNING", mode="symbols", started="2026-08-13T09:50:00+00:00"):
+    return {"id": 1, "status": status, "mode": mode, "skill_id": "intraday-analyst-2",
+            "started_at": started, "pid": 123}
+
+
+def test_run_health_ok_when_progressing():
+    fresh = "2026-08-13T09:59:00+00:00"
+    assert dashboard._run_health(_run(), fresh, _NOW, alive=True) == "ok"
+
+
+def test_run_health_stalled_when_nothing_finished_recently():
+    old = "2026-08-13T09:50:00+00:00"          # 10 minutes ago
+    assert dashboard._run_health(_run(), old, _NOW, alive=True) == "stalled"
+
+
+def test_run_health_dead_when_the_process_is_gone():
+    assert dashboard._run_health(_run(), "2026-08-13T09:59:00+00:00", _NOW,
+                                 alive=False) == "dead"
+
+
+def test_run_health_ok_for_a_finished_run():
+    assert dashboard._run_health(_run(status="SUCCESS"), None, _NOW, alive=False) == "ok"
+    assert dashboard._run_health(None, None, _NOW, alive=False) == "ok"
+
+
+def test_run_health_falls_back_to_started_at_before_anything_finishes():
+    """A run with no completions yet is judged from when it started, not called stalled."""
+    just_started = _run(started="2026-08-13T09:59:00+00:00")
+    assert dashboard._run_health(just_started, None, _NOW, alive=True) == "ok"
+
+
+def test_progress_text_for_symbols_has_counts_and_time():
+    t = dashboard._run_progress_text(_run(), {"done": 3, "total": 5, "errors": 0}, 360)
+    assert "3/5" in t and "6m" in t and "left" in t
+
+
+def test_progress_text_mentions_errors_when_present():
+    t = dashboard._run_progress_text(_run(), {"done": 3, "total": 5, "errors": 1}, 360)
+    assert "1 errors" in t or "1 error" in t
+
+
+def test_progress_text_for_top5_has_no_meaningless_fraction():
+    t = dashboard._run_progress_text(_run(mode="top5"), {"done": 0, "total": 0, "errors": 0},
+                                     100)
+    assert "single call" in t and "0/0" not in t and "1m40s" in t
+
+
+def test_progress_text_drops_the_estimate_once_everything_is_done():
+    t = dashboard._run_progress_text(_run(), {"done": 5, "total": 5, "errors": 0}, 600)
+    assert "left" not in t
+
+
+def test_friendly_error_recognises_a_groww_auth_failure():
+    head, raw = dashboard._friendly_error(RuntimeError("401 Unauthorized: invalid api key"))
+    assert "credential" in head.lower() or ".env" in head
+    assert "401" in raw
+
+
+def test_friendly_error_recognises_margin_and_network():
+    head, _ = dashboard._friendly_error(RuntimeError("insufficient margin for this order"))
+    assert "margin" in head.lower()
+    head, _ = dashboard._friendly_error(RuntimeError("Connection timed out"))
+    assert "reach" in head.lower() or "network" in head.lower()
+
+
+def test_friendly_error_passes_a_manual_broker_message_through():
+    from manual_broker import ManualBrokerError
+    msg = "could not cancel the resting OCO OCO1 — check the broker."
+    head, raw = dashboard._friendly_error(ManualBrokerError(msg))
+    assert head == msg and raw == msg          # already written for a human
+
+
+def test_friendly_error_falls_back_without_losing_the_raw_text():
+    head, raw = dashboard._friendly_error(ValueError("weird internal thing"))
+    assert head and "weird internal thing" in raw
+
+
+def test_inflight_orders_are_the_ones_still_working():
+    orders = [_o("PLACING", 1), _o("ENTRY_PENDING", 2), _o("ARMED", 3), _o("FILLED", 4),
+              _o("CLOSED", 5)]
+    assert [o["id"] for o in dashboard._inflight_orders(orders)] == [1, 2]
+    assert dashboard._inflight_orders([]) == []
+
+
+def test_every_order_status_has_an_explanation():
+    for status in ("PLACING", "ENTRY_PENDING", "FILLED", "ARMED", "REJECTED", "CLOSED",
+                   "ERROR"):
+        assert dashboard._MANUAL_STATUS_HELP[status].strip()
