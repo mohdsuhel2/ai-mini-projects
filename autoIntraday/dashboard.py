@@ -2255,10 +2255,13 @@ def _mi_positions_tab(skills: list) -> None:
 
 @st.fragment(run_every=4)
 def _mi_results_tab() -> None:
-    """One bordered card per result: the verdict and levels first, the Trade ticket next, and
-    the reading material last. The ticket used to sit three clicks deep, which is the wrong
-    depth for the action this page exists to perform."""
+    """A compact table of every result, then ONE detail panel for the selected row.
+
+    Every result used to render as a full card with its trade ticket already open, which put 50
+    interactive widgets on screen for a five-pick run and made the stocks impossible to compare.
+    Now the numbers sit side by side and only the row you pick builds a ticket."""
     import json as _json
+    import pandas as pd
     latest = _db(lambda s: s.latest_analysis_run())
     if latest is None:
         st.caption("No analysis run yet — pick a skill and some stocks under **Positions**.")
@@ -2269,31 +2272,46 @@ def _mi_results_tab() -> None:
                f"{_fmt_ist_short(latest['started_at']) or ''}")
     if latest["status"] == "FAILED":
         st.error(latest["error"] or "The run failed.")
-    cfg = _db(lambda s: s.get_manual_config())
-    waiting = [r for r in results if r["status"] in ("PENDING", "ANALYZING")]
-    for r in results:
-        if r["status"] in ("PENDING", "ANALYZING"):
-            continue
-        with st.container(border=True):
-            st.markdown(_analysis_card(r), unsafe_allow_html=True)
-            if r["status"] == "DONE":
-                with st.expander(f"Trade {r['symbol']}",
-                                 expanded=_ticket_open_default(r["verdict"])):
-                    _order_ticket_body(r, cfg, latest["skill_id"])
-            t_an, t_raw = st.tabs(["Analysis", "Raw"])
-            with t_an:
-                st.markdown(r["report"] or "_No analysis recorded for this stock._")
-            with t_raw:
-                if r["raw_json"]:
-                    try:
-                        st.json(_json.loads(r["raw_json"]))
-                    except Exception:                                # noqa: BLE001
-                        st.code(r["raw_json"])
-                else:
-                    st.caption("No raw output recorded.")
-    for r in waiting:
-        st.caption(f"{r['symbol']} — "
-                   f"{'⏳ analyzing' if r['status'] == 'ANALYZING' else '· waiting'}")
+    if not results:
+        st.caption("Nothing to show yet — the skill has not returned anything for this run.")
+        return
+
+    rows = _results_table_rows(results)
+    st.caption("Click a row to open it below. Order is the skill's own ranking — click a "
+               "column header to sort differently.")
+    event = st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True,
+                         on_select="rerun", selection_mode="single-row",
+                         key=f"mi_res_tbl_{latest['id']}")
+    picked = list(getattr(event, "selection", {}).get("rows") or [])
+    if picked and picked[0] < len(rows):
+        st.session_state["mi_result_symbol"] = rows[picked[0]]["Symbol"]
+
+    r = _pick_result(results, st.session_state.get("mi_result_symbol"))
+    if r is None:
+        return
+    st.divider()
+    st.markdown(_analysis_card(r), unsafe_allow_html=True)
+    if r["status"] != "DONE":
+        # _MANUAL_STATUS_HELP is keyed by ORDER status, so a result status like ANALYZING
+        # legitimately misses it — hence the fallback sentence rather than a blank caption.
+        st.caption(_MANUAL_STATUS_HELP.get(r["status"], "")
+                   or f"{r['symbol']} is {str(r['status']).lower()} — nothing to trade yet.")
+        if r["error"]:
+            st.error(r["error"])
+        return
+    t_trade, t_an, t_raw = st.tabs(["Trade", "Analysis", "Raw"])
+    with t_trade:
+        _order_ticket_body(r, _db(lambda s: s.get_manual_config()), latest["skill_id"])
+    with t_an:
+        st.markdown(r["report"] or "_No analysis recorded for this stock._")
+    with t_raw:
+        if r["raw_json"]:
+            try:
+                st.json(_json.loads(r["raw_json"]))
+            except Exception:                                        # noqa: BLE001
+                st.code(r["raw_json"])
+        else:
+            st.caption("No raw output recorded.")
 
 
 @st.fragment(run_every=5)
