@@ -55,10 +55,12 @@ compose = (Path(root) / "deploy/docker-compose.hostinger.yml").read_text()
 payload = {
     "project_name": project,
     "content": compose,
-    "environment": json.dumps({
-        "NEXT_PUBLIC_SITE_URL": site_url,
-        "NEXT_PUBLIC_GA_MEASUREMENT_ID": ga_id,
-    }),
+    # The API wants a dotenv blob, not JSON — it validates line by line and
+    # rejects anything that is not KEY=value.
+    "environment": "\n".join([
+        f"NEXT_PUBLIC_SITE_URL={site_url}",
+        f"NEXT_PUBLIC_GA_MEASUREMENT_ID={ga_id}",
+    ]),
 }
 req = urllib.request.Request(
     f"https://developers.hostinger.com/api/vps/v1/virtual-machines/{vm_id}/docker",
