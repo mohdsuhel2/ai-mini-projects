@@ -1,0 +1,459 @@
+@import 'tailwindcss';
+
+/* Explicit theme wins; system preference decides when unset. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ---------------------------------------------------------------
+   Tokens — light
+   Warm off-white ground, hairline borders, one restrained accent.
+   --------------------------------------------------------------- */
+:root {
+  --bg: oklch(0.979 0.014 95);
+  --bg-sunk: oklch(0.955 0.028 100);
+  --surface: oklch(0.995 0.008 95);
+  --surface-hover: oklch(0.966 0.021 97);
+  --surface-active: oklch(0.947 0.027 97);
+
+  --border: oklch(0.898 0.024 88);
+  --border-strong: oklch(0.836 0.032 80);
+  /* Borders stay hairline by design, but a control whose outline IS the control
+     (the checkbox) needs the 3:1 WCAG asks of UI boundaries. */
+  --control-line: oklch(0.642 0.03 55);
+
+  /* Every step in this ramp carries real text somewhere in the UI, so all four
+     clear WCAG AA (4.5:1) against --bg and --surface. Measured, not estimated. */
+  --fg: oklch(0.245 0.023 48);
+  --fg-muted: oklch(0.456 0.028 46);
+  --fg-subtle: oklch(0.523 0.028 46);
+  --fg-faint: oklch(0.546 0.026 48);
+
+  --accent: oklch(0.548 0.163 34);
+  --accent-hover: oklch(0.5 0.15 38);
+  --accent-fg: oklch(0.995 0.006 90);
+  --accent-soft: oklch(0.957 0.033 48);
+  --accent-line: oklch(0.855 0.075 44);
+
+  --success: oklch(0.535 0.115 155);
+  --danger: oklch(0.555 0.175 25);
+  --danger-soft: oklch(0.955 0.02 25);
+
+  --shadow-pop: 0 1px 1px oklch(0.3 0.05 45 / 0.06), 0 8px 24px -6px oklch(0.3 0.05 45 / 0.16),
+    0 2px 6px -2px oklch(0.3 0.05 45 / 0.08);
+
+  /* Tone constants — one rule computes every category colour from a hue. */
+  --tone-bg-l: 0.941;
+  --tone-bg-c: 0.045;
+  --tone-fg-l: 0.452;
+  --tone-fg-c: 0.116;
+  --tone-dot-l: 0.615;
+  --tone-dot-c: 0.145;
+  --tone-line-l: 0.865;
+  --tone-line-c: 0.072;
+  /* The filled state of a selectable category chip. Dark enough that white
+     sits on it at AA across every hue in the set. */
+  --tone-solid-l: 0.508;
+  --tone-solid-c: 0.155;
+  --tone-solid-fg: oklch(0.995 0.004 90);
+}
+
+/* System dark, only when the user has not chosen light explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: oklch(0.196 0.016 46);
+    --bg-sunk: oklch(0.166 0.014 46);
+    --surface: oklch(0.234 0.019 46);
+    --surface-hover: oklch(0.271 0.023 46);
+    --surface-active: oklch(0.298 0.026 46);
+
+    --border: oklch(0.307 0.024 50);
+    --border-strong: oklch(0.385 0.031 50);
+  --control-line: oklch(0.535 0.032 52);
+
+    --fg: oklch(0.951 0.014 88);
+    --fg-muted: oklch(0.781 0.028 66);
+    --fg-subtle: oklch(0.691 0.028 60);
+    --fg-faint: oklch(0.611 0.028 56);
+
+    --accent: oklch(0.712 0.148 42);
+    --accent-hover: oklch(0.765 0.13 46);
+    --accent-fg: oklch(0.185 0.02 40);
+    --accent-soft: oklch(0.305 0.062 40);
+    --accent-line: oklch(0.402 0.085 40);
+
+    --success: oklch(0.735 0.125 155);
+    --danger: oklch(0.688 0.155 25);
+    --danger-soft: oklch(0.28 0.05 25);
+
+    --shadow-pop: 0 1px 1px oklch(0 0 0 / 0.3), 0 12px 32px -8px oklch(0 0 0 / 0.55),
+      0 2px 8px -2px oklch(0 0 0 / 0.4);
+
+    --tone-bg-l: 0.305;
+    --tone-bg-c: 0.058;
+    --tone-fg-l: 0.822;
+    --tone-fg-c: 0.098;
+    --tone-dot-l: 0.725;
+    --tone-dot-c: 0.132;
+    --tone-line-l: 0.392;
+    --tone-line-c: 0.075;
+  }
+}
+
+/* Explicit dark choice. */
+:root[data-theme='dark'] {
+  --bg: oklch(0.196 0.016 46);
+  --bg-sunk: oklch(0.166 0.014 46);
+  --surface: oklch(0.234 0.019 46);
+  --surface-hover: oklch(0.271 0.023 46);
+  --surface-active: oklch(0.298 0.026 46);
+
+  --border: oklch(0.307 0.024 50);
+  --border-strong: oklch(0.385 0.031 50);
+  --control-line: oklch(0.535 0.032 52);
+
+  --fg: oklch(0.951 0.014 88);
+  --fg-muted: oklch(0.781 0.028 66);
+  --fg-subtle: oklch(0.691 0.028 60);
+  --fg-faint: oklch(0.611 0.028 56);
+
+  --accent: oklch(0.712 0.148 42);
+  --accent-hover: oklch(0.765 0.13 46);
+  --accent-fg: oklch(0.185 0.02 40);
+  --accent-soft: oklch(0.305 0.062 40);
+  --accent-line: oklch(0.402 0.085 40);
+
+  --success: oklch(0.735 0.125 155);
+  --danger: oklch(0.688 0.155 25);
+  --danger-soft: oklch(0.28 0.05 25);
+
+  --shadow-pop: 0 1px 1px oklch(0 0 0 / 0.3), 0 12px 32px -8px oklch(0 0 0 / 0.55),
+    0 2px 8px -2px oklch(0 0 0 / 0.4);
+
+  --tone-bg-l: 0.305;
+  --tone-bg-c: 0.058;
+  --tone-fg-l: 0.822;
+  --tone-fg-c: 0.098;
+  --tone-dot-l: 0.725;
+  --tone-dot-c: 0.132;
+  --tone-line-l: 0.392;
+  --tone-line-c: 0.075;
+  --tone-solid-l: 0.7;
+  --tone-solid-c: 0.145;
+  --tone-solid-fg: oklch(0.18 0.02 60);
+}
+
+/* ---------------------------------------------------------------
+   Tailwind theme mapping — components never write a `dark:` variant.
+   --------------------------------------------------------------- */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-sunk: var(--bg-sunk);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-control-line: var(--control-line);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-faint: var(--fg-faint);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-tone-bg: var(--tone-bg);
+  --color-tone-fg: var(--tone-fg);
+  --color-tone-dot: var(--tone-dot);
+  --color-tone-line: var(--tone-line);
+  --color-tone-solid: var(--tone-solid);
+  --color-tone-solid-fg: var(--tone-solid-fg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --shadow-pop: var(--shadow-pop);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------------------------------------------------------------
+   Tones — a category's colour is a hue, not a hex pair.
+   --------------------------------------------------------------- */
+[data-tone] {
+  --tone-bg: oklch(var(--tone-bg-l) var(--tone-bg-c) var(--tone-h));
+  --tone-fg: oklch(var(--tone-fg-l) var(--tone-fg-c) var(--tone-h));
+  --tone-dot: oklch(var(--tone-dot-l) var(--tone-dot-c) var(--tone-h));
+  --tone-line: oklch(var(--tone-line-l) var(--tone-line-c) var(--tone-h));
+  --tone-solid: oklch(var(--tone-solid-l) var(--tone-solid-c) var(--tone-h));
+}
+
+[data-tone='blue'] { --tone-h: 248; }
+[data-tone='violet'] { --tone-h: 297; }
+[data-tone='rose'] { --tone-h: 12; }
+[data-tone='orange'] { --tone-h: 52; }
+[data-tone='amber'] { --tone-h: 85; }
+[data-tone='emerald'] { --tone-h: 155; }
+[data-tone='teal'] { --tone-h: 192; }
+[data-tone='cyan'] { --tone-h: 224; }
+[data-tone='indigo'] { --tone-h: 268; }
+[data-tone='pink'] { --tone-h: 342; }
+[data-tone='lime'] { --tone-h: 128; }
+[data-tone='red'] { --tone-h: 26; }
+[data-tone='slate'] { --tone-h: 70; --tone-bg-c: 0.006; --tone-fg-c: 0.012; --tone-dot-c: 0.012; --tone-line-c: 0.006; }
+
+/* ---------------------------------------------------------------
+   Base
+   --------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    font-variation-settings: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  input,
+  textarea {
+    background: transparent;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--fg-faint);
+  }
+
+  [type='search']::-webkit-search-decoration,
+  [type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+  }
+
+  /* Tabular figures wherever numbers must not jitter (timers, durations). */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  /* Fades a scrollable row's edges instead of drawing a hard cut. */
+  .edge-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+  }
+}
+
+/* The panel animates from the dialog's [open] state; the panel itself never
+   carries that attribute, so the variant has to live here. */
+dialog[open] > * {
+  animation: sn-pop 190ms var(--ease-out-soft);
+}
+
+/* ---------------------------------------------------------------
+   Rendered note bodies. Scoped to .note-prose, which only ever contains
+   markup produced by our own markdown renderer.
+   --------------------------------------------------------------- */
+.note-prose {
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--fg-muted);
+}
+
+.note-prose > * + * {
+  margin-top: 0.85em;
+}
+
+.note-prose h1,
+.note-prose h2,
+.note-prose h3 {
+  color: var(--fg);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.note-prose h1 { font-size: 1.32em; }
+.note-prose h2 { font-size: 1.16em; }
+.note-prose h3 { font-size: 1.02em; }
+
+.note-prose > h1 + *,
+.note-prose > h2 + *,
+.note-prose > h3 + * {
+  margin-top: 0.5em;
+}
+
+.note-prose > * + h1,
+.note-prose > * + h2,
+.note-prose > * + h3 {
+  margin-top: 1.6em;
+}
+
+.note-prose strong { color: var(--fg); font-weight: 600; }
+.note-prose em { font-style: italic; }
+.note-prose del { color: var(--fg-faint); }
+
+.note-prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-line);
+  text-underline-offset: 2px;
+}
+
+.note-prose code {
+  background: var(--bg-sunk);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.32em;
+  font-size: 0.88em;
+  color: var(--fg);
+}
+
+.note-prose pre {
+  background: var(--bg-sunk);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85em 1em;
+  overflow-x: auto;
+}
+
+.note-prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.86em;
+  line-height: 1.6;
+}
+
+.note-prose ul,
+.note-prose ol {
+  padding-left: 1.35em;
+}
+
+.note-prose ul { list-style: disc; }
+.note-prose ol { list-style: decimal; }
+.note-prose li::marker { color: var(--fg-faint); }
+.note-prose li + li { margin-top: 0.28em; }
+
+/* Task items replace the marker with their checkbox. */
+.note-prose li.task {
+  list-style: none;
+  margin-left: -1.35em;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+}
+
+.note-prose li.task input {
+  accent-color: var(--accent);
+  translate: 0 1px;
+}
+
+.note-prose blockquote {
+  border-left: 2px solid var(--accent-line);
+  padding-left: 0.9em;
+  color: var(--fg-subtle);
+}
+
+.note-prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-block: 1.5em;
+}
+
+/* The live note surface. Same prose styles as before, plus the affordances an
+   editable region needs: a placeholder, and a caret that never disappears. */
+.note-editable:empty::before,
+.note-editable > p:only-child:empty::before {
+  content: attr(data-placeholder);
+  color: var(--fg-faint);
+  pointer-events: none;
+}
+
+.note-editable {
+  caret-color: var(--accent);
+}
+
+/* Inside the editor a task box is the one thing you can click. */
+.note-editable li.task input {
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------
+   Motion — subtle by default, absent when the user asks for that.
+   --------------------------------------------------------------- */
+@keyframes sn-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sn-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sn-pop {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sn-check {
+  from { stroke-dashoffset: 22; }
+  to { stroke-dashoffset: 0; }
+}
+
+.animate-fade-in { animation: sn-fade-in 160ms var(--ease-out-soft) both; }
+.animate-rise { animation: sn-rise 200ms var(--ease-out-soft) both; }
+.animate-pop { animation: sn-pop 180ms var(--ease-out-soft) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

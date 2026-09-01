@@ -7,3 +7,15 @@ services:
     restart: unless-stopped
     ports:
       - "8084:80"
+
+  notes:
+    build:
+      context: ./notes
+      dockerfile: deploy/Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://notes.noobius.in}
+        NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID:-}
+    container_name: simply-notes-web
+    restart: unless-stopped
+    ports:
+      - "8085:3000"

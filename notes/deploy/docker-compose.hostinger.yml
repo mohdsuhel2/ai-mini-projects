@@ -1,0 +1,24 @@
+# Compose project for Hostinger's Docker Manager (VM 1387290).
+#
+# Deployed by deploy/deploy-hostinger.sh, which POSTs this file's contents to
+# the Hostinger API — the same mechanism autoIntraday uses for groww-gateway.
+#
+# The build context is the GitHub repo rather than a local path: the VPS never
+# receives a copy of the source, it clones it. That means `notes/` must be
+# pushed to the repo before this will build.
+#
+# Bound to 127.0.0.1 on purpose. The docforge nginx container (host network,
+# owns :80 and :443) is the only thing that should be able to reach it.
+
+services:
+  simply-notes:
+    build:
+      context: https://github.com/mohdsuhel2/ai-mini-projects.git#main:notes
+      dockerfile: deploy/Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://notes.noobius.in}
+        NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID:-}
+    container_name: simply-notes-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8085:3000"
