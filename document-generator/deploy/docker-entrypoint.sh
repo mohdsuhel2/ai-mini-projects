@@ -47,6 +47,7 @@ if [ ! -f "${CERT_DIR}/fullchain.pem" ]; then
     -d noobius.in \
     -d www.noobius.in \
     -d bill-receipt.noobius.in \
+    -d notes.noobius.in \
     --email "$CERT_EMAIL" \
     --agree-tos \
     --non-interactive \
@@ -65,6 +66,39 @@ if [ -f "${CERT_DIR}/fullchain.pem" ]; then
   use_ssl_config
 else
   use_http_config
+fi
+
+# Add any name the certificate does not already carry.
+#
+# The issue branch above only runs when there is no certificate at all, so a
+# new subdomain added later would otherwise never reach the certificate. nginx
+# is started with the real config here, and every :80 block answers the ACME
+# challenge from the shared webroot, so no config switch and no downtime.
+#
+# A failure must leave the existing certificate untouched: noobius.in staying
+# on HTTPS matters far more than a new subdomain arriving today. The most
+# likely cause of failure is DNS for the new name not being live yet, and the
+# next restart simply tries again.
+if [ -f "${CERT_DIR}/fullchain.pem" ] \
+   && ! openssl x509 -in "${CERT_DIR}/fullchain.pem" -noout -text \
+        | grep -q "DNS:notes.noobius.in"; then
+  echo "Certificate does not cover notes.noobius.in; attempting to expand..."
+  start_nginx_bg
+  if certbot certonly --webroot -w "$WEBROOT" --expand \
+    -d noobius.in \
+    -d www.noobius.in \
+    -d bill-receipt.noobius.in \
+    -d notes.noobius.in \
+    --email "$CERT_EMAIL" \
+    --agree-tos \
+    --non-interactive \
+    --no-eff-email; then
+    echo "Certificate expanded to cover notes.noobius.in."
+  else
+    echo "Expand failed. Keeping the existing certificate; noobius.in is unaffected."
+    echo "Most likely DNS for notes.noobius.in is not live yet. It retries on next restart."
+  fi
+  stop_nginx
 fi
 
 exec nginx -g 'daemon off;'
