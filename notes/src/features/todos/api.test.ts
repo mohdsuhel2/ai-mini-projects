@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/lib/db/database'
 import { freshDatabase } from '@/lib/db/test-utils'
 import { todayKey } from '@/lib/date/day-key'
@@ -18,6 +18,30 @@ const TODAY = todayKey()
 beforeEach(async () => {
   await freshDatabase()
 })
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+/**
+ * Runs the body at a fixed moment of `TODAY`.
+ *
+ * Anything that backdates a start by a duration behaves differently within that
+ * duration of midnight, so a test asserting the ordinary case has to say which
+ * hour it means — otherwise it passes all day and fails just after twelve.
+ *
+ * Only `Date.now` is pinned. Faking timers wholesale also stops the ones Dexie
+ * schedules its transactions on, which fails them before the body can run.
+ */
+async function at(time: string, body: () => Promise<void>): Promise<void> {
+  const fixed = new Date(`${TODAY}T${time}`).getTime()
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(fixed)
+  try {
+    await body()
+  } finally {
+    clock.mockRestore()
+  }
+}
 
 describe('createTodo', () => {
   it('stores a todo that is open by default', async () => {
@@ -68,10 +92,23 @@ describe('completeTodo', () => {
   })
 
   it('backdates the activity start by its duration', async () => {
-    const id = await createTodo({ title: 'Deep work', plannedDate: TODAY })
-    await completeTodo(id, 30)
-    const [activity] = await listActivitiesForDay(TODAY)
-    expect(activity.endTime! - activity.startTime!).toBe(30)
+    await at('14:00:00', async () => {
+      const id = await createTodo({ title: 'Deep work', plannedDate: TODAY })
+      await completeTodo(id, 30)
+      const [activity] = await listActivitiesForDay(TODAY)
+      expect(activity).toMatchObject({ startTime: 810, endTime: 840, duration: 30 })
+    })
+  })
+
+  it('clamps the start to midnight rather than running into the day before', async () => {
+    await at('00:10:00', async () => {
+      const id = await createTodo({ title: 'Late finish', plannedDate: TODAY })
+      await completeTodo(id, 30)
+      const [activity] = await listActivitiesForDay(TODAY)
+      // The times only ever describe the part that happened on this day.
+      // `duration` is the record of how long it actually took.
+      expect(activity).toMatchObject({ startTime: 0, endTime: 10, duration: 30 })
+    })
   })
 
   it('falls back to the estimate when no duration is given', async () => {
