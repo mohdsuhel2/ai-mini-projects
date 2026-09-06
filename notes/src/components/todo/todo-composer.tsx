@@ -21,6 +21,11 @@ interface TodoComposerProps {
 /**
  * One field, Enter to commit. Everything else is optional and only appears once
  * the field is in use, so the resting state of the app is a single line.
+ *
+ * Clicking away commits too. A half-typed task is still a task you thought of,
+ * and the only way to recover one this box threw out is to remember it again —
+ * whereas an unwanted row is one tap to delete. The Add button stays because a
+ * deliberate way to finish is worth having even when it is not the only one.
  */
 export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -32,40 +37,54 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
   const [dayTouched, setDayTouched] = useState(false)
 
   const parsed = parseNaturalInput(title)
-  // A category is required, so the button says why it is disabled rather than
-  // just being dead.
-  const missingCategory = categoryId === null
   // What the user typed wins over what they clicked, unless they clicked last.
   const effectiveDay = dayTouched ? day : (parsed.dayKey ?? day)
-  useDismiss(formRef, panelOpen, () => setPanelOpen(false))
+  // Guards the one case where both paths can fire: clicking Add is a pointer
+  // event outside nothing, but a blur racing the submit would save twice.
+  const saving = useRef(false)
 
   const expanded = panelOpen || title.length > 0
 
+  async function commit(): Promise<void> {
+    const finalTitle = parsed.title.trim() || title.trim()
+    if (!finalTitle || saving.current) return
+    saving.current = true
+
+    try {
+      await createTodo({
+        title: finalTitle,
+        plannedDate: effectiveDay,
+        categoryId,
+        plannedTime: parsed.minuteOfDay,
+        estimatedDuration: parsed.durationMinutes,
+      })
+      track('todo_created', {
+        has_category: Boolean(categoryId),
+        has_time: parsed.minuteOfDay != null,
+        parsed_tokens: parsed.tokens.length,
+      })
+
+      setTitle('')
+      setDayTouched(false)
+      setDay(defaultDay ?? todayKey())
+      setCategoryId(null)
+      onCreated?.(effectiveDay ?? todayKey())
+    } finally {
+      saving.current = false
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault()
-    const finalTitle = parsed.title.trim() || title.trim()
-    if (!finalTitle || !categoryId) return
-
-    await createTodo({
-      title: finalTitle,
-      plannedDate: effectiveDay,
-      categoryId,
-      plannedTime: parsed.minuteOfDay,
-      estimatedDuration: parsed.durationMinutes,
-    })
-    track('todo_created', {
-      has_category: Boolean(categoryId),
-      has_time: parsed.minuteOfDay != null,
-      parsed_tokens: parsed.tokens.length,
-    })
-
-    setTitle('')
-    setDayTouched(false)
-    setDay(defaultDay ?? todayKey())
-    setCategoryId(null)
-    onCreated?.(effectiveDay ?? todayKey())
+    await commit()
     inputRef.current?.focus()
   }
+
+  // Leaving the box is a way of finishing, not of cancelling.
+  useDismiss(formRef, panelOpen, () => {
+    setPanelOpen(false)
+    void commit()
+  })
 
   const hints = [
     effectiveDay == null
@@ -82,19 +101,20 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
       ref={formRef}
       onSubmit={submit}
       className={cn(
-        'rounded-xl border bg-surface transition-[border-color,box-shadow] duration-200',
-        expanded ? 'border-line-strong' : 'border-line',
+        'rounded-2xl border bg-surface transition-[border-color] duration-200',
+        expanded ? 'border-line-strong' : 'border-card-line',
       )}
     >
-      <div className="flex items-center gap-2.5 px-3.5 py-3">
-        <Plus
-          className={cn(
-            'size-4 shrink-0 transition-colors duration-200',
-            expanded ? 'text-accent' : 'text-fg-faint',
-          )}
-          strokeWidth={2.2}
+      <div className="flex items-center gap-3 px-3 py-3">
+        <span
           aria-hidden="true"
-        />
+          className={cn(
+            'grid size-9 shrink-0 place-items-center rounded-full transition-colors duration-200',
+            expanded ? 'bg-accent text-accent-fg' : 'bg-accent-soft text-accent',
+          )}
+        >
+          <Plus className="size-[18px]" strokeWidth={2.4} />
+        </span>
         <input
           ref={inputRef}
           value={title}
@@ -103,15 +123,20 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
           placeholder="What do you need to do?"
           aria-label="New task"
           enterKeyHint="done"
-          className="min-w-0 flex-1 text-[14px] text-fg outline-none"
+          className="min-w-0 flex-1 text-[14.5px] text-fg outline-none placeholder:text-fg-faint"
         />
+        {/* The palette is the faster path once you know it exists, so the row
+            that would replace it is where the shortcut is advertised. */}
+        {title.length === 0 && (
+          <kbd className="mr-1 hidden shrink-0 rounded-md bg-bg-sunk px-2 py-1 text-[11px] font-medium text-fg-faint sm:block">
+            ⌘ + K
+          </kbd>
+        )}
         {title.trim().length > 0 && (
           <button
             type="submit"
             aria-label="Add task"
-            disabled={missingCategory}
-            title={missingCategory ? 'Pick a category first' : undefined}
-            className="inline-flex h-6 items-center gap-1 rounded-md bg-accent px-2 text-[11.5px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40 animate-fade-in"
+            className="mr-1 inline-flex h-7 items-center gap-1 rounded-full bg-accent px-3 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40 animate-fade-in"
           >
             Add
             <CornerDownLeft className="size-3" strokeWidth={2.4} aria-hidden="true" />
@@ -120,7 +145,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
       </div>
 
       {expanded && (
-        <div className="space-y-2.5 border-t border-line px-3.5 py-2.5 animate-fade-in">
+        <div className="space-y-2.5 border-t border-card-line px-4 py-3.5 animate-fade-in">
           <div className="flex flex-wrap items-center gap-1.5">
             <DateChips
               value={effectiveDay}
@@ -137,7 +162,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
 
           <div className="space-y-1.5">
             <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">
-              Category {missingCategory && <span className="text-accent">· required</span>}
+              Category
             </span>
             <CategorySelect value={categoryId} onChange={setCategoryId} scope="todo" />
           </div>

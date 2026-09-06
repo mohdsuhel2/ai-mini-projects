@@ -8,137 +8,142 @@
    Warm off-white ground, hairline borders, one restrained accent.
    --------------------------------------------------------------- */
 :root {
-  --bg: oklch(0.979 0.014 95);
-  --bg-sunk: oklch(0.955 0.028 100);
-  --surface: oklch(0.995 0.008 95);
-  --surface-hover: oklch(0.966 0.021 97);
-  --surface-active: oklch(0.947 0.027 97);
+  --bg: oklch(0.995 0.0015 285);
+  --bg-sunk: oklch(0.966 0.005 285);
+  --surface: oklch(1 0 0);
+  --surface-hover: oklch(0.971 0.005 265);
+  --surface-active: oklch(0.951 0.007 265);
 
-  --border: oklch(0.898 0.024 88);
-  --border-strong: oklch(0.836 0.032 80);
+  --border: oklch(0.906 0.007 265);
+  --border-strong: oklch(0.845 0.009 265);
   /* Borders stay hairline by design, but a control whose outline IS the control
      (the checkbox) needs the 3:1 WCAG asks of UI boundaries. */
-  --control-line: oklch(0.642 0.03 55);
+  --control-line: oklch(0.635 0.013 265);
 
   /* Every step in this ramp carries real text somewhere in the UI, so all four
      clear WCAG AA (4.5:1) against --bg and --surface. Measured, not estimated. */
-  --fg: oklch(0.245 0.023 48);
-  --fg-muted: oklch(0.456 0.028 46);
-  --fg-subtle: oklch(0.523 0.028 46);
-  --fg-faint: oklch(0.546 0.026 48);
+  --fg: oklch(0.205 0.011 265);
+  --fg-muted: oklch(0.392 0.013 265);
+  --fg-subtle: oklch(0.472 0.014 265);
+  --fg-faint: oklch(0.545 0.013 265);
 
-  --accent: oklch(0.548 0.163 34);
-  --accent-hover: oklch(0.5 0.15 38);
+  --accent: oklch(0.558 0.188 32);
+  --accent-hover: oklch(0.5 0.178 32);
   --accent-fg: oklch(0.995 0.006 90);
-  --accent-soft: oklch(0.957 0.033 48);
-  --accent-line: oklch(0.855 0.075 44);
+  --accent-soft: oklch(0.966 0.03 40);
+  --accent-line: oklch(0.858 0.082 38);
 
-  --success: oklch(0.535 0.115 155);
-  --danger: oklch(0.555 0.175 25);
-  --danger-soft: oklch(0.955 0.02 25);
+  --success: oklch(0.518 0.145 152);
+  --danger: oklch(0.492 0.196 14);
+  --danger-soft: oklch(0.958 0.028 14);
 
-  --shadow-pop: 0 1px 1px oklch(0.3 0.05 45 / 0.06), 0 8px 24px -6px oklch(0.3 0.05 45 / 0.16),
-    0 2px 6px -2px oklch(0.3 0.05 45 / 0.08);
+  /* Cards are the layout here, so their lift carries the whole depth story
+     and stays deliberately shallow. */
+  --card-line: oklch(0.923 0.006 285);
+  --shadow-pop: 0 1px 1px oklch(0.25 0.02 265 / 0.05), 0 8px 24px -6px oklch(0.25 0.02 265 / 0.15),
+    0 2px 6px -2px oklch(0.25 0.02 265 / 0.08);
 
   /* Tone constants — one rule computes every category colour from a hue. */
-  --tone-bg-l: 0.941;
-  --tone-bg-c: 0.045;
-  --tone-fg-l: 0.452;
-  --tone-fg-c: 0.116;
-  --tone-dot-l: 0.615;
-  --tone-dot-c: 0.145;
-  --tone-line-l: 0.865;
-  --tone-line-c: 0.072;
+  --tone-bg-l: 0.947;
+  --tone-bg-c: 0.075;
+  --tone-fg-l: 0.44;
+  --tone-fg-c: 0.152;
+  --tone-dot-l: 0.598;
+  --tone-dot-c: 0.185;
+  --tone-line-l: 0.858;
+  --tone-line-c: 0.095;
   /* The filled state of a selectable category chip. Dark enough that white
      sits on it at AA across every hue in the set. */
-  --tone-solid-l: 0.508;
-  --tone-solid-c: 0.155;
+  --tone-solid-l: 0.505;
+  --tone-solid-c: 0.19;
   --tone-solid-fg: oklch(0.995 0.004 90);
 }
 
 /* System dark, only when the user has not chosen light explicitly. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: oklch(0.196 0.016 46);
-    --bg-sunk: oklch(0.166 0.014 46);
-    --surface: oklch(0.234 0.019 46);
-    --surface-hover: oklch(0.271 0.023 46);
-    --surface-active: oklch(0.298 0.026 46);
+    --bg: oklch(0.183 0.007 265);
+    --bg-sunk: oklch(0.152 0.006 265);
+    --surface: oklch(0.199 0.008 265);
+    --surface-hover: oklch(0.263 0.011 265);
+    --surface-active: oklch(0.293 0.012 265);
 
-    --border: oklch(0.307 0.024 50);
-    --border-strong: oklch(0.385 0.031 50);
-  --control-line: oklch(0.535 0.032 52);
+    --border: oklch(0.304 0.011 265);
+    --border-strong: oklch(0.384 0.014 265);
+  --control-line: oklch(0.532 0.015 265);
 
-    --fg: oklch(0.951 0.014 88);
-    --fg-muted: oklch(0.781 0.028 66);
-    --fg-subtle: oklch(0.691 0.028 60);
-    --fg-faint: oklch(0.611 0.028 56);
+    --fg: oklch(0.968 0.004 265);
+    --fg-muted: oklch(0.802 0.011 265);
+    --fg-subtle: oklch(0.716 0.012 265);
+    --fg-faint: oklch(0.628 0.013 265);
 
-    --accent: oklch(0.712 0.148 42);
-    --accent-hover: oklch(0.765 0.13 46);
-    --accent-fg: oklch(0.185 0.02 40);
-    --accent-soft: oklch(0.305 0.062 40);
-    --accent-line: oklch(0.402 0.085 40);
+    --accent: oklch(0.728 0.163 38);
+    --accent-hover: oklch(0.782 0.14 40);
+    --accent-fg: oklch(0.17 0.018 40);
+    --accent-soft: oklch(0.308 0.072 38);
+    --accent-line: oklch(0.408 0.098 38);
 
-    --success: oklch(0.735 0.125 155);
-    --danger: oklch(0.688 0.155 25);
-    --danger-soft: oklch(0.28 0.05 25);
+    --success: oklch(0.752 0.152 152);
+    --danger: oklch(0.702 0.175 16);
+    --danger-soft: oklch(0.295 0.062 16);
 
-    --shadow-pop: 0 1px 1px oklch(0 0 0 / 0.3), 0 12px 32px -8px oklch(0 0 0 / 0.55),
+    --card-line: oklch(0.288 0.011 265);
+  --shadow-pop: 0 1px 1px oklch(0 0 0 / 0.3), 0 12px 32px -8px oklch(0 0 0 / 0.55),
       0 2px 8px -2px oklch(0 0 0 / 0.4);
 
-    --tone-bg-l: 0.305;
-    --tone-bg-c: 0.058;
-    --tone-fg-l: 0.822;
-    --tone-fg-c: 0.098;
-    --tone-dot-l: 0.725;
-    --tone-dot-c: 0.132;
-    --tone-line-l: 0.392;
-    --tone-line-c: 0.075;
+    --tone-bg-l: 0.312;
+    --tone-bg-c: 0.075;
+    --tone-fg-l: 0.832;
+    --tone-fg-c: 0.128;
+    --tone-dot-l: 0.738;
+    --tone-dot-c: 0.168;
+    --tone-line-l: 0.402;
+    --tone-line-c: 0.095;
   }
 }
 
 /* Explicit dark choice. */
 :root[data-theme='dark'] {
-  --bg: oklch(0.196 0.016 46);
-  --bg-sunk: oklch(0.166 0.014 46);
-  --surface: oklch(0.234 0.019 46);
-  --surface-hover: oklch(0.271 0.023 46);
-  --surface-active: oklch(0.298 0.026 46);
+  --bg: oklch(0.183 0.007 265);
+  --bg-sunk: oklch(0.152 0.006 265);
+  --surface: oklch(0.199 0.008 265);
+  --surface-hover: oklch(0.263 0.011 265);
+  --surface-active: oklch(0.293 0.012 265);
 
-  --border: oklch(0.307 0.024 50);
-  --border-strong: oklch(0.385 0.031 50);
-  --control-line: oklch(0.535 0.032 52);
+  --border: oklch(0.304 0.011 265);
+  --border-strong: oklch(0.384 0.014 265);
+  --control-line: oklch(0.532 0.015 265);
 
-  --fg: oklch(0.951 0.014 88);
-  --fg-muted: oklch(0.781 0.028 66);
-  --fg-subtle: oklch(0.691 0.028 60);
-  --fg-faint: oklch(0.611 0.028 56);
+  --fg: oklch(0.968 0.004 265);
+  --fg-muted: oklch(0.802 0.011 265);
+  --fg-subtle: oklch(0.716 0.012 265);
+  --fg-faint: oklch(0.628 0.013 265);
 
-  --accent: oklch(0.712 0.148 42);
-  --accent-hover: oklch(0.765 0.13 46);
-  --accent-fg: oklch(0.185 0.02 40);
-  --accent-soft: oklch(0.305 0.062 40);
-  --accent-line: oklch(0.402 0.085 40);
+  --accent: oklch(0.728 0.163 38);
+  --accent-hover: oklch(0.782 0.14 40);
+  --accent-fg: oklch(0.17 0.018 40);
+  --accent-soft: oklch(0.308 0.072 38);
+  --accent-line: oklch(0.408 0.098 38);
 
-  --success: oklch(0.735 0.125 155);
-  --danger: oklch(0.688 0.155 25);
-  --danger-soft: oklch(0.28 0.05 25);
+  --success: oklch(0.752 0.152 152);
+  --danger: oklch(0.702 0.175 16);
+  --danger-soft: oklch(0.295 0.062 16);
 
+  --card-line: oklch(0.288 0.011 265);
   --shadow-pop: 0 1px 1px oklch(0 0 0 / 0.3), 0 12px 32px -8px oklch(0 0 0 / 0.55),
     0 2px 8px -2px oklch(0 0 0 / 0.4);
 
-  --tone-bg-l: 0.305;
-  --tone-bg-c: 0.058;
-  --tone-fg-l: 0.822;
-  --tone-fg-c: 0.098;
-  --tone-dot-l: 0.725;
-  --tone-dot-c: 0.132;
-  --tone-line-l: 0.392;
-  --tone-line-c: 0.075;
-  --tone-solid-l: 0.7;
-  --tone-solid-c: 0.145;
-  --tone-solid-fg: oklch(0.18 0.02 60);
+  --tone-bg-l: 0.312;
+  --tone-bg-c: 0.075;
+  --tone-fg-l: 0.832;
+  --tone-fg-c: 0.128;
+  --tone-dot-l: 0.738;
+  --tone-dot-c: 0.168;
+  --tone-line-l: 0.402;
+  --tone-line-c: 0.095;
+  --tone-solid-l: 0.702;
+  --tone-solid-c: 0.175;
+  --tone-solid-fg: oklch(0.165 0.012 265);
 }
 
 /* ---------------------------------------------------------------
@@ -152,6 +157,7 @@
   --color-surface-active: var(--surface-active);
 
   --color-line: var(--border);
+  --color-card-line: var(--card-line);
   --color-line-strong: var(--border-strong);
   --color-control-line: var(--control-line);
 
@@ -171,6 +177,7 @@
   --color-danger-soft: var(--danger-soft);
 
   --color-tone-bg: var(--tone-bg);
+  --color-tone-wash: var(--tone-wash);
   --color-tone-fg: var(--tone-fg);
   --color-tone-dot: var(--tone-dot);
   --color-tone-line: var(--tone-line);
@@ -179,10 +186,11 @@
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 9px;
+  --radius-xl: 11px;
+  --radius-2xl: 13px;
 
   --shadow-pop: var(--shadow-pop);
 
@@ -198,6 +206,10 @@
   --tone-dot: oklch(var(--tone-dot-l) var(--tone-dot-c) var(--tone-h));
   --tone-line: oklch(var(--tone-line-l) var(--tone-line-c) var(--tone-h));
   --tone-solid: oklch(var(--tone-solid-l) var(--tone-solid-c) var(--tone-h));
+  /* A whole block of --tone-bg is a lot of colour to sit next to five more of
+     them. The wash keeps the hue and gives up most of the saturation, so a
+     column of them reads as a quiet gradient rather than as a paint chart. */
+  --tone-wash: oklch(calc(var(--tone-bg-l) + 0.022) calc(var(--tone-bg-c) * 0.4) var(--tone-h));
 }
 
 [data-tone='blue'] { --tone-h: 248; }
@@ -438,6 +450,11 @@ dialog[open] > * {
   to { opacity: 1; transform: none; }
 }
 
+@keyframes sn-sheet {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
 @keyframes sn-check {
   from { stroke-dashoffset: 22; }
   to { stroke-dashoffset: 0; }
@@ -446,6 +463,7 @@ dialog[open] > * {
 .animate-fade-in { animation: sn-fade-in 160ms var(--ease-out-soft) both; }
 .animate-rise { animation: sn-rise 200ms var(--ease-out-soft) both; }
 .animate-pop { animation: sn-pop 180ms var(--ease-out-soft) both; }
+.animate-sheet { animation: sn-sheet 260ms var(--ease-out-soft) both; }
 
 @media (prefers-reduced-motion: reduce) {
   *,

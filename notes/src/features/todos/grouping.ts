@@ -3,7 +3,7 @@ import { fromDayKey, shiftDay, toDayKey, todayKey } from '@/lib/date/day-key'
 import type { DayKey, Todo } from '@/types'
 
 export type GroupId =
-  | 'overdue'
+  | 'pending'
   | 'today'
   | 'tomorrow'
   | 'thisWeek'
@@ -18,7 +18,7 @@ export interface TodoGroup {
 }
 
 const LABELS: Record<GroupId, string> = {
-  overdue: 'Overdue',
+  pending: 'Pending',
   today: 'Today',
   tomorrow: 'Tomorrow',
   thisWeek: 'Later this week',
@@ -42,7 +42,7 @@ export function groupIdFor(
 ): GroupId {
   // A task worth keeping without a date belongs to no day at all.
   if (day == null) return 'someday'
-  if (day < today) return 'overdue'
+  if (day < today) return 'pending'
   if (day === today) return 'today'
   if (day === shiftDay(today, 1)) return 'tomorrow'
 
@@ -57,7 +57,7 @@ export function groupIdFor(
 }
 
 const ORDER: GroupId[] = [
-  'overdue',
+  'pending',
   'today',
   'tomorrow',
   'thisWeek',
@@ -77,7 +77,7 @@ export function groupTodos(
   weekStartsOn: WeekStart = 1,
 ): TodoGroup[] {
   const buckets: Record<GroupId, Todo[]> = {
-    overdue: [],
+    pending: [],
     today: [],
     tomorrow: [],
     thisWeek: [],
@@ -96,7 +96,7 @@ export function groupTodos(
 
   // Groups spanning several days read by date; single-day groups keep the
   // manual order the list was handed.
-  buckets.overdue.sort((a, b) => byDate(a, b) || a.order - b.order)
+  buckets.pending.sort((a, b) => byDate(a, b) || a.order - b.order)
   buckets.thisWeek.sort(byDateThenTime)
   buckets.nextWeek.sort(byDateThenTime)
   buckets.upcoming.sort(byDateThenTime)

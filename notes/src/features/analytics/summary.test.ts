@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryShares, dayFill, summariseDay, MINUTES_IN_DAY } from './summary'
+import { blockAt, categoryShares, daySchedule, summariseDay, MINUTES_IN_DAY } from './summary'
 import type { Activity, Category, Todo } from '@/types'
 
 const DAY = '2026-09-01'
@@ -111,43 +111,80 @@ describe('summariseDay', () => {
   })
 })
 
-describe('dayFill', () => {
-  it('measures against the whole 24 hours, not against tracked time', () => {
-    const summary = summariseDay(DAY, [], [activity({ categoryId: 'work', duration: 360 })], CATEGORIES)
-    const fill = dayFill(summary)
-    expect(fill.segments[0].share).toBeCloseTo(360 / MINUTES_IN_DAY)
-    expect(fill.untrackedMinutes).toBe(MINUTES_IN_DAY - 360)
+describe('daySchedule', () => {
+  it('places a block at the hour it happened, not against the left edge', () => {
+    const [block] = daySchedule(
+      [activity({ categoryId: 'work', startTime: 13 * 60, duration: 60 })],
+      CATEGORIES,
+    ).blocks
+    expect(block).toMatchObject({ start: 780, end: 840, minutes: 60, name: 'Work' })
   })
 
-  it('reports a whole empty day as entirely untracked', () => {
-    const fill = dayFill(summariseDay(DAY, [], [], CATEGORIES))
-    expect(fill.segments).toEqual([])
-    expect(fill.untrackedShare).toBe(1)
+  it('derives the missing end, and the missing start, from the duration', () => {
+    const fromStart = daySchedule([activity({ startTime: 9 * 60, duration: 30 })], CATEGORIES)
+    expect(fromStart.blocks[0]).toMatchObject({ start: 540, end: 570 })
+
+    const fromEnd = daySchedule([activity({ endTime: 9 * 60, duration: 30 })], CATEGORIES)
+    expect(fromEnd.blocks[0]).toMatchObject({ start: 510, end: 540 })
   })
 
-  it('shares plus untracked always total one', () => {
-    const summary = summariseDay(
-      DAY,
-      [],
+  it('orders blocks by start, longest first, so a nested entry paints last', () => {
+    const schedule = daySchedule(
       [
-        activity({ categoryId: 'work', duration: 300 }),
-        activity({ categoryId: 'health', duration: 90 }),
+        activity({ id: 'short', startTime: 600, duration: 30 }),
+        activity({ id: 'long', startTime: 600, duration: 180 }),
+        activity({ id: 'early', startTime: 60, duration: 30 }),
       ],
       CATEGORIES,
     )
-    const fill = dayFill(summary)
-    const total = fill.segments.reduce((sum, s) => sum + s.share, 0) + fill.untrackedShare
-    expect(total).toBeCloseTo(1)
+    expect(schedule.blocks.map((b) => b.id)).toEqual(['early', 'long', 'short'])
+  })
+
+  it('counts overlapping time once when measuring the day', () => {
+    const schedule = daySchedule(
+      [
+        activity({ startTime: 600, duration: 120 }),
+        activity({ startTime: 660, duration: 120 }),
+      ],
+      CATEGORIES,
+    )
+    expect(schedule.coveredMinutes).toBe(180)
+    expect(schedule.untrackedMinutes).toBe(MINUTES_IN_DAY - 180)
+  })
+
+  it('truncates an entry that runs past midnight rather than wrapping it', () => {
+    const schedule = daySchedule([activity({ startTime: 23 * 60, duration: 180 })], CATEGORIES)
+    expect(schedule.blocks[0]).toMatchObject({ start: 1380, end: MINUTES_IN_DAY, minutes: 60 })
+  })
+
+  it('holds timeless tracked minutes aside instead of guessing an hour', () => {
+    const schedule = daySchedule([activity({ duration: 45 })], CATEGORIES)
+    expect(schedule.blocks).toEqual([])
+    expect(schedule.unplacedMinutes).toBe(45)
+    expect(schedule.untrackedMinutes).toBe(MINUTES_IN_DAY - 45)
+  })
+
+  it('draws no block for a moment with no length', () => {
+    expect(daySchedule([activity({ startTime: 600 })], CATEGORIES).blocks).toEqual([])
+  })
+
+  it('reports a whole empty day as entirely untracked', () => {
+    const schedule = daySchedule([], CATEGORIES)
+    expect(schedule.blocks).toEqual([])
+    expect(schedule.untrackedMinutes).toBe(MINUTES_IN_DAY)
   })
 
   it('never reports negative untracked time when a day is over-logged', () => {
-    const summary = summariseDay(
-      DAY,
-      [],
-      [activity({ categoryId: 'work', duration: 2000 })],
+    const schedule = daySchedule(
+      [activity({ startTime: 0, duration: 1400 }), activity({ duration: 500 })],
       CATEGORIES,
     )
-    expect(dayFill(summary).untrackedMinutes).toBe(0)
+    expect(schedule.untrackedMinutes).toBe(0)
+  })
+
+  it('labels an activity with no category as Other', () => {
+    const schedule = daySchedule([activity({ startTime: 600, duration: 60 })], CATEGORIES)
+    expect(schedule.blocks[0]).toMatchObject({ name: 'Other', tone: 'slate', categoryId: null })
   })
 })
 
@@ -169,5 +206,42 @@ describe('categoryShares', () => {
 
   it('returns nothing when no time was tracked', () => {
     expect(categoryShares(summariseDay(DAY, [], [], CATEGORIES))).toEqual([])
+  })
+})
+
+describe('blockAt', () => {
+  const blocks = (...spans: Array<[number, number, string?]>) =>
+    daySchedule(
+      spans.map(([start, end, id]) =>
+        activity({ id: id ?? `${start}`, categoryId: 'work', startTime: start, duration: end - start }),
+      ),
+      CATEGORIES,
+    ).blocks
+
+  it('names the entry under the minute', () => {
+    expect(blockAt(blocks([600, 660, 'a']), 620)).toMatchObject({ id: 'a' })
+  })
+
+  it('answers with the entry painted on top where two overlap', () => {
+    // daySchedule paints the longer one first, so the nested short one is what
+    // the eye actually sees at that minute.
+    expect(blockAt(blocks([600, 780, 'long'], [620, 640, 'short']), 630)).toMatchObject({
+      id: 'short',
+    })
+  })
+
+  it('treats an entry as covering its start but not its end', () => {
+    const b = blocks([600, 660, 'a'])
+    expect(blockAt(b, 600)).not.toBeNull()
+    expect(blockAt(b, 660)).toBeNull()
+  })
+
+  it('finds nothing in the gaps, and nothing on an empty day', () => {
+    expect(blockAt(blocks([540, 600], [780, 840]), 700)).toBeNull()
+    expect(blockAt([], 700)).toBeNull()
+  })
+
+  it('clamps a minute past the end of the day back into it', () => {
+    expect(blockAt(blocks([1400, 1440, 'late']), MINUTES_IN_DAY)).toMatchObject({ id: 'late' })
   })
 })

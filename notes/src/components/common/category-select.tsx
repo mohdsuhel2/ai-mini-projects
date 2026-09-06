@@ -44,7 +44,7 @@ export function CategorySelect({ value, onChange, scope, className }: CategorySe
             data-tone={category.tone}
             onClick={() => onChange(category.id)}
             className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5',
+              'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3',
               'text-[12.5px] font-medium transition-[background-color,border-color,color] duration-150',
               selected
                 ? 'border-transparent bg-[var(--tone-solid)] text-[var(--tone-solid-fg)]'

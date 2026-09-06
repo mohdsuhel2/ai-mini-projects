@@ -7,59 +7,84 @@ import { Popover, PopoverItem } from '@/components/common/popover'
 import { CategoryIcon } from '@/lib/icons'
 import { formatClock, formatDuration, formatDurationLong } from '@/lib/date/format'
 import { cn } from '@/lib/utils/cn'
-import type { Activity, Category } from '@/types'
+import type { Activity, Category, MinuteOfDay } from '@/types'
 
 interface TimelineItemProps {
   activity: Activity
   category?: Category
-  /** The thread stops at the last entry rather than trailing into nothing. */
-  isLast?: boolean
+  /** Minutes past midnight, or null for an entry logged without a clock time. */
+  at: MinuteOfDay | null
+  end: MinuteOfDay | null
+  minutes: number
   onDelete: () => void
 }
 
-export function TimelineItem({ activity, category, isLast, onDelete }: TimelineItemProps) {
+/**
+ * How tall a block of `minutes` is drawn.
+ *
+ * Proportional, then capped. Below the floor an entry would be too small to
+ * read or to hit; above the ceiling a four-hour block would push the rest of
+ * the day off the screen to make a point the duration already makes in words.
+ */
+export function blockHeight(minutes: number): number {
+  if (minutes <= 0) return 46
+  return Math.min(164, Math.max(46, Math.round(minutes * 1.15)))
+}
+
+export function TimelineItem({
+  activity,
+  category,
+  at,
+  end,
+  minutes,
+  onDelete,
+}: TimelineItemProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const fromTodo = activity.source === 'TODO_COMPLETION'
-  const at = activity.startTime ?? activity.endTime
+  const range =
+    at != null && end != null ? `${formatClock(at)} – ${formatClock(end)}` : formatClock(at)
 
   return (
-    <li className="group relative flex gap-3 pl-1">
-      {/* The rail belongs to the entry, not to the list: each segment carries
-          its own category tone, so the thread down the day is a picture of how
-          the day was actually spent. Rendering it per row also means it always
-          matches that row's real height. */}
-      {!isLast && (
-        <span
-          aria-hidden="true"
-          data-tone={category?.tone}
-          className={cn(
-            'absolute left-[13px] top-[6px] h-full w-[2px] rounded-full',
-            category ? 'bg-[var(--tone-line)]' : 'bg-line',
-          )}
-        />
-      )}
+    <li className="group flex gap-2.5">
+      {/* Clock time lives in the gutter, once, so the block itself is free to
+          carry the thing that was actually done. */}
+      <span className="tnum w-[52px] shrink-0 pt-3 text-right text-[11px] leading-none text-fg-faint">
+        {at != null ? formatClock(at) : ''}
+      </span>
 
-      {/* The marker sits on the thread, punched out of the background so the
-          line appears to pass behind it rather than stopping at it. */}
       <div
         data-tone={category?.tone}
+        title={`${activity.title}${range ? ` · ${range}` : ''}${category ? ` · ${category.name}` : ''}`}
+        style={{ minHeight: blockHeight(minutes) }}
         className={cn(
-          'relative z-10 mt-[3px] grid size-7 shrink-0 place-items-center rounded-lg border',
-          category
-            ? 'border-[var(--tone-line)] bg-[var(--tone-bg)] text-[var(--tone-fg)]'
-            : 'border-line bg-surface text-fg-subtle',
+          'relative flex min-w-0 flex-1 gap-2.5 overflow-hidden rounded-2xl py-3 pl-4 pr-2.5',
+          category ? 'bg-[var(--tone-wash)]' : 'bg-bg-sunk',
         )}
       >
-        {fromTodo && !category ? (
-          <Check className="size-3.5 text-success" strokeWidth={2.5} aria-hidden="true" />
-        ) : (
-          <CategoryIcon icon={category?.icon} className="size-3.5" />
-        )}
-      </div>
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-y-2.5 left-2 w-[3px] rounded-full',
+            category ? 'bg-[var(--tone-solid)]' : 'bg-line-strong',
+          )}
+        />
 
-      <div className="min-w-0 flex-1 pb-4">
-        <div className="flex items-start gap-2">
-          <p className="min-w-0 flex-1 text-[13.5px] font-[450] leading-[1.5] text-fg">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'mt-px shrink-0',
+            category ? 'text-[var(--tone-fg)]' : 'text-fg-subtle',
+          )}
+        >
+          {fromTodo && !category ? (
+            <Check className="size-4 text-success" strokeWidth={2.5} />
+          ) : (
+            <CategoryIcon icon={category?.icon} className="size-4" />
+          )}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-medium leading-[1.35] text-fg">
             {activity.title}
             {fromTodo && (
               <span className="ml-1.5 align-middle text-[11px] text-success" title="Completed task">
@@ -67,54 +92,53 @@ export function TimelineItem({ activity, category, isLast, onDelete }: TimelineI
               </span>
             )}
           </p>
-
-          <div className="flex shrink-0 items-center gap-1">
-            {activity.duration != null && (
-              <span
-                className="tnum text-[12px] font-medium text-fg-subtle"
-                aria-label={formatDurationLong(activity.duration)}
-              >
-                {formatDuration(activity.duration)}
-              </span>
-            )}
-            <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-              <Popover
-                open={menuOpen}
-                onClose={() => setMenuOpen(false)}
-                align="end"
-                trigger={
-                  <IconButton
-                    label={`Options for ${activity.title}`}
-                    size="sm"
-                    onClick={() => setMenuOpen((v) => !v)}
-                  >
-                    <MoreHorizontal className="size-3.5" strokeWidth={2} />
-                  </IconButton>
-                }
-              >
-                <PopoverItem
-                  onClick={() => {
-                    setMenuOpen(false)
-                    onDelete()
-                  }}
-                  className="text-danger hover:bg-danger-soft"
-                >
-                  <Trash2 className="size-3.5" strokeWidth={2} />
-                  {fromTodo ? 'Remove and reopen task' : 'Delete'}
-                </PopoverItem>
-              </Popover>
-            </div>
-          </div>
+          {category && (
+            <p className="mt-0.5 text-[11.5px] font-medium text-[var(--tone-fg)]">
+              {category.name}
+            </p>
+          )}
+          {at == null && (
+            <p className="mt-0.5 text-[11.5px] text-fg-faint">No time recorded</p>
+          )}
         </div>
 
-        {at != null && (
-          <p className="tnum mt-0.5 text-[11.5px] text-fg-faint">
-            {formatClock(at)}
-            {activity.endTime != null && activity.startTime != null && activity.duration != null
-              ? ` – ${formatClock(activity.endTime)}`
-              : ''}
-          </p>
-        )}
+        <div className="flex shrink-0 items-start gap-0.5">
+          {activity.duration != null && (
+            <span
+              className="tnum pt-0.5 text-[12px] font-semibold text-fg-muted"
+              aria-label={formatDurationLong(activity.duration)}
+            >
+              {formatDuration(activity.duration)}
+            </span>
+          )}
+          <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+            <Popover
+              open={menuOpen}
+              onClose={() => setMenuOpen(false)}
+              align="end"
+              trigger={
+                <IconButton
+                  label={`Options for ${activity.title}`}
+                  size="sm"
+                  onClick={() => setMenuOpen((v) => !v)}
+                >
+                  <MoreHorizontal className="size-3.5" strokeWidth={2} />
+                </IconButton>
+              }
+            >
+              <PopoverItem
+                onClick={() => {
+                  setMenuOpen(false)
+                  onDelete()
+                }}
+                className="text-danger hover:bg-danger-soft"
+              >
+                <Trash2 className="size-3.5" strokeWidth={2} />
+                {fromTodo ? 'Remove and reopen task' : 'Delete'}
+              </PopoverItem>
+            </Popover>
+          </div>
+        </div>
       </div>
     </li>
   )

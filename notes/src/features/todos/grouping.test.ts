@@ -26,7 +26,7 @@ const todo = (plannedDate: string | null, extra: Partial<Todo> = {}): Todo => ({
 //   next week  Mon 7 Sep  – Sun 13 Sep
 describe('groupIdFor', () => {
   it.each([
-    ['2026-08-31', 'overdue'],
+    ['2026-08-31', 'pending'],
     ['2026-09-01', 'today'],
     ['2026-09-02', 'tomorrow'],
     ['2026-09-03', 'thisWeek'],
@@ -79,7 +79,7 @@ describe('groupTodos', () => {
       TODAY,
     )
     expect(groups.map((g) => g.id)).toEqual([
-      'overdue',
+      'pending',
       'today',
       'tomorrow',
       'thisWeek',
@@ -103,10 +103,10 @@ describe('groupTodos', () => {
     expect(thisWeek.todos.map((t) => t.plannedDate)).toEqual(['2026-09-04', '2026-09-06'])
   })
 
-  it('sorts overdue oldest first', () => {
+  it('sorts pending oldest first', () => {
     const groups = groupTodos([todo('2026-08-30'), todo('2026-08-01')], TODAY)
-    const overdue = groups.find((g) => g.id === 'overdue')!
-    expect(overdue.todos.map((t) => t.plannedDate)).toEqual(['2026-08-01', '2026-08-30'])
+    const pending = groups.find((g) => g.id === 'pending')!
+    expect(pending.todos.map((t) => t.plannedDate)).toEqual(['2026-08-01', '2026-08-30'])
   })
 
   it('collects dateless todos into Someday, after everything dated', () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { CalendarDays, Check, Clock, Hourglass, ListTodo, Sparkles } from 'lucide-react'
 import { Dialog } from '@/components/common/dialog'
 import { CategoryPicker } from '@/components/todo/category-picker'
@@ -30,11 +30,21 @@ const TOKEN_ICONS = {
  */
 export function QuickAdd() {
   const { quickAddOpen, closeQuickAdd } = useUi()
+  // Closing is finishing, not cancelling. The form owns its own state, so it
+  // hands up a way to write whatever is in it before the dialog goes away.
+  const flush = useRef<(() => Promise<void>) | null>(null)
+
+  async function close() {
+    const save = flush.current
+    flush.current = null
+    await save?.()
+    closeQuickAdd()
+  }
 
   return (
     <Dialog
       open={quickAddOpen}
-      onClose={closeQuickAdd}
+      onClose={() => void close()}
       title="Quick add"
       hideTitle
       variant="command"
@@ -42,12 +52,12 @@ export function QuickAdd() {
     >
       {/* Mounted only while open: closing unmounts the form, which is what
           clears it. No effect needed to reset state. */}
-      {quickAddOpen && <QuickAddForm />}
+      {quickAddOpen && <QuickAddForm flush={flush} />}
     </Dialog>
   )
 }
 
-function QuickAddForm() {
+function QuickAddForm({ flush }: { flush: RefObject<(() => Promise<void>) | null> }) {
   const { closeQuickAdd, notify, quickAddMode } = useUi()
   const [value, setValue] = useState('')
   const [modeOverride, setModeOverride] = useState<Mode | null>(quickAddMode)
@@ -57,7 +67,15 @@ function QuickAddForm() {
   const mode: Mode = modeOverride ?? (parsed.suggestsActivity ? 'activity' : 'todo')
   const canSubmit = (parsed.title.trim() || value.trim()).length > 0
 
-  async function submit() {
+  // No dependency array: the ref has to hold this render's closure, or a flush
+  // on the way out would write the state the form had several keystrokes ago.
+  useEffect(() => {
+    flush.current = async () => {
+      if (canSubmit) await save()
+    }
+  })
+
+  async function save() {
     const title = parsed.title.trim() || value.trim()
     if (!title) return
 
@@ -82,6 +100,12 @@ function QuickAddForm() {
     }
 
     track('quick_add_used', { mode, parsed_tokens: parsed.tokens.length })
+  }
+
+  async function submit() {
+    // Cleared first: the dialog must not write this a second time on its way out.
+    flush.current = null
+    await save()
     closeQuickAdd()
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock3, FileText, ListTodo, Plus } from 'lucide-react'
+import { BarChart3, ListTodo, Plus, Tag } from 'lucide-react'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
 
@@ -14,38 +14,38 @@ export function BottomNav({ openCount }: { openCount: number }) {
   return (
     <nav
       aria-label="Sections"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden"
     >
-      <div className="mx-auto flex h-[3.75rem] max-w-md items-center justify-around px-1">
+      <div className="mx-auto flex h-[4.25rem] max-w-md items-center justify-around rounded-2xl border border-line bg-surface/95 px-2 shadow-pop backdrop-blur-xl">
         <NavButton
-          active={mode === 'day' && pane === 'plan'}
-          onClick={() => showDay('plan')}
+          active={mode === 'day'}
+          onClick={() => showDay(pane)}
           icon={<ListTodo className="size-[19px]" strokeWidth={2} />}
-          label="Plan"
+          label="Tasks"
           badge={openCount}
         />
 
         <NavButton
-          active={mode === 'notes'}
-          onClick={() => setMode('notes')}
-          icon={<FileText className="size-[19px]" strokeWidth={2} />}
-          label="Notes"
+          active={mode === 'insights'}
+          onClick={() => setMode('insights')}
+          icon={<BarChart3 className="size-[19px]" strokeWidth={2} />}
+          label="Insights"
         />
 
         <button
           type="button"
           onClick={() => openQuickAdd()}
           aria-label="Quick add"
-          className="grid size-11 place-items-center rounded-xl bg-accent text-accent-fg transition-transform duration-150 active:scale-95"
+          className="grid size-12 place-items-center rounded-xl bg-accent text-accent-fg transition-transform duration-150 active:scale-95"
         >
           <Plus className="size-5" strokeWidth={2.4} aria-hidden="true" />
         </button>
 
         <NavButton
-          active={mode === 'day' && pane === 'today'}
-          onClick={() => showDay('today')}
-          icon={<Clock3 className="size-[19px]" strokeWidth={2} />}
-          label="Today"
+          active={mode === 'notes'}
+          onClick={() => setMode('notes')}
+          icon={<Tag className="size-[19px]" strokeWidth={2} />}
+          label="Notes"
         />
       </div>
     </nav>
@@ -71,7 +71,7 @@ function NavButton({
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative flex w-[4.25rem] flex-col items-center gap-1 rounded-lg py-1.5 transition-colors duration-150',
+        'relative flex w-[4.25rem] flex-col items-center gap-1 rounded-2xl py-2 transition-colors duration-150',
         active ? 'text-accent' : 'text-fg-subtle',
       )}
     >

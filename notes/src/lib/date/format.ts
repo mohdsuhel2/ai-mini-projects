@@ -44,6 +44,20 @@ export function formatClock(minute: MinuteOfDay | null | undefined): string {
   return `${h12}:${String(m).padStart(2, '0')} ${suffix}`
 }
 
+/**
+ * "6:44:12 PM" — the wall clock for a display that ticks.
+ *
+ * Takes a Date rather than a MinuteOfDay because seconds do not survive that
+ * type, which is minutes past midnight by definition.
+ */
+export function formatWallClock(date: Date): string {
+  const h24 = date.getHours()
+  const suffix = h24 < 12 ? 'AM' : 'PM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${h12}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${suffix}`
+}
+
 /** The hour label used down the left of the timeline: "9 AM", "12 PM". */
 export function formatHourLabel(hour: number): string {
   const h = ((hour % 24) + 24) % 24

@@ -10,12 +10,12 @@
 
 export const TAB_PARAM = 'tab'
 
-export type Tab = 'notes' | 'todos'
+export type Tab = 'notes' | 'todos' | 'insights'
 
 /** Notes is the landing surface. */
 export const DEFAULT_TAB: Tab = 'notes'
 
-const TABS: Tab[] = ['notes', 'todos']
+const TABS: Tab[] = ['notes', 'todos', 'insights']
 
 function isTab(value: string | null): value is Tab {
   return value !== null && (TABS as string[]).includes(value)
@@ -41,12 +41,14 @@ export function urlForTab(currentUrl: string, tab: Tab, base = 'http://x'): stri
   return `${url.pathname}${url.search}${url.hash}`
 }
 
-export type Mode = 'day' | 'notes'
+export type Mode = 'day' | 'insights' | 'notes'
 
 export function tabToMode(tab: Tab): Mode {
-  return tab === 'notes' ? 'notes' : 'day'
+  if (tab === 'notes') return 'notes'
+  return tab === 'insights' ? 'insights' : 'day'
 }
 
 export function modeToTab(mode: Mode): Tab {
-  return mode === 'notes' ? 'notes' : 'todos'
+  if (mode === 'notes') return 'notes'
+  return mode === 'insights' ? 'insights' : 'todos'
 }

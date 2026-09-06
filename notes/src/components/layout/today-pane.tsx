@@ -5,7 +5,7 @@ import { ActivityComposer } from '@/components/activity/activity-composer'
 import { DailySummary } from '@/components/dashboard/daily-summary'
 import { Timeline } from '@/components/timeline/timeline'
 import { IconButton } from '@/components/common/icon-button'
-import { useDailySummary } from '@/hooks/use-data'
+import { useDailySummary, useDaySchedule } from '@/hooks/use-data'
 import { shiftDay, todayKey } from '@/lib/date/day-key'
 import { formatDayFull, formatDayLabel } from '@/lib/date/format'
 import { track } from '@/lib/analytics'
@@ -16,8 +16,15 @@ interface TodayPaneProps {
   onDayChange: (day: DayKey) => void
 }
 
+/**
+ * The record of one day. The picker and the timeline sit straight on the ground
+ * — a box around the whole pane only drew a second edge inside the one the
+ * layout already has. Only the summary and the composer are cards, because
+ * those two are objects you act on rather than a list you read.
+ */
 export function TodayPane({ day, onDayChange }: TodayPaneProps) {
   const summary = useDailySummary(day)
+  const schedule = useDaySchedule(day)
   const today = todayKey()
   const isToday = day === today
 
@@ -27,23 +34,29 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="space-y-3">
-        <div className="flex items-center gap-1">
-          <IconButton label="Previous day" size="sm" onClick={() => step(-1)}>
+    <div>
+      <header className="space-y-4">
+        <div className="flex items-center gap-2">
+          <IconButton
+            label="Previous day"
+            onClick={() => step(-1)}
+            className="size-9 rounded-full border border-card-line bg-surface"
+          >
             <ChevronLeft className="size-4" strokeWidth={2} />
           </IconButton>
 
           <div className="min-w-0 flex-1 text-center">
-            <p className="text-[13.5px] font-semibold tracking-[-0.01em] text-fg">{formatDayLabel(day)}</p>
-            <p className="text-[11.5px] text-fg-faint">{formatDayFull(day)}</p>
+            <p className="text-[15px] font-semibold tracking-[-0.015em] text-fg">
+              {formatDayLabel(day)}
+            </p>
+            <p className="mt-0.5 text-[12px] text-fg-faint">{formatDayFull(day)}</p>
           </div>
 
           <IconButton
             label="Next day"
-            size="sm"
             onClick={() => step(1)}
             disabled={day >= today}
+            className="size-9 rounded-full border border-card-line bg-surface"
           >
             <ChevronRight className="size-4" strokeWidth={2} />
           </IconButton>
@@ -53,20 +66,20 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
           <button
             type="button"
             onClick={() => onDayChange(today)}
-            className="mx-auto block rounded-md px-2 py-1 text-[11.5px] text-accent transition-colors hover:bg-accent-soft"
+            className="mx-auto block rounded-full px-2.5 py-1 text-[11.5px] text-accent transition-colors hover:bg-accent-soft"
           >
             Back to today
           </button>
         )}
 
-        <div className="border-t border-line pt-3.5">
-          <DailySummary summary={summary} isToday={isToday} />
-        </div>
+        <DailySummary summary={summary} schedule={schedule} isToday={isToday} />
       </header>
 
-      <Timeline day={day} isToday={isToday} />
+      <div className="mt-6">
+        <Timeline day={day} isToday={isToday} />
+      </div>
 
-      <div className="sticky bottom-0 -mx-0.5 bg-gradient-to-t from-bg via-bg to-transparent pb-0.5 pt-3">
+      <div className="mt-5">
         <ActivityComposer day={day} />
       </div>
     </div>

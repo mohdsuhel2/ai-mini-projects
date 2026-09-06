@@ -30,6 +30,13 @@ export function useIsWide(): boolean {
   return useMediaQuery(WIDE_QUERY)
 }
 
+/** Below this the app is one column and overlays become bottom sheets. */
+export const PHONE_QUERY = '(max-width: 639px)'
+
+export function useIsPhone(): boolean {
+  return useMediaQuery(PHONE_QUERY)
+}
+
 export function usePrefersReducedMotion(): boolean {
   return useMediaQuery('(prefers-reduced-motion: reduce)')
 }

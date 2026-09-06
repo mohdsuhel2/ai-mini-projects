@@ -5,6 +5,7 @@ describe('parseTab', () => {
   it('reads a valid tab', () => {
     expect(parseTab('?tab=notes')).toBe('notes')
     expect(parseTab('?tab=todos')).toBe('todos')
+    expect(parseTab('?tab=insights')).toBe('insights')
   })
 
   it('defaults to Notes when the parameter is absent', () => {
@@ -50,6 +51,7 @@ describe('tab and mode map to each other', () => {
   it.each([
     ['notes', 'notes'],
     ['todos', 'day'],
+    ['insights', 'insights'],
   ] as const)('%s tab is the %s mode', (tab, mode) => {
     expect(tabToMode(tab)).toBe(mode)
     expect(modeToTab(mode)).toBe(tab)

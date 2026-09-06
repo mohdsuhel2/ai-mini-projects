@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Clock, MoreHorizontal, Pencil, Play, Trash2 } from 'lucide-react'
-import { Checkbox } from '@/components/common/checkbox'
 import { CategoryBadge } from '@/components/common/category-badge'
+import { Checkbox } from '@/components/common/checkbox'
 import { IconButton } from '@/components/common/icon-button'
 import { Popover, PopoverItem } from '@/components/common/popover'
 import { CompleteMenu } from './complete-menu'
@@ -39,8 +39,10 @@ export function TodoRow({
   const done = todo.status === 'COMPLETED'
   const overdue = !done && todo.plannedDate != null && todo.plannedDate < todayKey()
 
+  const dateLabel = !hideDate && todo.plannedDate ? formatDayLabel(todo.plannedDate) : null
+
   const meta = [
-    !hideDate && todo.plannedDate ? formatDayLabel(todo.plannedDate) : null,
+    dateLabel && overdue ? `Due ${dateLabel}` : dateLabel,
     todo.plannedTime != null ? formatClock(todo.plannedTime) : null,
     formatDuration(todo.actualDuration ?? todo.estimatedDuration) || null,
   ].filter(Boolean) as string[]
@@ -48,12 +50,10 @@ export function TodoRow({
   return (
     <div
       className={cn(
-        'group relative flex items-start gap-3 rounded-lg border border-transparent px-3 py-2.5',
-        'transition-[background-color,border-color] duration-150',
-        'hover:border-line hover:bg-surface',
+        'group relative flex items-center gap-2.5 px-3.5 py-2.5',
       )}
     >
-      <div className="pt-px">
+      <div className="shrink-0">
         {done ? (
           <Checkbox checked onChange={onReopen} label={`Reopen ${todo.title}`} />
         ) : (
@@ -84,7 +84,7 @@ export function TodoRow({
       >
         <p
           className={cn(
-            'text-[14px] font-[450] leading-[1.45] transition-[color,opacity] duration-300',
+            'text-[14px] font-[450] leading-[1.35] transition-[color,opacity] duration-300',
             done ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg',
           )}
         >
@@ -92,15 +92,10 @@ export function TodoRow({
         </p>
 
         {(category || meta.length > 0) && (
-          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <div className="mt-[3px] flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] font-medium leading-[19px]">
             <CategoryBadge category={category} />
             {meta.length > 0 && (
-              <span
-                className={cn(
-                  'text-[12px] font-medium leading-[19px]',
-                  overdue ? 'text-danger' : 'text-fg-subtle',
-                )}
-              >
+              <span className={cn(overdue ? 'text-danger' : 'text-fg-subtle')}>
                 {meta.join(' · ')}
               </span>
             )}

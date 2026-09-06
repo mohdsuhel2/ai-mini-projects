@@ -18,7 +18,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
       type={type}
       aria-pressed={active}
       className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium',
+        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium',
         'transition-[background-color,border-color,color] duration-150',
         active
           ? 'border-accent-line bg-accent-soft text-accent'

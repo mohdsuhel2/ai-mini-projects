@@ -30,18 +30,24 @@ export function PlanPane() {
   const { notify } = useUi()
   const settings = useSettings()
   const reducedMotion = usePrefersReducedMotion()
-  const [collapsed, setCollapsed] = useState<Set<GroupId>>(new Set())
+  // One group at a time. With every bucket open the pane becomes a wall of
+  // tasks and "today" stops being the thing you are looking at; an accordion
+  // keeps the answer to "what now?" on one screen. `null` means all closed —
+  // clicking the open group shuts it rather than trapping you in it.
+  const [openGroup, setOpenGroup] = useState<GroupId | null>(null)
+  const [touched, setTouched] = useState(false)
   const [editing, setEditing] = useState<Todo | null>(null)
 
   const groups = todos ? groupTodos(todos, undefined, settings.firstDayOfWeek) : []
 
+  // Until someone chooses, the soonest bucket that actually has something in it
+  // is open — overdue if there is any, otherwise today, and so on down.
+  const defaultOpen = groups.find((group) => group.todos.length > 0)?.id ?? null
+  const activeGroup = touched ? openGroup : defaultOpen
+
   function toggle(id: GroupId) {
-    setCollapsed((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    setTouched(true)
+    setOpenGroup((current) => ((touched ? current : defaultOpen) === id ? null : id))
   }
 
   async function handleComplete(todo: Todo, duration: number | null) {
@@ -76,18 +82,18 @@ export function PlanPane() {
       ) : (
         <div className="space-y-5">
           {groups.map((group) => {
-            const isCollapsed = collapsed.has(group.id)
-            const isOverdue = group.id === 'overdue'
+            const isCollapsed = activeGroup !== group.id
+            const isPending = group.id === 'pending'
 
             return (
               <section key={group.id} aria-labelledby={`group-${group.id}`}>
-                <div className="mb-1 flex items-center gap-2 px-3">
+                <div className="mb-2 flex items-center gap-2">
                   <button
                     type="button"
                     id={`group-${group.id}`}
                     onClick={() => toggle(group.id)}
                     aria-expanded={!isCollapsed}
-                    className="group -ml-1 inline-flex items-center gap-1 rounded-md py-1 pl-1 pr-1.5 transition-colors hover:bg-surface-hover"
+                    className="group -ml-1 inline-flex items-center gap-1.5 rounded-md py-1 pl-1 pr-1.5 transition-colors hover:bg-surface-hover"
                   >
                     <ChevronRight
                       className={cn(
@@ -99,18 +105,20 @@ export function PlanPane() {
                     />
                     <span
                       className={cn(
-                        'text-[10.5px] font-bold uppercase tracking-[0.1em]',
-                        isOverdue ? 'text-danger' : 'text-fg-subtle',
+                        'text-[14px] font-semibold tracking-[-0.01em]',
+                        isPending ? 'text-danger' : 'text-fg',
                       )}
                     >
                       {group.label}
                     </span>
-                    <span className="tnum ml-0.5 text-[11px] font-medium text-fg-faint">
-                      {group.todos.length > 0 ? group.todos.length : ''}
-                    </span>
+                    {group.todos.length > 0 && (
+                      <span className="tnum grid h-5 min-w-5 place-items-center rounded-full bg-bg-sunk px-1.5 text-[11px] font-semibold text-fg-muted">
+                        {group.todos.length}
+                      </span>
+                    )}
                   </button>
 
-                  {isOverdue && group.todos.length > 0 && (
+                  {isPending && group.todos.length > 0 && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -129,11 +137,15 @@ export function PlanPane() {
                 </div>
 
                 {!isCollapsed && (
-                  <div className="space-y-0.5">
+                  <div className="rounded-2xl border border-card-line bg-surface">
                     <AnimatePresence initial={false} mode="popLayout">
+                      {/* The divider lives on the wrapper, not the row: the row
+                          is an only child here, so `last:` on it would always
+                          match and no rule would ever be drawn. */}
                       {group.todos.map((todo) => (
                         <motion.div
                           key={todo.id}
+                          className="relative [&:not(:last-child)]:after:absolute [&:not(:last-child)]:after:inset-x-3.5 [&:not(:last-child)]:after:bottom-0 [&:not(:last-child)]:after:h-px [&:not(:last-child)]:after:bg-card-line"
                           layout={!reducedMotion}
                           initial={{ opacity: 0, y: -4 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -164,7 +176,7 @@ export function PlanPane() {
                     </AnimatePresence>
 
                     {group.todos.length === 0 && (
-                      <p className="px-3 py-2 text-[13px] text-fg-faint">
+                      <p className="px-3.5 py-3 text-[13px] text-fg-faint">
                         Nothing scheduled. Enjoy the space, or add something above.
                       </p>
                     )}

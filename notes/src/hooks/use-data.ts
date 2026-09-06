@@ -9,7 +9,9 @@ import { listOpenTodos } from '@/features/todos/api'
 import { sortActivities } from '@/features/activities/api'
 import { getSettings, DEFAULT_SETTINGS } from '@/features/settings/api'
 import { getTimer } from '@/features/timer/api'
-import { summariseDay } from '@/features/analytics/summary'
+import { daySchedule, summariseDay, type DaySchedule } from '@/features/analytics/summary'
+import { rangeDays, summariseRange, RANGE_DAYS, type RangeId, type RangeSummary } from '@/features/analytics/range'
+import { listActivitiesBetween } from '@/features/activities/api'
 import { listFolders, listNotes } from '@/features/notes/api'
 import { buildFolderTree, rootNotes } from '@/features/notes/tree'
 import type {
@@ -113,4 +115,30 @@ export function useDailySummary(day: DayKey): DailySummary | undefined {
     if (!todos || !activities || !categories) return undefined
     return summariseDay(day, todos, activities, categories)
   }, [day, todos, activities, categories])
+}
+
+/** The same day laid out on the clock, for the 24-hour bar. */
+export function useDaySchedule(day: DayKey): DaySchedule | undefined {
+  const activities = useActivitiesForDay(day)
+  const categories = useCategories()
+
+  return useMemo(() => {
+    if (!activities || !categories) return undefined
+    return daySchedule(activities, categories)
+  }, [activities, categories])
+}
+
+/** A rolling window of days ending today, rolled up for the Insights surface. */
+export function useRangeSummary(range: RangeId): RangeSummary | undefined {
+  const categories = useCategories()
+  const days = useMemo(() => rangeDays(RANGE_DAYS[range]), [range])
+  const activities = useLiveQuery(
+    () => listActivitiesBetween(days[0], days[days.length - 1]),
+    [days],
+  )
+
+  return useMemo(() => {
+    if (!activities || !categories) return undefined
+    return summariseRange(days, activities, categories)
+  }, [days, activities, categories])
 }
