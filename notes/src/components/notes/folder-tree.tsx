@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight,
   Copy,
@@ -43,7 +43,6 @@ export interface TreeActions {
   onToggleFolder: (id: Id) => void
   onNewNote: (folderId: Id | null) => void
   onNewFolder: (parentId: Id | null) => void
-  onRenameFolder: (node: FolderNode) => void
   onMoveFolder: (node: FolderNode) => void
   onDuplicateFolder: (node: FolderNode) => void
   onDeleteFolder: (node: FolderNode) => void
@@ -51,7 +50,12 @@ export interface TreeActions {
   onDuplicateNote: (note: Note) => void
   onDeleteNote: (note: Note) => void
   onDrop: (payload: DragPayload, targetFolderId: Id | null) => void
+  /** Committed from an inline rename — double-clicking a row's name. */
+  onRename: (kind: 'note' | 'folder', id: Id, name: string) => void
 }
+
+/** The row currently being renamed in place. One at a time, tree-wide. */
+type RenameTarget = { kind: 'note' | 'folder'; id: Id } | null
 
 interface FolderTreeProps extends TreeActions {
   roots: FolderNode[]
@@ -70,6 +74,55 @@ const MAX_INDENT_DEPTH = 6
 /** Roughly the menu's width, so a menu opened from the ⋯ button stays on screen. */
 const MENU_WIDTH = 176
 
+function InlineName({
+  value,
+  onCommit,
+  onCancel,
+}: {
+  value: string
+  onCommit: (name: string) => void
+  onCancel: () => void
+}) {
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+
+  // Selected, not just focused: renaming usually means replacing the name, and
+  // "Untitled note" is the case this exists for.
+  useEffect(() => ref.current?.select(), [])
+
+  function commit() {
+    const next = draft.trim()
+    if (next && next !== value) onCommit(next)
+    else onCancel()
+  }
+
+  return (
+    <input
+      ref={ref}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        // Kept off the document: Escape would otherwise reach whatever else is
+        // listening for it, and a typed letter would fire a single-key hotkey.
+        event.stopPropagation()
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          commit()
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          onCancel()
+        }
+      }}
+      aria-label={`Rename ${value}`}
+      className="min-w-0 flex-1 rounded-md bg-surface px-1.5 py-0.5 text-[13.5px] font-medium text-fg outline-none ring-1 ring-line-strong"
+    />
+  )
+}
+
 function indentFor(depth: number): number {
   return Math.min(depth, MAX_INDENT_DEPTH) * INDENT_STEP
 }
@@ -82,9 +135,10 @@ function menuAnchorFor(element: HTMLElement): ContextMenuState {
 export function FolderTree(props: FolderTreeProps) {
   const { roots, unfiled, selectedNoteId, activeFolderId } = props
   const [rootOver, setRootOver] = useState(false)
+  const [renaming, setRenaming] = useState<RenameTarget>(null)
 
   return (
-    <ul className="space-y-px" role="tree" aria-label="Folders and notes">
+    <ul className="space-y-0.5" role="tree" aria-label="Folders and notes">
       {/* The root is a real row: it can be selected as a destination and it
           accepts a drop, so moving something back out needs no dialog. */}
       <li role="none">
@@ -103,9 +157,9 @@ export function FolderTree(props: FolderTreeProps) {
             props.onDrop(payload, null)
           }}
           className={cn(
-            'flex items-center rounded-md transition-colors',
+            'flex items-center rounded-xl transition-colors',
             rootOver && 'ring-1 ring-accent',
-            activeFolderId === null ? 'bg-accent-soft' : 'hover:bg-surface-hover',
+            activeFolderId === null ? 'bg-bg-sunk' : 'hover:bg-surface-hover',
           )}
         >
           <button
@@ -113,20 +167,20 @@ export function FolderTree(props: FolderTreeProps) {
             role="treeitem"
             aria-selected={activeFolderId === null}
             onClick={() => props.onSelectFolder(null)}
-            className="flex min-w-0 flex-1 items-center gap-1.5 py-[7px] pl-[21px] text-left"
+            className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-[19px] text-left"
           >
             <Home
               className={cn(
-                'size-3.5 shrink-0',
-                activeFolderId === null ? 'text-accent' : 'text-fg-subtle',
+                'size-4 shrink-0',
+                activeFolderId === null ? 'text-fg' : 'text-fg-subtle',
               )}
               strokeWidth={2}
               aria-hidden="true"
             />
             <span
               className={cn(
-                'text-[13px] font-medium',
-                activeFolderId === null ? 'text-accent' : 'text-fg',
+                'text-[13.5px] font-medium',
+                activeFolderId === null ? 'text-fg' : 'text-fg',
               )}
             >
               All notes
@@ -136,7 +190,13 @@ export function FolderTree(props: FolderTreeProps) {
       </li>
 
       {roots.map((node) => (
-        <FolderRow key={node.folder.id} node={node} {...props} />
+        <FolderRow
+          key={node.folder.id}
+          node={node}
+          renaming={renaming}
+          setRenaming={setRenaming}
+          {...props}
+        />
       ))}
 
       {unfiled.map((note) => (
@@ -145,6 +205,8 @@ export function FolderTree(props: FolderTreeProps) {
           note={note}
           depth={0}
           selected={note.id === selectedNoteId}
+          renaming={renaming}
+          setRenaming={setRenaming}
           {...props}
         />
       ))}
@@ -152,12 +214,38 @@ export function FolderTree(props: FolderTreeProps) {
   )
 }
 
-function FolderRow({ node, ...props }: { node: FolderNode } & FolderTreeProps) {
+interface RowRenameProps {
+  renaming: RenameTarget
+  setRenaming: (target: RenameTarget) => void
+}
+
+function FolderRow({
+  node,
+  renaming,
+  setRenaming,
+  ...props
+}: { node: FolderNode } & RowRenameProps & FolderTreeProps) {
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   const open = props.forceExpanded || !props.collapsed.has(node.folder.id)
   const active = props.activeFolderId === node.folder.id
+  const editing = renaming?.kind === 'folder' && renaming.id === node.folder.id
+  // Lifted out so the icon is identical whether the name is a button or a field.
+  const folderIcon =
+    open && node.children.length + node.notes.length > 0 ? (
+      <FolderOpen
+        className={cn('size-4 shrink-0', active ? 'text-fg' : 'text-fg-subtle')}
+        strokeWidth={2}
+        aria-hidden="true"
+      />
+    ) : (
+      <FolderIcon
+        className={cn('size-4 shrink-0', active ? 'text-fg' : 'text-fg-subtle')}
+        strokeWidth={2}
+        aria-hidden="true"
+      />
+    )
   const total = noteCount(node)
   const hasChildren = node.children.length > 0 || node.notes.length > 0
   const close = () => setMenu(null)
@@ -190,9 +278,9 @@ function FolderRow({ node, ...props }: { node: FolderNode } & FolderTreeProps) {
           setMenu({ x: event.clientX, y: event.clientY })
         }}
         className={cn(
-          'group/row flex items-center gap-1 rounded-md pr-1 transition-colors',
+          'group/row flex items-center gap-1 rounded-xl pr-1 transition-colors',
           dragOver && 'ring-1 ring-accent',
-          active ? 'bg-accent-soft' : 'hover:bg-surface-hover',
+          active ? 'bg-bg-sunk' : 'hover:bg-surface-hover',
         )}
         style={{ paddingLeft: indentFor(node.depth) }}
       >
@@ -216,34 +304,42 @@ function FolderRow({ node, ...props }: { node: FolderNode } & FolderTreeProps) {
           />
         </button>
 
+        {editing ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5">
+            {folderIcon}
+            <InlineName
+              value={node.folder.name}
+              onCommit={(name) => {
+                props.onRename('folder', node.folder.id, name)
+                setRenaming(null)
+              }}
+              onCancel={() => setRenaming(null)}
+            />
+          </div>
+        ) : (
         <button
           type="button"
           role="treeitem"
           aria-expanded={open}
           aria-selected={active}
           onClick={() => props.onSelectFolder(node.folder.id)}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-[7px] text-left"
+          onDoubleClick={() => setRenaming({ kind: 'folder', id: node.folder.id })}
+          title="Double-click to rename"
+          className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left"
         >
-          {open && hasChildren ? (
-            <FolderOpen
-              className={cn('size-3.5 shrink-0', active ? 'text-accent' : 'text-fg-subtle')}
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-          ) : (
-            <FolderIcon
-              className={cn('size-3.5 shrink-0', active ? 'text-accent' : 'text-fg-subtle')}
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-          )}
+          {folderIcon}
           <span
-            className={cn('truncate text-[13px] font-medium', active ? 'text-accent' : 'text-fg')}
+            className={cn('truncate text-[13.5px] font-medium text-fg')}
           >
             {node.folder.name}
           </span>
-          {total > 0 && <span className="tnum shrink-0 text-[11px] text-fg-faint">{total}</span>}
+          {total > 0 && (
+            <span className="tnum grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-bg-sunk px-1.5 text-[11px] font-semibold text-fg-muted">
+              {total}
+            </span>
+          )}
         </button>
+        )}
 
         <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
           <IconButton
@@ -274,7 +370,7 @@ function FolderRow({ node, ...props }: { node: FolderNode } & FolderTreeProps) {
           New folder inside
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => { close(); props.onRenameFolder(node) }}>
+        <ContextMenuItem onClick={() => { close(); setRenaming({ kind: 'folder', id: node.folder.id }) }}>
           <Pencil className="size-3.5 text-fg-subtle" strokeWidth={2} />
           Rename
         </ContextMenuItem>
@@ -294,9 +390,15 @@ function FolderRow({ node, ...props }: { node: FolderNode } & FolderTreeProps) {
       </ContextMenu>
 
       {open && (
-        <ul className="space-y-px" role="group">
+        <ul className="space-y-0.5" role="group">
           {node.children.map((child) => (
-            <FolderRow key={child.folder.id} node={child} {...props} />
+            <FolderRow
+              key={child.folder.id}
+              node={child}
+              renaming={renaming}
+              setRenaming={setRenaming}
+              {...props}
+            />
           ))}
           {node.notes.map((note) => (
             <NoteRow
@@ -304,6 +406,8 @@ function FolderRow({ node, ...props }: { node: FolderNode } & FolderTreeProps) {
               note={note}
               depth={node.depth + 1}
               selected={note.id === props.selectedNoteId}
+              renaming={renaming}
+              setRenaming={setRenaming}
               {...props}
             />
           ))}
@@ -317,14 +421,25 @@ function NoteRow({
   note,
   depth,
   selected,
+  renaming,
+  setRenaming,
   onSelectNote,
   onMoveNote,
   onDuplicateNote,
   onDeleteNote,
-}: { note: Note; depth: number; selected: boolean } & TreeActions) {
+  onRename,
+}: { note: Note; depth: number; selected: boolean } & RowRenameProps & TreeActions) {
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const preview = plainTextPreview(note.body, 60)
   const close = () => setMenu(null)
+  const editing = renaming?.kind === 'note' && renaming.id === note.id
+  const noteIcon = (
+    <FileText
+      className={cn('size-4 shrink-0', selected ? 'text-fg' : 'text-fg-faint')}
+      strokeWidth={2}
+      aria-hidden="true"
+    />
+  )
 
   return (
     <li role="none">
@@ -339,30 +454,42 @@ function NoteRow({
           setMenu({ x: event.clientX, y: event.clientY })
         }}
         className={cn(
-          'group/row flex items-center gap-1 rounded-md pr-1 transition-colors',
-          selected ? 'bg-accent-soft' : 'hover:bg-surface-hover',
+          'group/row flex items-center gap-1 rounded-xl pr-1 transition-colors',
+          selected ? 'bg-bg-sunk' : 'hover:bg-surface-hover',
         )}
         style={{ paddingLeft: indentFor(depth) }}
       >
-        <button
-          type="button"
-          role="treeitem"
-          aria-selected={selected}
-          onClick={() => onSelectNote(note.id)}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-[7px] pl-[19px] text-left"
-        >
-          <FileText
-            className={cn('size-3.5 shrink-0', selected ? 'text-accent' : 'text-fg-faint')}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-          <span className="min-w-0 flex-1 truncate">
-            <span className={cn('text-[13px]', selected ? 'font-medium text-accent' : 'text-fg')}>
-              {note.title}
+        {editing ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-[17px]">
+            {noteIcon}
+            <InlineName
+              value={note.title}
+              onCommit={(title) => {
+                onRename('note', note.id, title)
+                setRenaming(null)
+              }}
+              onCancel={() => setRenaming(null)}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            role="treeitem"
+            aria-selected={selected}
+            onClick={() => onSelectNote(note.id)}
+            onDoubleClick={() => setRenaming({ kind: 'note', id: note.id })}
+            title="Double-click to rename"
+            className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-[17px] text-left"
+          >
+            {noteIcon}
+            <span className="min-w-0 flex-1 truncate">
+              <span className={cn('text-[13.5px] text-fg', selected && 'font-medium')}>
+                {note.title}
+              </span>
+              {preview && <span className="ml-2 text-[11.5px] text-fg-faint">{preview}</span>}
             </span>
-            {preview && <span className="ml-2 text-[11.5px] text-fg-faint">{preview}</span>}
-          </span>
-        </button>
+          </button>
+        )}
 
         <div className="shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
           <IconButton
@@ -379,6 +506,10 @@ function NoteRow({
         <ContextMenuItem onClick={() => { close(); onSelectNote(note.id) }}>
           <FileText className="size-3.5 text-fg-subtle" strokeWidth={2} />
           Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => { close(); setRenaming({ kind: 'note', id: note.id }) }}>
+          <Pencil className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          Rename
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); onDuplicateNote(note) }}>
           <Copy className="size-3.5 text-fg-subtle" strokeWidth={2} />

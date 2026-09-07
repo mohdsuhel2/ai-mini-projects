@@ -22,6 +22,7 @@ import {
   moveFolder,
   moveNote,
   renameFolder,
+  updateNote,
   restoreFolderSubtree,
   restoreNote,
   searchNotes,
@@ -56,7 +57,6 @@ export function NotesPane() {
   const [moving, setMoving] = useState<MoveTarget>(null)
   const [selection, setSelection] = useState<Selection>(null)
   const [confirmingDelete, setConfirmingDelete] = useState<Selection>(null)
-  const [renaming, setRenaming] = useState<FolderNode | null>(null)
   const [newFolderParent, setNewFolderParent] = useState<{ parentId: Id | null } | null>(null)
 
   const selected = useNote(selectedId)
@@ -223,7 +223,7 @@ export function NotesPane() {
           <div className="mb-3 flex items-center gap-1.5">
             <div className="relative min-w-0 flex-1">
               <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-faint"
+                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-fg-faint"
                 strokeWidth={2}
                 aria-hidden="true"
               />
@@ -232,7 +232,7 @@ export function NotesPane() {
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Filter notes"
                 aria-label="Filter notes"
-                className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-7 text-[13px] outline-none transition-colors focus:border-line-strong"
+                className="h-9 w-full rounded-full bg-bg-sunk pl-8 pr-7 text-[13px] text-fg outline-none transition-colors placeholder:text-fg-faint focus:bg-surface focus:ring-1 focus:ring-line-strong"
               />
               {query && (
                 <button
@@ -262,9 +262,9 @@ export function NotesPane() {
             </IconButton>
           </div>
 
-          <p className="mb-2 px-1 text-[11.5px] text-fg-faint">
+          <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">
             New items go into{' '}
-            <span className="font-medium text-fg-subtle">{activeFolderName}</span>
+            <span className="text-fg-muted">{activeFolderName}</span>
           </p>
 
           {loading ? (
@@ -289,35 +289,41 @@ export function NotesPane() {
               </div>
             </EmptyState>
           ) : (
-            <FolderTree
-              roots={view.roots}
-              unfiled={view.unfiled}
-              selectedNoteId={selectedId}
-              activeFolderId={activeFolderId}
-              onSelectFolder={(id) => {
-                setActiveFolderId(id === activeFolderId ? null : id)
-                const node = id ? findNode(view.roots, id) : null
-                setSelection(node ? { kind: 'folder', node } : null)
-              }}
-              collapsed={collapsed}
-              forceExpanded={filtering}
-              onToggleFolder={toggleFolder}
-              onSelectNote={(id) => {
-                setSelectedId(id)
-                const note = notes.find((n) => n.id === id)
-                setSelection(note ? { kind: 'note', note } : null)
-              }}
-              onNewNote={(folderId) => void handleNewNote(folderId)}
-              onNewFolder={(parentId) => setNewFolderParent({ parentId })}
-              onRenameFolder={setRenaming}
-              onMoveFolder={(node) => setMoving({ kind: 'folder', node })}
-              onDuplicateFolder={(node) => void handleDuplicateFolder(node)}
-              onDeleteFolder={(node) => void handleDeleteFolder(node)}
-              onMoveNote={(note) => setMoving({ kind: 'note', note })}
-              onDuplicateNote={(note) => void handleDuplicateNote(note)}
-              onDeleteNote={(note) => void handleDeleteNote(note)}
-              onDrop={(payload, target) => void handleDrop(payload, target)}
-            />
+            <div className="rounded-2xl border border-card-line bg-surface p-1">
+              <FolderTree
+                  roots={view.roots}
+                unfiled={view.unfiled}
+                selectedNoteId={selectedId}
+                activeFolderId={activeFolderId}
+                onSelectFolder={(id) => {
+                  setActiveFolderId(id === activeFolderId ? null : id)
+                  const node = id ? findNode(view.roots, id) : null
+                  setSelection(node ? { kind: 'folder', node } : null)
+                }}
+                collapsed={collapsed}
+                forceExpanded={filtering}
+                onToggleFolder={toggleFolder}
+                onSelectNote={(id) => {
+                  setSelectedId(id)
+                  const note = notes.find((n) => n.id === id)
+                  setSelection(note ? { kind: 'note', note } : null)
+                }}
+                onNewNote={(folderId) => void handleNewNote(folderId)}
+                onNewFolder={(parentId) => setNewFolderParent({ parentId })}
+                onMoveFolder={(node) => setMoving({ kind: 'folder', node })}
+                onDuplicateFolder={(node) => void handleDuplicateFolder(node)}
+                onDeleteFolder={(node) => void handleDeleteFolder(node)}
+                onMoveNote={(note) => setMoving({ kind: 'note', note })}
+                onDuplicateNote={(note) => void handleDuplicateNote(note)}
+                onDeleteNote={(note) => void handleDeleteNote(note)}
+                  onRename={(kind, id, name) => {
+                  // Renaming in the tree is the same write the editor's title
+                  // field makes, so an open note updates as you type here.
+                  void (kind === 'folder' ? renameFolder(id, name) : updateNote(id, { title: name }))
+                }}
+                onDrop={(payload, target) => void handleDrop(payload, target)}
+              />
+            </div>
           )}
         </section>
       )}
@@ -325,7 +331,7 @@ export function NotesPane() {
       {showEditor ? (
         <section
           aria-label="Note"
-          className={cn('flex min-w-0 flex-col', isWide && 'border-l border-line pl-8')}
+          className={cn('flex min-w-0 flex-col', isWide && 'pl-1')}
         >
           <NoteEditor
             key={selected.id}
@@ -336,7 +342,7 @@ export function NotesPane() {
         </section>
       ) : (
         isWide && (
-          <section aria-label="Note" className="min-w-0 border-l border-line pl-8">
+          <section aria-label="Note" className="min-w-0 pl-1">
             <EmptyState
               glyph="day"
               title="Nothing open."
@@ -394,17 +400,6 @@ export function NotesPane() {
         onClose={() => setConfirmingDelete(null)}
       />
 
-      <NameDialog
-        open={renaming !== null}
-        title="Rename folder"
-        label="Folder name"
-        initial={renaming?.folder.name ?? ''}
-        confirmLabel="Rename"
-        onClose={() => setRenaming(null)}
-        onSubmit={async (name) => {
-          if (renaming) await renameFolder(renaming.folder.id, name)
-        }}
-      />
     </div>
   )
 }
@@ -505,7 +500,7 @@ function NameForm({
             }
           }}
           placeholder="Service 1"
-          className="mt-1.5 w-full rounded-md border border-line bg-bg px-3 py-2 text-[14px] outline-none transition-colors focus:border-line-strong"
+          className="mt-1.5 w-full rounded-xl bg-bg-sunk px-3 py-2.5 text-[14px] text-fg outline-none transition-colors focus:bg-surface focus:ring-1 focus:ring-line-strong"
         />
       </div>
       <footer className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">

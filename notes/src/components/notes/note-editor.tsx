@@ -82,7 +82,7 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
 
   return (
     <article className="flex min-h-0 flex-1 flex-col">
-      <header className="border-b border-line pb-3">
+      <header className="rounded-2xl border border-card-line bg-surface px-4 py-3.5">
         <div className="flex items-start gap-3">
           {onBack && (
             <IconButton label="Back to notes" size="sm" onClick={onBack} className="mt-1 lg:hidden">
@@ -123,7 +123,7 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
           role="toolbar"
           aria-label="Formatting"
           onMouseDown={(event) => event.preventDefault()}
-          className="no-scrollbar edge-fade-x mt-2.5 flex items-center gap-0.5 overflow-x-auto"
+          className="no-scrollbar edge-fade-x mt-3 flex items-center gap-0.5 overflow-x-auto"
         >
           <ToolbarButton label="Heading" onClick={() => run('formatBlock', 'h2')}>
             <Heading1 className="size-4" strokeWidth={2} />
@@ -192,7 +192,7 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
             readBack()
           }
         }}
-        className="note-prose note-editable mt-4 min-h-[20rem] flex-1 outline-none"
+        className="note-prose note-editable mt-3 min-h-[20rem] flex-1 rounded-2xl border border-card-line bg-surface px-4 py-4 outline-none"
       />
     </article>
   )
