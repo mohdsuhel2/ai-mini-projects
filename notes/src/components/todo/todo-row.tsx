@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Clock, MoreHorizontal, Pencil, Play, Trash2 } from 'lucide-react'
+import { Clock, MoreHorizontal, Pencil, Play, Repeat, Trash2 } from 'lucide-react'
 import { CategoryBadge } from '@/components/common/category-badge'
+import { shortRecurrence } from '@/features/todos/recurrence'
 import { Checkbox } from '@/components/common/checkbox'
 import { IconButton } from '@/components/common/icon-button'
 import { Popover, PopoverItem } from '@/components/common/popover'
@@ -97,6 +98,15 @@ export function TodoRow({
             {meta.length > 0 && (
               <span className={cn(overdue ? 'text-danger' : 'text-fg-subtle')}>
                 {meta.join(' · ')}
+              </span>
+            )}
+            {todo.recurrence && (
+              <span
+                className="inline-flex items-center gap-1 text-fg-faint"
+                title={`Repeats ${shortRecurrence(todo.recurrence).toLowerCase()}`}
+              >
+                <Repeat className="size-3" strokeWidth={2.2} aria-hidden="true" />
+                {shortRecurrence(todo.recurrence)}
               </span>
             )}
           </div>

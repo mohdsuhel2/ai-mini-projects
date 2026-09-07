@@ -40,9 +40,9 @@ export function PlanPane() {
 
   const groups = todos ? groupTodos(todos, undefined, settings.firstDayOfWeek) : []
 
-  // Until someone chooses, the soonest bucket that actually has something in it
-  // is open — overdue if there is any, otherwise today, and so on down.
-  const defaultOpen = groups.find((group) => group.todos.length > 0)?.id ?? null
+  // Today, always. Opening on Pending because something is late makes the app
+  // greet you with what you failed at; today is what you came to look at.
+  const defaultOpen: GroupId | null = 'today'
   const activeGroup = touched ? openGroup : defaultOpen
 
   function toggle(id: GroupId) {

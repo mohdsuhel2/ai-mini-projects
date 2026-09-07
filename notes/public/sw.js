@@ -73,6 +73,22 @@ async function cacheFirst(request, cacheName) {
   return response
 }
 
+/*
+ * Tapping a reminder should land you in the app, not in a second copy of it.
+ * An already-open window is focused where the browser allows it; otherwise one
+ * is opened.
+ */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((client) => client.url.includes(self.location.origin))
+      if (open && 'focus' in open) return open.focus()
+      return self.clients.openWindow('/?tab=todos')
+    }),
+  )
+})
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return

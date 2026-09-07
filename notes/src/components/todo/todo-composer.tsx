@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { CornerDownLeft, Plus } from 'lucide-react'
 import { CategorySelect } from '@/components/common/category-select'
 import { DateChips } from './date-chips'
+import { RepeatPicker } from './repeat-picker'
 import { createTodo } from '@/features/todos/api'
 import { todayKey } from '@/lib/date/day-key'
 import { formatClock, formatDayLabel, formatDuration } from '@/lib/date/format'
@@ -11,7 +12,7 @@ import { parseNaturalInput } from '@/lib/parse/natural-input'
 import { useDismiss } from '@/hooks/use-dismiss'
 import { track } from '@/lib/analytics'
 import { cn } from '@/lib/utils/cn'
-import type { DayKey, Id } from '@/types'
+import type { DayKey, Id, Recurrence } from '@/types'
 
 interface TodoComposerProps {
   defaultDay?: DayKey
@@ -34,6 +35,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
   const [panelOpen, setPanelOpen] = useState(false)
   const [day, setDay] = useState<DayKey | null>(defaultDay ?? todayKey())
   const [categoryId, setCategoryId] = useState<Id | null>(null)
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [dayTouched, setDayTouched] = useState(false)
 
   const parsed = parseNaturalInput(title)
@@ -57,9 +59,11 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
         categoryId,
         plannedTime: parsed.minuteOfDay,
         estimatedDuration: parsed.durationMinutes,
+        recurrence,
       })
       track('todo_created', {
         has_category: Boolean(categoryId),
+        repeats: recurrence?.kind ?? 'never',
         has_time: parsed.minuteOfDay != null,
         parsed_tokens: parsed.tokens.length,
       })
@@ -68,6 +72,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
       setDayTouched(false)
       setDay(defaultDay ?? todayKey())
       setCategoryId(null)
+      setRecurrence(null)
       onCreated?.(effectiveDay ?? todayKey())
     } finally {
       saving.current = false
@@ -155,6 +160,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
                 setDayTouched(true)
               }}
             />
+            <RepeatPicker value={recurrence} onChange={setRecurrence} anchor={effectiveDay} />
             {hints.length > 0 && (
               <span className="ml-auto text-[11.5px] text-fg-faint">{hints.join(' · ')}</span>
             )}

@@ -46,6 +46,18 @@ export interface Category {
   deletedAt?: Instant | null
 }
 
+/** 0 is Sunday, matching `Date.getDay`. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/**
+ * How a task repeats. Weekly carries a set of days, so "Mon, Wed and Fri" is
+ * one task rather than three; `daily` stays its own kind because "every day"
+ * is a different thing to say than "all seven of these days".
+ */
+export type Recurrence =
+  | { kind: 'daily' }
+  | { kind: 'weekly'; weekdays: Weekday[] }
+
 export type TodoStatus = 'OPEN' | 'COMPLETED'
 
 export interface Todo {
@@ -63,6 +75,13 @@ export interface Todo {
   /** Optional "this should take about N minutes". */
   estimatedDuration?: number | null
   status: TodoStatus
+  /** Absent on a one-off task, which is almost all of them. */
+  recurrence?: Recurrence | null
+  /**
+   * Ties the occurrences of one repeating task together. Only set alongside
+   * `recurrence`, and kept by every occurrence the series spawns.
+   */
+  seriesId?: Id | null
   notes?: string | null
   createdAt: Instant
   completedAt?: Instant | null
@@ -136,6 +155,11 @@ export interface Settings {
   firstDayOfWeek: 0 | 1
   /** Whether the user has dismissed the first-run hint. */
   onboarded: boolean
+  /**
+   * Opt-in, and off until asked for. Reminders need notification permission,
+   * and a prompt nobody invited is a prompt people block for good.
+   */
+  remindersEnabled?: boolean
   updatedAt: Instant
 }
 

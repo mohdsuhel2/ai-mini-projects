@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/lib/db/database'
 import { freshDatabase } from '@/lib/db/test-utils'
-import { todayKey } from '@/lib/date/day-key'
+import { shiftDay, todayKey } from '@/lib/date/day-key'
 import { listActivitiesForDay } from '@/features/activities/api'
+import { weekdayOf } from './recurrence'
 import {
   completeTodo,
   createTodo,
+  rollForwardRecurring,
   deleteTodo,
   listOpenTodos,
   reopenTodo,
@@ -217,5 +219,123 @@ describe('rescheduling', () => {
     const open = await listOpenTodos()
     expect(open.find((t) => t.title === 'Overdue')?.plannedDate).toBe(TODAY)
     expect(open.find((t) => t.title === 'Future')?.plannedDate).toBe('2099-01-01')
+  })
+})
+
+describe('recurring todos', () => {
+  const daily = { kind: 'daily' } as const
+  const TOMORROW = shiftDay(TODAY, 1)
+
+  it('gives a repeating task a series id and a one-off none', async () => {
+    const repeating = await createTodo({ title: 'Vitamins', plannedDate: TODAY, recurrence: daily })
+    const once = await createTodo({ title: 'Ring the bank', plannedDate: TODAY })
+    expect((await db().todos.get(repeating))!.seriesId).toEqual(expect.any(String))
+    expect((await db().todos.get(once))!.seriesId).toBeNull()
+  })
+
+  it('spawns exactly one successor, on the next date, in the same series', async () => {
+    const id = await createTodo({ title: 'Vitamins', plannedDate: TODAY, recurrence: daily })
+    const before = await db().todos.get(id)
+    await completeTodo(id)
+
+    const open = await listOpenTodos()
+    expect(open).toHaveLength(1)
+    expect(open[0]).toMatchObject({
+      title: 'Vitamins',
+      plannedDate: TOMORROW,
+      status: 'OPEN',
+      seriesId: before!.seriesId,
+    })
+    // The completed one stays as history rather than being moved.
+    expect((await db().todos.get(id))!.status).toBe('COMPLETED')
+  })
+
+  it('spawns nothing for a task that does not repeat', async () => {
+    const id = await createTodo({ title: 'Ring the bank', plannedDate: TODAY })
+    await completeTodo(id)
+    expect(await listOpenTodos()).toHaveLength(0)
+  })
+
+  it('will not leave two of the same series open at once', async () => {
+    const id = await createTodo({ title: 'Vitamins', plannedDate: TODAY, recurrence: daily })
+    const series = (await db().todos.get(id))!.seriesId
+    await createTodo({
+      title: 'Vitamins',
+      plannedDate: TOMORROW,
+      recurrence: daily,
+      seriesId: series,
+    })
+
+    await completeTodo(id)
+    expect(await listOpenTodos()).toHaveLength(1)
+  })
+
+  it('takes the successor back when the task is un-completed', async () => {
+    const id = await createTodo({ title: 'Vitamins', plannedDate: TODAY, recurrence: daily })
+    await completeTodo(id)
+    expect(await listOpenTodos()).toHaveLength(1)
+
+    await reopenTodo(id)
+    const open = await listOpenTodos()
+    expect(open).toHaveLength(1)
+    expect(open[0].id).toBe(id)
+  })
+})
+
+describe('rollForwardRecurring', () => {
+  const YESTERDAY = shiftDay(TODAY, -1)
+
+  it('catches a missed daily task up to today instead of leaving it late', async () => {
+    const id = await createTodo({
+      title: 'Water the plants',
+      plannedDate: shiftDay(TODAY, -4),
+      recurrence: { kind: 'daily' },
+    })
+    expect(await rollForwardRecurring(TODAY)).toBe(1)
+    expect((await db().todos.get(id))!.plannedDate).toBe(TODAY)
+  })
+
+  it('moves a missed weekly task to its next real weekday', async () => {
+    const weekday = weekdayOf(shiftDay(TODAY, 3))
+    const id = await createTodo({
+      title: 'Bins out',
+      plannedDate: shiftDay(TODAY, -7),
+      recurrence: { kind: 'weekly', weekdays: [weekday] },
+    })
+    await rollForwardRecurring(TODAY)
+    expect((await db().todos.get(id))!.plannedDate).toBe(shiftDay(TODAY, 3))
+  })
+
+  it('catches a multi-day task up to whichever of its days comes first', async () => {
+    // Two days out and four days out: the sweep must choose the nearer one.
+    const id = await createTodo({
+      title: 'Gym',
+      plannedDate: shiftDay(TODAY, -3),
+      recurrence: {
+        kind: 'weekly',
+        weekdays: [weekdayOf(shiftDay(TODAY, 4)), weekdayOf(shiftDay(TODAY, 2))],
+      },
+    })
+    await rollForwardRecurring(TODAY)
+    expect((await db().todos.get(id))!.plannedDate).toBe(shiftDay(TODAY, 2))
+  })
+
+  it('leaves alone anything that is not late, not repeating, or not open', async () => {
+    const future = await createTodo({
+      title: 'Later',
+      plannedDate: shiftDay(TODAY, 2),
+      recurrence: { kind: 'daily' },
+    })
+    const plain = await createTodo({ title: 'Plain', plannedDate: YESTERDAY })
+    const done = await createTodo({
+      title: 'Done',
+      plannedDate: YESTERDAY,
+      recurrence: { kind: 'daily' },
+    })
+    await completeTodo(done)
+
+    expect(await rollForwardRecurring(TODAY)).toBe(0)
+    expect((await db().todos.get(future))!.plannedDate).toBe(shiftDay(TODAY, 2))
+    expect((await db().todos.get(plain))!.plannedDate).toBe(YESTERDAY)
   })
 })

@@ -5,6 +5,7 @@ import { Dialog } from '@/components/common/dialog'
 import { Button } from '@/components/common/button'
 import { CategoryPicker } from './category-picker'
 import { DateChips } from './date-chips'
+import { RepeatPicker } from './repeat-picker'
 import { DurationChips } from '@/components/common/duration-chips'
 import { updateTodo } from '@/features/todos/api'
 import { formatClock } from '@/lib/date/format'
@@ -62,6 +63,7 @@ function TodoDetailForm({
   const [day, setDay] = useState<string | null>(todo.plannedDate)
   const [time, setTime] = useState(() => toTimeInput(todo.plannedTime))
   const [duration, setDuration] = useState<number | null>(todo.estimatedDuration ?? null)
+  const [recurrence, setRecurrence] = useState(todo.recurrence ?? null)
   const [categoryId, setCategoryId] = useState<Id | null>(todo.categoryId ?? null)
 
   async function save() {
@@ -73,6 +75,7 @@ function TodoDetailForm({
       plannedDate: day,
       plannedTime: fromTimeInput(time),
       estimatedDuration: duration,
+      recurrence,
       categoryId,
     })
     onClose()
@@ -98,7 +101,10 @@ function TodoDetailForm({
 
         <div className="space-y-2">
           <span className="text-[12px] font-medium text-fg-muted">When</span>
-          <DateChips value={day} onChange={setDay} allowNone />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <DateChips value={day} onChange={setDay} allowNone />
+            <RepeatPicker value={recurrence} onChange={setRecurrence} anchor={day} />
+          </div>
           <label className="flex items-center gap-2 pt-1 text-[12.5px] text-fg-muted">
             At
             <input

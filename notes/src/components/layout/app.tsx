@@ -18,7 +18,8 @@ import { UiProvider, useUi, type Pane } from '@/store/ui-context'
 import { useHotkeys, type Hotkey } from '@/hooks/use-hotkeys'
 import { useMounted } from '@/hooks/use-mounted'
 import { useIsWide } from '@/hooks/use-media-query'
-import { useOpenTodos } from '@/hooks/use-data'
+import { useOpenTodos, useRecurringRollForward, useSettings } from '@/hooks/use-data'
+import { useAppBadge, useReminders } from '@/hooks/use-notifications'
 import { groupIdFor } from '@/features/todos/grouping'
 import { todayKey } from '@/lib/date/day-key'
 import { cn } from '@/lib/utils/cn'
@@ -34,6 +35,10 @@ function Workspace() {
   const isWide = useIsWide()
   const [day, setDay] = useState(() => todayKey())
   const openTodos = useOpenTodos()
+  const settings = useSettings()
+  useRecurringRollForward()
+  useAppBadge()
+  useReminders(Boolean(settings.remindersEnabled))
 
   const todayCount = useMemo(
     () =>

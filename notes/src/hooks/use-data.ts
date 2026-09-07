@@ -1,11 +1,13 @@
 'use client'
 
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { db } from '@/lib/db/database'
+import { useNow } from './use-now'
+import { todayKey } from '@/lib/date/day-key'
 import { liveOnly } from '@/lib/db/records'
 import { listCategories } from '@/features/categories/api'
-import { listOpenTodos } from '@/features/todos/api'
+import { listOpenTodos, rollForwardRecurring } from '@/features/todos/api'
 import { sortActivities } from '@/features/activities/api'
 import { getSettings, DEFAULT_SETTINGS } from '@/features/settings/api'
 import { getTimer } from '@/features/timer/api'
@@ -141,4 +143,23 @@ export function useRangeSummary(range: RangeId): RangeSummary | undefined {
     if (!activities || !categories) return undefined
     return summariseRange(days, activities, categories)
   }, [days, activities, categories])
+}
+
+/**
+ * Catches repeating tasks up to today, once per day.
+ *
+ * Runs on mount and again when the date rolls over, so a tab left open
+ * overnight wakes up showing the same thing a fresh one would. Guarded by the
+ * day it last ran for: the clock ticks far more often than the date changes.
+ */
+export function useRecurringRollForward(): void {
+  const now = useNow(60_000)
+  const day = todayKey(new Date(now))
+  const ranFor = useRef<DayKey | null>(null)
+
+  useEffect(() => {
+    if (ranFor.current === day) return
+    ranFor.current = day
+    void rollForwardRecurring(day)
+  }, [day])
 }

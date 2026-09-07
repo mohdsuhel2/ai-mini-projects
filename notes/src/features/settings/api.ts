@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   firstDayOfWeek: 1,
   onboarded: false,
+  remindersEnabled: false,
   updatedAt: 0,
 }
 

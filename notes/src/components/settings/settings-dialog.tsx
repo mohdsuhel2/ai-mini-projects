@@ -1,9 +1,16 @@
 'use client'
 
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, Monitor, Moon, Sun } from 'lucide-react'
 import { Dialog } from '@/components/common/dialog'
 import { DataSection } from './data-section'
 import { useTheme } from '@/hooks/use-theme'
+import { useSettings } from '@/hooks/use-data'
+import { updateSettings } from '@/features/settings/api'
+import {
+  notificationAccess,
+  requestNotificationAccess,
+} from '@/features/notifications/permission'
 import { useUi } from '@/store/ui-context'
 import { GA_MEASUREMENT_ID } from '@/lib/analytics'
 import { cn } from '@/lib/utils/cn'
@@ -28,6 +35,19 @@ const SHORTCUTS: Array<[string, string]> = [
 export function SettingsDialog() {
   const { settingsOpen, closeSettings } = useUi()
   const { preference, setTheme } = useTheme()
+  const settings = useSettings()
+  const [access, setAccess] = useState(notificationAccess)
+
+  async function toggleReminders(next: boolean) {
+    if (!next) {
+      await updateSettings({ remindersEnabled: false })
+      return
+    }
+    // Asked for at the moment it is wanted, never on load.
+    const granted = await requestNotificationAccess()
+    setAccess(granted)
+    await updateSettings({ remindersEnabled: granted === 'granted' })
+  }
 
   return (
     <Dialog
@@ -63,6 +83,32 @@ export function SettingsDialog() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="space-y-2.5">
+          <h3 className="text-[13px] font-semibold text-fg">Reminders</h3>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={Boolean(settings.remindersEnabled) && access === 'granted'}
+              disabled={access === 'unsupported' || access === 'denied'}
+              onChange={(event) => void toggleReminders(event.target.checked)}
+              className="mt-0.5 size-4 shrink-0 accent-[var(--accent)] disabled:opacity-40"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[13px] text-fg">
+                <Bell className="size-3.5 text-fg-faint" strokeWidth={2} aria-hidden="true" />
+                Tell me when a task is due
+              </span>
+              <span className="mt-1 block text-[12.5px] leading-[1.55] text-fg-muted">
+                {access === 'unsupported'
+                  ? 'This browser cannot show notifications.'
+                  : access === 'denied'
+                    ? 'Notifications are blocked for this site. Allow them in your browser settings to turn this on.'
+                    : 'A task with a time on it will say so when the time comes. Nothing leaves your device, so this only works while Simply Notes is open or in the background.'}
+              </span>
+            </span>
+          </label>
         </section>
 
         <DataSection />
