@@ -50,6 +50,8 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
   // Captured at mount, so writing the initial HTML never reruns against a
   // later save and clobbers what the user is typing.
   const initialBody = useRef(note.body)
+  /** The last title this editor wrote, so it can tell its own echo apart. */
+  const lastWrittenTitle = useRef(note.title)
 
   /**
    * The initial HTML is written once, through a callback ref. Setting it on
@@ -68,10 +70,26 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
   useEffect(() => {
     if (!dirty) return
     const id = window.setTimeout(() => {
+      lastWrittenTitle.current = title
       void updateNote(note.id, { title, body: draft })
     }, AUTOSAVE_DELAY_MS)
     return () => window.clearTimeout(id)
   }, [dirty, title, draft, note.id])
+
+  /**
+   * Adopts a title changed from somewhere else — renaming the row in the tree,
+   * for instance.
+   *
+   * Without this the editor reads an external rename as its own field being
+   * stale, marks itself dirty, and writes the old title straight back over it
+   * 600ms later. The ref distinguishes the echo of our own save (ignore it)
+   * from someone else's edit (take it).
+   */
+  useEffect(() => {
+    if (note.title === lastWrittenTitle.current) return
+    lastWrittenTitle.current = note.title
+    setTitle(note.title)
+  }, [note.title])
 
   /** Applies a command to the current selection without losing it. */
   function run(command: string, value?: string) {
