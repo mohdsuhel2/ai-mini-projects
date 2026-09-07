@@ -11,13 +11,16 @@ import {
 import { formatClock, formatDuration } from '@/lib/date/format'
 import { minutesOfDay } from '@/lib/date/day-key'
 import { Skeleton } from '@/components/common/skeleton'
+import { cn } from '@/lib/utils/cn'
 import { useNow } from '@/hooks/use-now'
-import type { DailySummary as Summary } from '@/types'
+import type { DailySummary as Summary, Id } from '@/types'
 
 interface DailySummaryProps {
   summary: Summary | undefined
   schedule: DaySchedule | undefined
   isToday: boolean
+  /** An entry tapped in the list below — its block is lit, the rest recede. */
+  highlightId?: Id | null
 }
 
 /** Quarter-day marks, so the bar reads as a day rather than as a ratio. */
@@ -37,7 +40,7 @@ const percent = (minutes: number) => `${(minutes / MINUTES_IN_DAY) * 100}%`
  * a bar packed against the left edge would only say how much, and "where did
  * my day go?" is a question about *when*.
  */
-export function DailySummary({ summary, schedule, isToday }: DailySummaryProps) {
+export function DailySummary({ summary, schedule, isToday, highlightId }: DailySummaryProps) {
   // Ticking only on today, and coarsely: the marker moves a pixel a minute.
   const now = useNow(30_000, isToday)
   const barRef = useRef<HTMLDivElement>(null)
@@ -55,6 +58,16 @@ export function DailySummary({ summary, schedule, isToday }: DailySummaryProps) 
   const { completedCount, trackedMinutes } = summary
   const { blocks, unplacedMinutes, untrackedMinutes } = schedule
   const nowMinutes = isToday ? minutesOfDay(new Date(now)) : null
+  const highlight = highlightId != null ? blocks.find((b) => b.id === highlightId) : undefined
+
+  // Hover wins while the pointer is down on the bar; otherwise the tapped row
+  // speaks. Centred on the block rather than on the cursor, because a tap came
+  // from the list below and has no meaningful x on the bar.
+  const tip = hover
+    ? { x: hover.x, block: hover.block }
+    : highlight
+      ? { x: null, block: highlight }
+      : null
 
   // Split so the number carries the weight and the label stays quiet — this
   // line is the answer to "where did my day go", not a status message.
@@ -110,18 +123,22 @@ export function DailySummary({ summary, schedule, isToday }: DailySummaryProps) 
         onPointerMove={trackPointer}
         onPointerLeave={() => setHover(null)}
       >
-        {hover && (
+        {tip && (
           <div
             aria-hidden="true"
-            style={{ left: hover.x }}
+            style={
+              tip.x != null
+                ? { left: tip.x }
+                : { left: percent(tip.block.start + tip.block.minutes / 2) }
+            }
             className="pointer-events-none absolute bottom-[calc(100%-2px)] z-20 -translate-x-1/2"
           >
             <div className="w-max max-w-[15rem] rounded-lg bg-fg px-2.5 py-1.5 text-bg shadow-[var(--shadow-pop)]">
               <p className="truncate text-[12px] font-semibold leading-tight">
-                {hover.block.title}
+                {tip.block.title}
               </p>
               <p className="tnum mt-0.5 text-[11px] leading-tight opacity-70">
-                {formatClock(hover.block.start)} – {formatClock(hover.block.end)} · {hover.block.name}
+                {formatClock(tip.block.start)} – {formatClock(tip.block.end)} · {tip.block.name}
               </p>
             </div>
           </div>
@@ -141,16 +158,37 @@ export function DailySummary({ summary, schedule, isToday }: DailySummaryProps) 
             : 'Nothing tracked out of 24 hours'
         }
       >
-        {blocks.map((block) => (
+        {blocks.map((block) => {
+          // Dim the rest rather than recolour the one: fading the others keeps
+          // the lit block its own category colour, so the answer to "which bit
+          // is that?" is the same colour you just tapped.
+          const dimmed = highlightId != null && highlightId !== block.id
+          return (
+            <span
+              key={block.id}
+              data-tone={block.tone}
+              style={{ left: percent(block.start), width: percent(block.minutes) }}
+              // A ten-minute entry is a third of a percent of the day; without a
+              // floor it would round away to nothing at all.
+              className={cn(
+                'absolute inset-y-0 min-w-[3px] rounded-full bg-[var(--tone-solid)]',
+                'transition-[left,width,opacity] duration-300 ease-[var(--ease-out-soft)]',
+                dimmed && 'opacity-20',
+              )}
+            />
+          )
+        })}
+
+        {highlight && (
           <span
-            key={block.id}
-            data-tone={block.tone}
-            style={{ left: percent(block.start), width: percent(block.minutes) }}
-            // A ten-minute entry is a third of a percent of the day; without a
-            // floor it would round away to nothing at all.
-            className="absolute inset-y-0 min-w-[3px] rounded-full bg-[var(--tone-solid)] transition-[left,width] duration-500 ease-[var(--ease-out-soft)]"
+            aria-hidden="true"
+            style={{
+              left: percent(highlight.start),
+              width: percent(highlight.minutes),
+            }}
+            className="pointer-events-none absolute inset-y-[-3px] min-w-[3px] rounded-full ring-2 ring-fg/40 animate-fade-in"
           />
-        ))}
+        )}
 
         {nowMinutes != null && (
           <span

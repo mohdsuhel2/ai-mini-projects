@@ -69,3 +69,52 @@ export function dayRows(
 
   return { rows, untimed }
 }
+
+export type DayPart = 'morning' | 'afternoon' | 'evening'
+
+export const DAY_PART_LABELS: Record<DayPart, string> = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
+}
+
+/** Noon and 5pm — where people actually feel the day change, not even thirds. */
+export function dayPartOf(minute: MinuteOfDay): DayPart {
+  if (minute < 12 * 60) return 'morning'
+  return minute < 17 * 60 ? 'afternoon' : 'evening'
+}
+
+export interface DayPartGroup {
+  part: DayPart
+  label: string
+  entries: Array<Extract<DayRow, { kind: 'entry' }>>
+  /** Everything logged in this stretch, for the heading. */
+  minutes: number
+}
+
+/**
+ * Splits the day into the three stretches people plan around.
+ *
+ * An empty stretch is dropped rather than shown blank: "Evening — nothing" is
+ * not a fact about the evening at half past two.
+ */
+export function groupByDayPart(rows: DayRow[]): DayPartGroup[] {
+  const order: DayPart[] = ['morning', 'afternoon', 'evening']
+  const buckets = new Map<DayPart, DayPartGroup>(
+    order.map((part) => [part, { part, label: DAY_PART_LABELS[part], entries: [], minutes: 0 }]),
+  )
+
+  for (const row of rows) {
+    if (row.kind !== 'entry') continue
+    const group = buckets.get(dayPartOf(row.at))!
+    group.entries.push(row)
+    group.minutes += row.minutes
+  }
+
+  return order.map((part) => buckets.get(part)!).filter((group) => group.entries.length > 0)
+}
+
+/** The longest entry of the day — the bar under each row is drawn against it. */
+export function longestEntry(rows: DayRow[]): number {
+  return rows.reduce((max, row) => (row.kind === 'entry' ? Math.max(max, row.minutes) : max), 0)
+}

@@ -6,32 +6,39 @@ import { TimelineItem } from './timeline-item'
 import { EmptyState } from '@/components/common/empty-state'
 import { PaneSkeleton } from '@/components/common/skeleton'
 import { deleteActivity, updateActivity } from '@/features/activities/api'
-import { dayRows } from '@/features/analytics/day-rows'
+import { dayRows, groupByDayPart, longestEntry } from '@/features/analytics/day-rows'
 import { useActivitiesForDay, useCategoryMap } from '@/hooks/use-data'
 import { usePrefersReducedMotion } from '@/hooks/use-media-query'
 import { useUi } from '@/store/ui-context'
 import { formatDuration } from '@/lib/date/format'
-import type { DayKey } from '@/types'
+import type { Activity, DayKey, Id } from '@/types'
 
 interface TimelineProps {
   day: DayKey
   isToday: boolean
+  /** The entry lit on the day bar, owned by the pane so the bar sees it too. */
+  selectedId: Id | null
+  onSelect: (id: Id | null) => void
 }
 
 /**
- * The day as a column of blocks, tall in proportion to how long each thing took
- * and coloured by what kind of thing it was — so a day reads as a shape before
- * it reads as a list. The hours nothing was logged in collapse to a single
- * line, because an honest empty stretch still should not cost a screen of
- * scrolling to admit.
+ * The day as three grouped lists — morning, afternoon, evening — each with what
+ * that stretch cost in its heading.
+ *
+ * A single flat list makes a day of fifteen entries one undifferentiated run;
+ * splitting at the hours people actually plan around means "where did my
+ * morning go" is answered by the heading before you read a single row.
  */
-export function Timeline({ day, isToday }: TimelineProps) {
+export function Timeline({ day, isToday, selectedId, onSelect }: TimelineProps) {
   const activities = useActivitiesForDay(day)
   const categories = useCategoryMap()
   const reducedMotion = usePrefersReducedMotion()
   const { notify } = useUi()
 
-  const { rows, untimed } = useMemo(() => dayRows(activities ?? []), [activities])
+  const { groups, untimed, longest } = useMemo(() => {
+    const { rows, untimed: loose } = dayRows(activities ?? [])
+    return { groups: groupByDayPart(rows), untimed: loose, longest: longestEntry(rows) }
+  }, [activities])
 
   if (!activities) return <PaneSkeleton rows={3} />
 
@@ -59,84 +66,71 @@ export function Timeline({ day, isToday }: TimelineProps) {
 
   const transition = { duration: reducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] as const }
 
+  const row = (activity: Activity, at: number | null, end: number | null, minutes: number) => (
+    <motion.div
+      key={activity.id}
+      layout={!reducedMotion}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: reducedMotion ? 0 : 0.14 } }}
+      transition={transition}
+    >
+      <TimelineItem
+        activity={activity}
+        category={activity.categoryId ? categories.get(activity.categoryId) : undefined}
+        at={at}
+        end={end}
+        minutes={minutes}
+        longest={longest}
+        selected={selectedId === activity.id}
+        // Tapping the lit row puts the whole bar back, so there is always a way
+        // out of the highlight without hunting for a close affordance.
+        onSelect={() => onSelect(selectedId === activity.id ? null : activity.id)}
+        onDelete={() => void handleDelete(activity.id, activity.title)}
+      />
+    </motion.div>
+  )
+
   return (
-    <div className="space-y-4">
-      {rows.length > 0 && (
-        <ul className="space-y-1.5">
-          <AnimatePresence initial={false}>
-            {rows.map((row) =>
-              row.kind === 'gap' ? (
-                <motion.li
-                  key={`gap-${row.from}-${row.to}`}
-                  layout={!reducedMotion}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={transition}
-                  className="flex items-center gap-2.5 py-0.5"
-                >
-                  <span className="w-[52px] shrink-0" aria-hidden="true" />
-                  <span className="flex flex-1 items-center gap-2.5">
-                    <span
-                      aria-hidden="true"
-                      className="h-px flex-1 border-t border-dashed border-line"
-                    />
-                    <span className="shrink-0 text-[10.5px] font-medium text-fg-faint">
-                      {formatDuration(row.minutes)} unaccounted
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      className="h-px flex-1 border-t border-dashed border-line"
-                    />
-                  </span>
-                </motion.li>
-              ) : (
-                <motion.div
-                  key={row.activity.id}
-                  layout={!reducedMotion}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, transition: { duration: reducedMotion ? 0 : 0.14 } }}
-                  transition={transition}
-                >
-                  <TimelineItem
-                    activity={row.activity}
-                    category={
-                      row.activity.categoryId ? categories.get(row.activity.categoryId) : undefined
-                    }
-                    at={row.at}
-                    end={row.end}
-                    minutes={row.minutes}
-                    onDelete={() => void handleDelete(row.activity.id, row.activity.title)}
-                  />
-                </motion.div>
-              ),
-            )}
-          </AnimatePresence>
-        </ul>
-      )}
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <section key={group.part} aria-labelledby={`part-${group.part}`}>
+          <div className="mb-1.5 flex items-baseline justify-between gap-3 px-1">
+            <h3
+              id={`part-${group.part}`}
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint"
+            >
+              {group.label}
+            </h3>
+            <span className="tnum text-[11.5px] font-medium text-fg-faint">
+              {formatDuration(group.minutes)}
+            </span>
+          </div>
+
+          <ul className="rounded-2xl border border-card-line bg-surface p-1">
+            <AnimatePresence initial={false}>
+              {group.entries.map((entry) =>
+                row(entry.activity, entry.at, entry.end, entry.minutes),
+              )}
+            </AnimatePresence>
+          </ul>
+        </section>
+      ))}
 
       {untimed.length > 0 && (
-        <div>
-          {rows.length > 0 && (
-            <p className="mb-2 pl-[62px] text-[10.5px] font-bold uppercase tracking-[0.1em] text-fg-subtle">
+        <section aria-labelledby="part-untimed">
+          <div className="mb-1.5 px-1">
+            <h3
+              id="part-untimed"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint"
+            >
               No time recorded
-            </p>
-          )}
-          <ul className="space-y-1.5">
-            {untimed.map((activity) => (
-              <TimelineItem
-                key={activity.id}
-                activity={activity}
-                category={activity.categoryId ? categories.get(activity.categoryId) : undefined}
-                at={null}
-                end={null}
-                minutes={0}
-                onDelete={() => void handleDelete(activity.id, activity.title)}
-              />
-            ))}
+            </h3>
+          </div>
+          <ul className="rounded-2xl border border-card-line bg-surface p-1">
+            {untimed.map((activity) => row(activity, null, null, 0))}
           </ul>
-        </div>
+        </section>
       )}
     </div>
   )

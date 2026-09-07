@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ActivityComposer } from '@/components/activity/activity-composer'
 import { DailySummary } from '@/components/dashboard/daily-summary'
@@ -9,7 +10,7 @@ import { useDailySummary, useDaySchedule } from '@/hooks/use-data'
 import { shiftDay, todayKey } from '@/lib/date/day-key'
 import { formatDayFull, formatDayLabel } from '@/lib/date/format'
 import { track } from '@/lib/analytics'
-import type { DayKey } from '@/types'
+import type { DayKey, Id } from '@/types'
 
 interface TodayPaneProps {
   day: DayKey
@@ -27,6 +28,9 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
   const schedule = useDaySchedule(day)
   const today = todayKey()
   const isToday = day === today
+  // Held here, not in either child: tapping a row lights the matching block on
+  // the bar, so the two have to be reading the same value.
+  const [selectedId, setSelectedId] = useState<Id | null>(null)
 
   function step(amount: number) {
     onDayChange(shiftDay(day, amount))
@@ -72,11 +76,21 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
           </button>
         )}
 
-        <DailySummary summary={summary} schedule={schedule} isToday={isToday} />
+        <DailySummary
+          summary={summary}
+          schedule={schedule}
+          isToday={isToday}
+          highlightId={selectedId}
+        />
       </header>
 
       <div className="mt-6">
-        <Timeline day={day} isToday={isToday} />
+        <Timeline
+          day={day}
+          isToday={isToday}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
       </div>
 
       <div className="mt-5">

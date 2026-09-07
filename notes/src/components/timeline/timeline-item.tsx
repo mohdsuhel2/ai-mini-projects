@@ -16,75 +16,75 @@ interface TimelineItemProps {
   at: MinuteOfDay | null
   end: MinuteOfDay | null
   minutes: number
+  /** The day's longest entry — what the bar under the title is drawn against. */
+  longest: number
+  /** Tapped: this entry is lit on the day bar above. */
+  selected: boolean
+  onSelect: () => void
   onDelete: () => void
 }
 
 /**
- * How tall a block of `minutes` is drawn.
+ * One row of the day, built as a grouped-list row rather than a block on a
+ * timeline: a filled tile, the thing you did, and what it cost, right aligned.
  *
- * Proportional, then capped. Below the floor an entry would be too small to
- * read or to hit; above the ceiling a four-hour block would push the rest of
- * the day off the screen to make a point the duration already makes in words.
+ * Every row is the same height. The previous version scaled height by duration,
+ * which turned a day of mixed entries into a ragged column — the three-pixel
+ * bar under the title carries that proportion instead, for a fraction of the
+ * visual weight.
  */
-export function blockHeight(minutes: number): number {
-  if (minutes <= 0) return 46
-  return Math.min(164, Math.max(46, Math.round(minutes * 1.15)))
-}
-
 export function TimelineItem({
   activity,
   category,
   at,
   end,
   minutes,
+  longest,
+  selected,
+  onSelect,
   onDelete,
 }: TimelineItemProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const fromTodo = activity.source === 'TODO_COMPLETION'
   const range =
     at != null && end != null ? `${formatClock(at)} – ${formatClock(end)}` : formatClock(at)
+  const share = longest > 0 ? minutes / longest : 0
 
   return (
-    <li className="group flex gap-2.5">
-      {/* Clock time lives in the gutter, once, so the block itself is free to
-          carry the thing that was actually done. */}
-      <span className="tnum w-[52px] shrink-0 pt-3 text-right text-[11px] leading-none text-fg-faint">
-        {at != null ? formatClock(at) : ''}
-      </span>
-
-      <div
-        data-tone={category?.tone}
-        title={`${activity.title}${range ? ` · ${range}` : ''}${category ? ` · ${category.name}` : ''}`}
-        style={{ minHeight: blockHeight(minutes) }}
+    <li className="group relative flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={`Show ${activity.title} on the day bar`}
         className={cn(
-          'relative flex min-w-0 flex-1 gap-2.5 overflow-hidden rounded-2xl py-3 pl-4 pr-2.5',
-          category ? 'bg-[var(--tone-wash)]' : 'bg-bg-sunk',
+          'flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3.5 py-3 text-left',
+          'transition-colors duration-150',
+          selected ? 'bg-bg-sunk' : 'hover:bg-surface-hover',
         )}
       >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'absolute inset-y-2.5 left-2 w-[3px] rounded-full',
-            category ? 'bg-[var(--tone-solid)]' : 'bg-line-strong',
-          )}
-        />
+      {/* Saturated fill, white glyph — the tile is the row's colour, so nothing
+          else in the row has to carry the category. */}
+      <span
+        data-tone={category?.tone}
+        aria-hidden="true"
+        className={cn(
+          'grid size-9 shrink-0 place-items-center rounded-[10px]',
+          category
+            ? 'bg-[var(--tone-solid)] text-[var(--tone-solid-fg)]'
+            : 'bg-bg-sunk text-fg-subtle',
+        )}
+      >
+        {fromTodo && !category ? (
+          <Check className="size-[18px]" strokeWidth={2.6} />
+        ) : (
+          <CategoryIcon icon={category?.icon} className="size-[18px]" />
+        )}
+      </span>
 
-        <span
-          aria-hidden="true"
-          className={cn(
-            'mt-px shrink-0',
-            category ? 'text-[var(--tone-fg)]' : 'text-fg-subtle',
-          )}
-        >
-          {fromTodo && !category ? (
-            <Check className="size-4 text-success" strokeWidth={2.5} />
-          ) : (
-            <CategoryIcon icon={category?.icon} className="size-4" />
-          )}
-        </span>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-medium leading-[1.35] text-fg">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-3">
+          <p className="min-w-0 flex-1 truncate text-[15px] font-medium leading-tight text-fg">
             {activity.title}
             {fromTodo && (
               <span className="ml-1.5 align-middle text-[11px] text-success" title="Completed task">
@@ -92,53 +92,65 @@ export function TimelineItem({
               </span>
             )}
           </p>
-          {category && (
-            <p className="mt-0.5 text-[11.5px] font-medium text-[var(--tone-fg)]">
-              {category.name}
-            </p>
-          )}
-          {at == null && (
-            <p className="mt-0.5 text-[11.5px] text-fg-faint">No time recorded</p>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-start gap-0.5">
           {activity.duration != null && (
             <span
-              className="tnum pt-0.5 text-[12px] font-semibold text-fg-muted"
+              className="tnum shrink-0 text-[13px] font-semibold text-fg"
               aria-label={formatDurationLong(activity.duration)}
             >
               {formatDuration(activity.duration)}
             </span>
           )}
-          <div className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-            <Popover
-              open={menuOpen}
-              onClose={() => setMenuOpen(false)}
-              align="end"
-              trigger={
-                <IconButton
-                  label={`Options for ${activity.title}`}
-                  size="sm"
-                  onClick={() => setMenuOpen((v) => !v)}
-                >
-                  <MoreHorizontal className="size-3.5" strokeWidth={2} />
-                </IconButton>
-              }
-            >
-              <PopoverItem
-                onClick={() => {
-                  setMenuOpen(false)
-                  onDelete()
-                }}
-                className="text-danger hover:bg-danger-soft"
-              >
-                <Trash2 className="size-3.5" strokeWidth={2} />
-                {fromTodo ? 'Remove and reopen task' : 'Delete'}
-              </PopoverItem>
-            </Popover>
-          </div>
         </div>
+
+        <p className="tnum mt-0.5 truncate text-[12.5px] leading-tight text-fg-faint">
+          {range || 'No time recorded'}
+          {category && ` · ${category.name}`}
+        </p>
+
+        {/* No track behind it: an empty grey rail on every row reads as a rule
+            across the list, which is the thing the list is trying not to have.
+            The filled length alone carries the proportion. */}
+        {share > 0 && (
+          <div
+            data-tone={category?.tone}
+            aria-hidden="true"
+            // A floor, so the shortest entry of the day is still a mark.
+            style={{ width: `${Math.max(share * 100, 3)}%` }}
+            className={cn(
+              'mt-2 h-[3px] rounded-full transition-[width] duration-500 ease-[var(--ease-out-soft)]',
+              category ? 'bg-[var(--tone-solid)]' : 'bg-fg-faint',
+            )}
+          />
+        )}
+      </div>
+      </button>
+
+      <div className="shrink-0 pr-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+        <Popover
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          align="end"
+          trigger={
+            <IconButton
+              label={`Options for ${activity.title}`}
+              size="sm"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <MoreHorizontal className="size-4" strokeWidth={2} />
+            </IconButton>
+          }
+        >
+          <PopoverItem
+            onClick={() => {
+              setMenuOpen(false)
+              onDelete()
+            }}
+            className="text-danger hover:bg-danger-soft"
+          >
+            <Trash2 className="size-3.5" strokeWidth={2} />
+            {fromTodo ? 'Remove and reopen task' : 'Delete'}
+          </PopoverItem>
+        </Popover>
       </div>
     </li>
   )

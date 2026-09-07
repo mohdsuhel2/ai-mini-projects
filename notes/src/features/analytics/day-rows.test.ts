@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { dayRows, GAP_THRESHOLD_MINUTES } from './day-rows'
+import {
+  dayPartOf,
+  dayRows,
+  GAP_THRESHOLD_MINUTES,
+  groupByDayPart,
+  longestEntry,
+} from './day-rows'
 import type { Activity } from '@/types'
 
 const activity = (partial: Partial<Activity>): Activity => ({
@@ -95,5 +101,43 @@ describe('dayRows', () => {
 
   it('returns nothing for a day with nothing on it', () => {
     expect(dayRows([])).toEqual({ rows: [], untimed: [] })
+  })
+})
+
+describe('grouping the day', () => {
+  const at = (minute: number, id: string) =>
+    activity({ id, startTime: minute, duration: 30 })
+
+  it('splits at noon and five, where the day actually turns', () => {
+    expect(dayPartOf(11 * 60 + 59)).toBe('morning')
+    expect(dayPartOf(12 * 60)).toBe('afternoon')
+    expect(dayPartOf(16 * 60 + 59)).toBe('afternoon')
+    expect(dayPartOf(17 * 60)).toBe('evening')
+  })
+
+  it('files entries under the stretch they started in, in order', () => {
+    const { rows } = dayRows([at(9 * 60, 'a'), at(14 * 60, 'b'), at(20 * 60, 'c')])
+    const groups = groupByDayPart(rows)
+    expect(groups.map((g) => g.label)).toEqual(['Morning', 'Afternoon', 'Evening'])
+    expect(groups.map((g) => g.entries[0].activity.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('totals each stretch for its heading', () => {
+    const { rows } = dayRows([at(9 * 60, 'a'), at(10 * 60, 'b')])
+    expect(groupByDayPart(rows)[0].minutes).toBe(60)
+  })
+
+  it('drops a stretch with nothing in it rather than showing it blank', () => {
+    const { rows } = dayRows([at(9 * 60, 'a')])
+    expect(groupByDayPart(rows).map((g) => g.part)).toEqual(['morning'])
+  })
+
+  it('measures the longest entry, ignoring the gaps between them', () => {
+    const { rows } = dayRows([
+      activity({ id: 'short', startTime: 540, duration: 20 }),
+      activity({ id: 'long', startTime: 780, duration: 90 }),
+    ])
+    expect(rows.some((r) => r.kind === 'gap')).toBe(true)
+    expect(longestEntry(rows)).toBe(90)
   })
 })

@@ -137,15 +137,11 @@ export function PlanPane() {
                 </div>
 
                 {!isCollapsed && (
-                  <div className="rounded-2xl border border-card-line bg-surface">
+                  <div className="rounded-2xl border border-card-line bg-surface p-1">
                     <AnimatePresence initial={false} mode="popLayout">
-                      {/* The divider lives on the wrapper, not the row: the row
-                          is an only child here, so `last:` on it would always
-                          match and no rule would ever be drawn. */}
                       {group.todos.map((todo) => (
                         <motion.div
                           key={todo.id}
-                          className="relative [&:not(:last-child)]:after:absolute [&:not(:last-child)]:after:inset-x-3.5 [&:not(:last-child)]:after:bottom-0 [&:not(:last-child)]:after:h-px [&:not(:last-child)]:after:bg-card-line"
                           layout={!reducedMotion}
                           initial={{ opacity: 0, y: -4 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -176,7 +172,7 @@ export function PlanPane() {
                     </AnimatePresence>
 
                     {group.todos.length === 0 && (
-                      <p className="px-3.5 py-3 text-[13px] text-fg-faint">
+                      <p className="px-3 py-2.5 text-[13px] text-fg-faint">
                         Nothing scheduled. Enjoy the space, or add something above.
                       </p>
                     )}
