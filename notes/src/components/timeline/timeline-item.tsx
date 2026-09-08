@@ -6,6 +6,8 @@ import { IconButton } from '@/components/common/icon-button'
 import { Popover, PopoverItem } from '@/components/common/popover'
 import { CategoryIcon } from '@/lib/icons'
 import { formatClock, formatDuration, formatDurationLong } from '@/lib/date/format'
+import { useHasHover } from '@/hooks/use-media-query'
+import { useLongPress } from '@/hooks/use-long-press'
 import { cn } from '@/lib/utils/cn'
 import type { Activity, Category, MinuteOfDay } from '@/types'
 
@@ -45,13 +47,18 @@ export function TimelineItem({
   onDelete,
 }: TimelineItemProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const hasHover = useHasHover()
+  const longPress = useLongPress(() => setMenuOpen(true))
   const fromTodo = activity.source === 'TODO_COMPLETION'
   const range =
     at != null && end != null ? `${formatClock(at)} – ${formatClock(end)}` : formatClock(at)
   const share = longest > 0 ? minutes / longest : 0
 
   return (
-    <li className="group relative flex items-center gap-1">
+    <li
+      {...(hasHover ? {} : longPress)}
+      className={cn('group relative flex items-center gap-1', !hasHover && 'select-none')}
+    >
       <button
         type="button"
         onClick={onSelect}
@@ -125,19 +132,28 @@ export function TimelineItem({
       </div>
       </button>
 
-      <div className="shrink-0 pr-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+      <div
+        className={cn(
+          'shrink-0 transition-opacity duration-150',
+          hasHover
+            ? 'pr-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+            : 'pointer-events-none w-0 overflow-hidden opacity-0',
+        )}
+      >
         <Popover
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           align="end"
           trigger={
-            <IconButton
-              label={`Options for ${activity.title}`}
-              size="sm"
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <MoreHorizontal className="size-4" strokeWidth={2} />
-            </IconButton>
+            hasHover ? (
+              <IconButton
+                label={`Options for ${activity.title}`}
+                size="sm"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <MoreHorizontal className="size-4" strokeWidth={2} />
+              </IconButton>
+            ) : null
           }
         >
           <PopoverItem

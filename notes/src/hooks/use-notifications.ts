@@ -10,18 +10,26 @@ import { formatClock } from '@/lib/date/format'
 import { minutesOfDay, todayKey } from '@/lib/date/day-key'
 import type { Id } from '@/types'
 
-/** Keeps the count on the app icon in step with what is late or due today. */
+/**
+ * Keeps the count on the app icon in step with what is late or due today.
+ *
+ * Re-applies on permission as well as on count. Some platforms — installed web
+ * apps on iOS among them — only honour a badge once notification permission is
+ * granted, and granting it does not change the number: without this dependency
+ * the badge would stay dark until the next time a task happened to move.
+ */
 export function useAppBadge(): void {
   const todos = useOpenTodos()
   // Only to catch the date rolling over; the count itself is already reactive.
   const now = useNow(60_000)
   const today = todayKey(new Date(now))
+  const access = notificationAccess()
 
   const count = useMemo(() => (todos ? badgeCount(todos, today) : 0), [todos, today])
 
   useEffect(() => {
     void applyBadge(count)
-  }, [count])
+  }, [count, access])
 }
 
 /**

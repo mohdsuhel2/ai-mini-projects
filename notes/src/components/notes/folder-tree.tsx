@@ -23,6 +23,8 @@ import {
 } from '@/components/common/context-menu'
 import { noteCount } from '@/features/notes/tree'
 import { plainTextPreview } from '@/lib/markdown/render'
+import { useHasHover } from '@/hooks/use-media-query'
+import { useLongPress } from '@/hooks/use-long-press'
 import { cn } from '@/lib/utils/cn'
 import { isTreeDrag, readDragPayload, setDragPayload, type DragPayload } from './drag'
 import type { FolderNode, Id, Note } from '@/types'
@@ -227,6 +229,8 @@ function FolderRow({
 }: { node: FolderNode } & RowRenameProps & FolderTreeProps) {
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const hasHover = useHasHover()
+  const longPress = useLongPress((at) => setMenu(at))
 
   const open = props.forceExpanded || !props.collapsed.has(node.folder.id)
   const active = props.activeFolderId === node.folder.id
@@ -273,6 +277,7 @@ function FolderRow({
           event.stopPropagation()
           props.onDrop(payload, node.folder.id)
         }}
+        {...(hasHover ? {} : longPress)}
         onContextMenu={(event) => {
           event.preventDefault()
           setMenu({ x: event.clientX, y: event.clientY })
@@ -341,7 +346,14 @@ function FolderRow({
         </button>
         )}
 
-        <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
+        <div
+          className={cn(
+            'flex shrink-0 items-center transition-opacity',
+            hasHover
+              ? 'opacity-0 group-hover/row:opacity-100 focus-within:opacity-100'
+              : 'pointer-events-none w-0 overflow-hidden opacity-0',
+          )}
+        >
           <IconButton
             label={`New note in ${node.folder.name}`}
             size="sm"
@@ -430,6 +442,8 @@ function NoteRow({
   onRename,
 }: { note: Note; depth: number; selected: boolean } & RowRenameProps & TreeActions) {
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const hasHover = useHasHover()
+  const longPress = useLongPress((at) => setMenu(at))
   const preview = plainTextPreview(note.body, 60)
   const close = () => setMenu(null)
   const editing = renaming?.kind === 'note' && renaming.id === note.id
@@ -449,6 +463,7 @@ function NoteRow({
           event.stopPropagation()
           setDragPayload(event, { kind: 'note', id: note.id })
         }}
+        {...(hasHover ? {} : longPress)}
         onContextMenu={(event) => {
           event.preventDefault()
           setMenu({ x: event.clientX, y: event.clientY })
@@ -491,7 +506,14 @@ function NoteRow({
           </button>
         )}
 
-        <div className="shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
+        <div
+          className={cn(
+            'shrink-0 transition-opacity',
+            hasHover
+              ? 'opacity-0 group-hover/row:opacity-100 focus-within:opacity-100'
+              : 'pointer-events-none w-0 overflow-hidden opacity-0',
+          )}
+        >
           <IconButton
             label={`Options for ${note.title}`}
             size="sm"

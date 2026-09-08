@@ -13,6 +13,7 @@ import {
 } from '@/features/notifications/permission'
 import { useUi } from '@/store/ui-context'
 import { GA_MEASUREMENT_ID } from '@/lib/analytics'
+import { SITE } from '@/lib/site'
 import { cn } from '@/lib/utils/cn'
 import type { ThemePreference } from '@/types'
 
@@ -86,7 +87,7 @@ export function SettingsDialog() {
         </section>
 
         <section className="space-y-2.5">
-          <h3 className="text-[13px] font-semibold text-fg">Reminders</h3>
+          <h3 className="text-[13px] font-semibold text-fg">Notifications</h3>
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
@@ -98,14 +99,14 @@ export function SettingsDialog() {
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-[13px] text-fg">
                 <Bell className="size-3.5 text-fg-faint" strokeWidth={2} aria-hidden="true" />
-                Tell me when a task is due
+                Reminders and the count on the app icon
               </span>
               <span className="mt-1 block text-[12.5px] leading-[1.55] text-fg-muted">
                 {access === 'unsupported'
                   ? 'This browser cannot show notifications.'
                   : access === 'denied'
                     ? 'Notifications are blocked for this site. Allow them in your browser settings to turn this on.'
-                    : 'A task with a time on it will say so when the time comes. Nothing leaves your device, so this only works while Simply Notes is open or in the background.'}
+                    : 'A task with a time on it says so when the time comes, and the number of pending and today’s tasks shows on the installed app’s icon. Some platforms only badge the icon once this is allowed. Nothing leaves your device, so reminders only arrive while Simply Notes is open or in the background.'}
               </span>
             </span>
           </label>
@@ -141,6 +142,26 @@ export function SettingsDialog() {
               ? 'Anonymous usage counts (how often features are used, never what you wrote) are sent to Google Analytics. Enabling Do Not Track in your browser turns this off.'
               : 'Analytics is switched off in this deployment.'}
           </p>
+        </section>
+
+        {/* The pitch, the features and the FAQ used to sit under the app. This
+            is where someone actually goes looking for them. */}
+        <section className="space-y-2 border-t border-line pt-5">
+          <h3 className="text-[13px] font-semibold text-fg">About</h3>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px]">
+            <a
+              href="/about"
+              className="text-accent underline decoration-accent-line underline-offset-2"
+            >
+              What {SITE.name} is
+            </a>
+            <a
+              href="/privacy"
+              className="text-accent underline decoration-accent-line underline-offset-2"
+            >
+              Full privacy statement
+            </a>
+          </div>
         </section>
       </div>
     </Dialog>

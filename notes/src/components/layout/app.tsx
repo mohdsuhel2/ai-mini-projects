@@ -18,6 +18,8 @@ import { UiProvider, useUi, type Pane } from '@/store/ui-context'
 import { useHotkeys, type Hotkey } from '@/hooks/use-hotkeys'
 import { useMounted } from '@/hooks/use-mounted'
 import { useIsWide } from '@/hooks/use-media-query'
+import { useSwipe } from '@/hooks/use-swipe'
+import { useSplitPane } from '@/hooks/use-split-pane'
 import { useOpenTodos, useRecurringRollForward, useSettings } from '@/hooks/use-data'
 import { useAppBadge, useReminders } from '@/hooks/use-notifications'
 import { groupIdFor } from '@/features/todos/grouping'
@@ -79,6 +81,11 @@ function Workspace() {
   const showPlan = mode === 'day' && (isWide || pane === 'plan')
   const showToday = mode === 'day' && (isWide || pane === 'today')
 
+  // Phone: the two halves of the day are tabs you flick between.
+  const swipe = useSwipe((direction) => setPane(direction === 'left' ? 'today' : 'plan'))
+  // Desktop: the divider between them is draggable.
+  const { pct: splitPct, rowRef: splitRow, handleProps: splitHandle } = useSplitPane()
+
   return (
     <div className="min-h-dvh bg-bg sm:pl-[76px]">
       <SideRail />
@@ -104,10 +111,19 @@ function Workspace() {
         )}
 
         <div
+          ref={splitRow}
+          {...(isWide || mode !== 'day' ? {} : swipe)}
+          style={
+            isWide
+              ? {
+                  gridTemplateColumns: `minmax(0,${splitPct}fr) 2.25rem minmax(0,${100 - splitPct}fr)`,
+                }
+              : undefined
+          }
           className={cn(
             'gap-x-9',
             mode === 'day' ? 'grid' : 'hidden',
-            isWide && 'grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]',
+            isWide && 'gap-x-0',
           )}
         >
           {showPlan && (
@@ -124,10 +140,28 @@ function Workspace() {
             </section>
           )}
 
+          {/* A real separator, not decoration: it reports its position and
+              moves with the arrow keys as well as with a drag. */}
+          {isWide && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize panes"
+              aria-valuenow={Math.round(splitPct)}
+              aria-valuemin={28}
+              aria-valuemax={72}
+              tabIndex={0}
+              {...splitHandle}
+              className="group/split relative flex cursor-col-resize touch-none items-stretch justify-center outline-none"
+            >
+              <span className="w-px rounded-full bg-line transition-colors group-hover/split:bg-line-strong group-focus/split:bg-accent" />
+            </div>
+          )}
+
           {showToday && (
             <section
               aria-label="What I did"
-              className={cn('min-w-0', isWide && 'border-l border-line pl-8')}
+              className={cn('min-w-0', isWide && 'pl-1')}
             >
               <PaneHeading title="What I did" />
               <TodayPane day={day} onDayChange={setDay} />

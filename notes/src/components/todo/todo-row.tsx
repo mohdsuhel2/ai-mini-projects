@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { Clock, MoreHorizontal, Pencil, Play, Repeat, Trash2 } from 'lucide-react'
+import { useHasHover } from '@/hooks/use-media-query'
+import { useLongPress } from '@/hooks/use-long-press'
 import { CategoryBadge } from '@/components/common/category-badge'
 import { shortRecurrence } from '@/features/todos/recurrence'
 import { Checkbox } from '@/components/common/checkbox'
@@ -36,6 +38,10 @@ export function TodoRow({
   onStartTimer,
 }: TodoRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const hasHover = useHasHover()
+  // Without a pointer there is no hover to reveal the row's controls, so the
+  // whole row becomes the handle: press and hold opens what the ⋯ would.
+  const longPress = useLongPress(() => setMenuOpen(true))
   const [completeOpen, setCompleteOpen] = useState(false)
   const done = todo.status === 'COMPLETED'
   const overdue = !done && todo.plannedDate != null && todo.plannedDate < todayKey()
@@ -50,8 +56,11 @@ export function TodoRow({
 
   return (
     <div
+      {...(hasHover ? {} : longPress)}
       className={cn(
-        'group relative flex items-center gap-2.5 px-3.5 py-2.5',
+        'group relative flex items-center gap-2.5 rounded-xl px-3.5 py-2.5',
+        // A held finger must not also drag-select the row's text.
+        !hasHover && 'select-none',
       )}
     >
       <div className="shrink-0">
@@ -115,11 +124,15 @@ export function TodoRow({
 
       <div
         className={cn(
-          'flex items-center gap-0.5 opacity-0 transition-opacity duration-150',
-          'group-hover:opacity-100 focus-within:opacity-100',
+          'flex items-center gap-0.5 transition-opacity duration-150',
+          // Revealed by a pointer only. On touch they would be permanent
+          // clutter on every row, which is what the hold gesture replaces.
+          hasHover
+            ? 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+            : 'pointer-events-none w-0 overflow-hidden opacity-0',
         )}
       >
-        {!done && (
+        {!done && hasHover && (
           <IconButton label={`Start a timer for ${todo.title}`} size="sm" onClick={onStartTimer}>
             <Play className="size-3.5" strokeWidth={2} />
           </IconButton>
@@ -129,17 +142,32 @@ export function TodoRow({
           onClose={() => setMenuOpen(false)}
           align="end"
           trigger={
-            <IconButton
-              label={`Options for ${todo.title}`}
-              size="sm"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-            >
-              <MoreHorizontal className="size-4" strokeWidth={2} />
-            </IconButton>
+            hasHover ? (
+              <IconButton
+                label={`Options for ${todo.title}`}
+                size="sm"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                <MoreHorizontal className="size-4" strokeWidth={2} />
+              </IconButton>
+            ) : null
           }
         >
+          {/* The timer had its own button beside the ⋯ on a pointer; on touch
+              the hold menu is the only way in, so it has to live here too. */}
+          {!done && !hasHover && (
+            <PopoverItem
+              onClick={() => {
+                setMenuOpen(false)
+                onStartTimer()
+              }}
+            >
+              <Play className="size-3.5 text-fg-subtle" strokeWidth={2} />
+              Start a timer
+            </PopoverItem>
+          )}
           <PopoverItem
             onClick={() => {
               setMenuOpen(false)

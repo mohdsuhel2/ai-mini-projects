@@ -37,6 +37,18 @@ export function useIsPhone(): boolean {
   return useMediaQuery(PHONE_QUERY)
 }
 
+/**
+ * True only where a real pointer can hover.
+ *
+ * Hover-revealed controls are invisible and unreachable on a touch screen, so
+ * anything hidden behind `group-hover` needs a second way in on a phone.
+ */
+export const HOVER_QUERY = '(hover: hover) and (pointer: fine)'
+
+export function useHasHover(): boolean {
+  return useMediaQuery(HOVER_QUERY)
+}
+
 export function usePrefersReducedMotion(): boolean {
   return useMediaQuery('(prefers-reduced-motion: reduce)')
 }
