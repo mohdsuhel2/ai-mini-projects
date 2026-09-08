@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FolderPlus, Search, SquarePen, X } from 'lucide-react'
 import { FolderTree } from './folder-tree'
 import { NoteEditor } from './note-editor'
@@ -46,7 +46,7 @@ type Selection = { kind: 'note'; note: Note } | { kind: 'folder'; node: FolderNo
 
 export function NotesPane() {
   const { roots, unfiled, folders, notes, loading } = useNotesTree()
-  const { notify } = useUi()
+  const { notify, compose, clearCompose } = useUi()
   const isWide = useIsWide()
 
   const [selectedId, setSelectedId] = useState<Id | null>(null)
@@ -86,6 +86,24 @@ export function NotesPane() {
   const activeFolderName = activeFolderId
     ? (folders.find((f) => f.id === activeFolderId)?.name ?? 'Unfiled')
     : 'Unfiled'
+
+  // The global add button routes here and leaves the intent behind; this pane
+  // is the only place that knows where a new note goes and how to open it.
+  //
+  // Latched, because clearing the intent is a state update that has not landed
+  // by the time the effect can run again — under StrictMode's double invoke
+  // that produced two notes from one tap.
+  const handledNote = useRef(false)
+  useEffect(() => {
+    if (compose !== 'note') {
+      handledNote.current = false
+      return
+    }
+    if (handledNote.current) return
+    handledNote.current = true
+    clearCompose()
+    void handleNewNote(activeFolderId)
+  }, [compose, clearCompose, activeFolderId])
 
   async function handleNewNote(folderId: Id | null) {
     const id = await createNote({ folderId })

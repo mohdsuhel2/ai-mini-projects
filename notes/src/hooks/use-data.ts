@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useRef } from 'react'
 import { db } from '@/lib/db/database'
 import { useNow } from './use-now'
-import { todayKey } from '@/lib/date/day-key'
+import { shiftDay, todayKey } from '@/lib/date/day-key'
 import { liveOnly } from '@/lib/db/records'
 import { listCategories } from '@/features/categories/api'
 import { listOpenTodos, rollForwardRecurring } from '@/features/todos/api'
@@ -14,6 +14,18 @@ import { getTimer } from '@/features/timer/api'
 import { daySchedule, summariseDay, type DaySchedule } from '@/features/analytics/summary'
 import { rangeDays, summariseRange, RANGE_DAYS, type RangeId, type RangeSummary } from '@/features/analytics/range'
 import { listActivitiesBetween } from '@/features/activities/api'
+import {
+  categoryTrends,
+  hoursOfDay,
+  planVsDone,
+  trackingStreak,
+  weekdayLoad,
+  type CategoryTrend,
+  type HourBand,
+  type PlanVsDone,
+  type StreakInfo,
+  type WeekdayLoad,
+} from '@/features/analytics/insights'
 import { listFolders, listNotes } from '@/features/notes/api'
 import { buildFolderTree, rootNotes } from '@/features/notes/tree'
 import type {
@@ -162,4 +174,45 @@ export function useRecurringRollForward(): void {
     ranFor.current = day
     void rollForwardRecurring(day)
   }, [day])
+}
+
+export interface DeepInsights {
+  hours: HourBand[]
+  weekdays: WeekdayLoad[]
+  trends: CategoryTrend[]
+  streak: StreakInfo
+  plan: PlanVsDone
+}
+
+/**
+ * The second layer of the Insights surface.
+ *
+ * Reads twice the window so each category can be set against the period before
+ * it — a total tells you what happened, the pair tells you whether it is
+ * growing. Streaks read the whole history, since a streak is not a fact about
+ * the window you happen to be looking at.
+ */
+export function useDeepInsights(range: RangeId): DeepInsights | undefined {
+  const categories = useCategories()
+  const days = useMemo(() => rangeDays(RANGE_DAYS[range]), [range])
+  const today = days[days.length - 1]
+
+  const activities = useLiveQuery(
+    () => listActivitiesBetween(shiftDay(days[0], -days.length), today),
+    [days],
+  )
+  const allActivities = useLiveQuery(() => db().activities.toArray().then(liveOnly), [])
+  const todos = useLiveQuery(() => db().todos.toArray().then(liveOnly), [])
+
+  return useMemo(() => {
+    if (!activities || !allActivities || !todos || !categories) return undefined
+    const window = new Set(days)
+    return {
+      hours: hoursOfDay(activities, window),
+      weekdays: weekdayLoad(activities, days),
+      trends: categoryTrends(activities, days, categories),
+      streak: trackingStreak(allActivities, today),
+      plan: planVsDone(todos, window),
+    }
+  }, [activities, allActivities, todos, categories, days, today])
 }

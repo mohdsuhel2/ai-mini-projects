@@ -1,6 +1,7 @@
 'use client'
 
 import { BarChart3, ListTodo, Plus, Tag } from 'lucide-react'
+import { AddMenu } from '@/components/quick-add/add-menu'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
 
@@ -9,7 +10,7 @@ import { cn } from '@/lib/utils/cn'
  * a third destination, because adding is what people open this app to do.
  */
 export function BottomNav({ openCount }: { openCount: number }) {
-  const { mode, setMode, pane, showDay, openQuickAdd } = useUi()
+  const { mode, setMode, pane, showDay } = useUi()
 
   return (
     <nav
@@ -32,14 +33,27 @@ export function BottomNav({ openCount }: { openCount: number }) {
           label="Insights"
         />
 
-        <button
-          type="button"
-          onClick={() => openQuickAdd()}
-          aria-label="Quick add"
-          className="grid size-12 place-items-center rounded-xl bg-accent text-accent-fg transition-transform duration-150 active:scale-95"
-        >
-          <Plus className="size-5" strokeWidth={2.4} aria-hidden="true" />
-        </button>
+        <AddMenu align="start">
+          {({ onClick, expanded }) => (
+            <button
+              type="button"
+              onClick={onClick}
+              aria-label="Add"
+              aria-haspopup="menu"
+              aria-expanded={expanded}
+              className="grid size-12 place-items-center rounded-xl bg-accent text-accent-fg transition-transform duration-150 active:scale-95"
+            >
+              <Plus
+                className={cn(
+                  'size-5 transition-transform duration-200',
+                  expanded && 'rotate-45',
+                )}
+                strokeWidth={2.4}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </AddMenu>
 
         <NavButton
           active={mode === 'notes'}

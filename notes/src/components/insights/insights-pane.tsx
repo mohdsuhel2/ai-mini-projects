@@ -4,13 +4,20 @@ import { useState } from 'react'
 import { SegmentedControl } from '@/components/common/segmented-control'
 import { EmptyState } from '@/components/common/empty-state'
 import { PaneSkeleton } from '@/components/common/skeleton'
-import { useRangeSummary } from '@/hooks/use-data'
-import { formatDayLabel, formatDuration } from '@/lib/date/format'
+import { useDeepInsights, useRangeSummary } from '@/hooks/use-data'
+import { formatDayLabel, formatDuration, formatHourLabel } from '@/lib/date/format'
 import { fromDayKey } from '@/lib/date/day-key'
 import type { RangeId } from '@/features/analytics/range'
 import { cn } from '@/lib/utils/cn'
 
 const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+/** The hour with the most time in it, phrased for the panel's corner. */
+function busiestHour(hours: { hour: number; minutes: number }[]): string | undefined {
+  const peak = hours.reduce((best, band) => (band.minutes > best.minutes ? band : best), hours[0])
+  if (!peak || peak.minutes === 0) return undefined
+  return `busiest around ${formatHourLabel(peak.hour)}`
+}
 
 /**
  * The day surface answers "where did today go". This one answers the question
@@ -21,6 +28,7 @@ const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 export function InsightsPane() {
   const [range, setRange] = useState<RangeId>('week')
   const summary = useRangeSummary(range)
+  const deep = useDeepInsights(range)
 
   return (
     <div className="mx-auto max-w-[860px] space-y-5">
@@ -53,12 +61,21 @@ export function InsightsPane() {
         />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Tracked" value={formatDuration(summary.totalMinutes)} />
             <Stat label="Daily average" value={formatDuration(summary.dailyAverage) || '0m'} />
             <Stat
               label="Days logged"
               value={`${summary.activeDays} of ${summary.days.length}`}
+            />
+            <Stat
+              label="Streak"
+              value={deep ? `${deep.streak.current}d` : '—'}
+              detail={
+                deep && deep.streak.longest > deep.streak.current
+                  ? `best ${deep.streak.longest}d`
+                  : undefined
+              }
             />
           </div>
 
@@ -120,6 +137,121 @@ export function InsightsPane() {
             </ol>
           </section>
 
+          {deep && (
+            <Panel
+              title="When you work"
+              note={busiestHour(deep.hours)}
+            >
+              {/* Each entry counts toward every hour it covered, so a long
+                  block shows as a band rather than a spike at its start. */}
+              <ol className="mt-4 flex h-[92px] items-end gap-[2px]">
+                {deep.hours.map((band) => (
+                  <li key={band.hour} className="flex h-full flex-1 flex-col justify-end">
+                    <div
+                      title={`${formatHourLabel(band.hour)} · ${formatDuration(band.minutes) || 'nothing'}`}
+                      style={{ height: band.minutes === 0 ? '2px' : `${Math.max(band.share * 100, 4)}%` }}
+                      className={cn(
+                        'w-full rounded-[3px]',
+                        band.minutes === 0 ? 'bg-line' : 'bg-accent/45',
+                      )}
+                    />
+                  </li>
+                ))}
+              </ol>
+              <ol className="mt-1.5 flex gap-[2px]" aria-hidden="true">
+                {deep.hours.map((band) => (
+                  <li
+                    key={band.hour}
+                    className="flex-1 text-center text-[9px] tabular-nums text-fg-faint"
+                  >
+                    {band.hour % 6 === 0 ? band.hour : ''}
+                  </li>
+                ))}
+              </ol>
+            </Panel>
+          )}
+
+          {deep && (
+            <Panel title="Your week" note="average per day">
+              <ul className="mt-4 space-y-2.5">
+                {deep.weekdays.map((day) => {
+                  const peak = Math.max(...deep.weekdays.map((d) => d.averageMinutes), 1)
+                  return (
+                    <li key={day.weekday} className="flex items-center gap-3">
+                      <span className="w-9 shrink-0 text-[12px] font-medium text-fg-muted">
+                        {day.label}
+                      </span>
+                      <span className="h-2 flex-1 overflow-hidden rounded-full bg-line">
+                        <span
+                          style={{ width: `${(day.averageMinutes / peak) * 100}%` }}
+                          className="block h-full rounded-full bg-accent/50"
+                        />
+                      </span>
+                      <span className="tnum w-14 shrink-0 text-right text-[12px] text-fg-muted">
+                        {formatDuration(day.averageMinutes) || '—'}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Panel>
+          )}
+
+          {deep && deep.trends.length > 0 && (
+            <Panel title="What changed" note={`vs the previous ${summary.days.length} days`}>
+              <ul className="mt-4 space-y-3">
+                {deep.trends.slice(0, 6).map((trend) => (
+                  <li
+                    key={trend.categoryId ?? 'none'}
+                    data-tone={trend.tone}
+                    className="flex items-center gap-3"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="size-2 shrink-0 rounded-full bg-[var(--tone-solid)]"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-fg">{trend.name}</span>
+                    <span className="tnum shrink-0 text-[13px] text-fg-muted">
+                      {formatDuration(trend.minutes) || '0m'}
+                    </span>
+                    <span
+                      className={cn(
+                        'tnum w-20 shrink-0 text-right text-[12px] font-medium',
+                        trend.deltaMinutes > 0 && 'text-success',
+                        trend.deltaMinutes < 0 && 'text-danger',
+                        trend.deltaMinutes === 0 && 'text-fg-faint',
+                      )}
+                    >
+                      {trend.deltaMinutes === 0
+                        ? 'no change'
+                        : `${trend.deltaMinutes > 0 ? '+' : '−'}${formatDuration(Math.abs(trend.deltaMinutes))}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {deep && deep.plan.rate != null && (
+            <Panel title="Planned vs done" note={`${deep.plan.completed} of ${deep.plan.planned}`}>
+              <div className="mt-4 flex items-center gap-4">
+                <span className="tnum text-[26px] font-semibold tracking-[-0.02em] text-fg">
+                  {Math.round(deep.plan.rate * 100)}%
+                </span>
+                <span className="h-2 flex-1 overflow-hidden rounded-full bg-line">
+                  <span
+                    style={{ width: `${deep.plan.rate * 100}%` }}
+                    className="block h-full rounded-full bg-success"
+                  />
+                </span>
+              </div>
+              <p className="mt-2 text-[12px] leading-[1.5] text-fg-faint">
+                Of the tasks you gave a day in this window, this many were finished. Tasks with no
+                date are not counted — they were never promised to a day.
+              </p>
+            </Panel>
+          )}
+
           <section className="rounded-2xl border border-card-line bg-surface p-5">
             <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-fg">Where it went</h3>
             <ul className="mt-4 space-y-3.5">
@@ -150,11 +282,33 @@ export function InsightsPane() {
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-2xl border border-card-line bg-surface p-[18px]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">{label}</p>
       <p className="tnum mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-fg">{value}</p>
+      {detail && <p className="tnum mt-0.5 text-[11.5px] text-fg-faint">{detail}</p>}
     </div>
+  )
+}
+
+/** A card with a heading and an optional note on the right. */
+function Panel({
+  title,
+  note,
+  children,
+}: {
+  title: string
+  note?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="rounded-2xl border border-card-line bg-surface p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-fg">{title}</h3>
+        {note && <p className="text-[12px] text-fg-faint">{note}</p>}
+      </div>
+      {children}
+    </section>
   )
 }

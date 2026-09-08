@@ -2,6 +2,7 @@
 
 import { BarChart3, ListTodo, Plus, Settings, Tag } from 'lucide-react'
 import { BrandMark } from './brand'
+import { AddMenu } from '@/components/quick-add/add-menu'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
 import type { Mode } from '@/lib/tab-url'
@@ -29,7 +30,7 @@ const ITEMS: RailItem[] = [
  * — add something, change something. Phones get `BottomNav` instead.
  */
 export function SideRail() {
-  const { mode, setMode, openQuickAdd, openSettings } = useUi()
+  const { mode, setMode, openSettings } = useUi()
 
   return (
     <div className="fixed inset-y-0 left-0 z-50 hidden w-[76px] flex-col items-center border-r border-line bg-surface sm:flex">
@@ -71,15 +72,28 @@ export function SideRail() {
       </nav>
 
       <div className="mt-auto flex flex-col items-center gap-2 pb-4">
-        <button
-          type="button"
-          onClick={() => openQuickAdd()}
-          aria-label="Quick add"
-          title="Quick add"
-          className="grid size-11 place-items-center rounded-full bg-accent text-accent-fg shadow-pop transition-[transform,background-color] duration-150 hover:bg-accent-hover active:scale-95"
-        >
-          <Plus className="size-5" strokeWidth={2.4} aria-hidden="true" />
-        </button>
+        <AddMenu align="start">
+          {({ onClick, expanded }) => (
+            <button
+              type="button"
+              onClick={onClick}
+              aria-label="Add"
+              title="Add"
+              aria-haspopup="menu"
+              aria-expanded={expanded}
+              className="grid size-11 place-items-center rounded-full bg-accent text-accent-fg shadow-pop transition-[transform,background-color] duration-150 hover:bg-accent-hover active:scale-95"
+            >
+              <Plus
+                className={cn(
+                  'size-5 transition-transform duration-200',
+                  expanded && 'rotate-45',
+                )}
+                strokeWidth={2.4}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </AddMenu>
 
         <button
           type="button"

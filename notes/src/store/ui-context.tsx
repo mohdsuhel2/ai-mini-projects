@@ -16,6 +16,13 @@ export type Pane = 'plan' | 'today'
 export type QuickAddMode = 'todo' | 'activity'
 
 /**
+ * A create action that has to be carried out by a pane rather than a dialog:
+ * the global add button can ask for it from anywhere, and whichever surface
+ * owns that flow picks it up and clears it.
+ */
+export type ComposeIntent = 'timer' | 'note'
+
+/**
  * The app has two surfaces. `day` is time — plan and timeline. `notes` is
  * space — a folder tree. The pane split only means anything inside `day`.
  * Which one is open lives in the URL, so a refresh lands where you were.
@@ -39,6 +46,10 @@ interface UiContextValue {
   /** The mode the palette should open in, when the caller knows it. */
   quickAddMode: QuickAddMode | null
   openQuickAdd: (mode?: QuickAddMode) => void
+  /** Set by the add button; consumed by the pane that owns the flow. */
+  compose: ComposeIntent | null
+  requestCompose: (intent: ComposeIntent) => void
+  clearCompose: () => void
   closeQuickAdd: () => void
   settingsOpen: boolean
   openSettings: () => void
@@ -87,6 +98,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
   }, [])
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
+  const [compose, setCompose] = useState<ComposeIntent | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
   const nextId = useRef(1)
@@ -116,6 +128,9 @@ export function UiProvider({ children }: { children: ReactNode }) {
       },
       quickAddOpen,
       quickAddMode,
+      compose,
+      requestCompose: setCompose,
+      clearCompose: () => setCompose(null),
       openQuickAdd: (mode?: QuickAddMode) => {
         setQuickAddMode(mode ?? null)
         setQuickAddOpen(true)
@@ -128,7 +143,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
       notify,
       dismissToast,
     }),
-    [mode, setMode, pane, quickAddOpen, quickAddMode, settingsOpen, toasts, notify, dismissToast],
+    [mode, setMode, pane, quickAddOpen, quickAddMode, compose, settingsOpen, toasts, notify, dismissToast],
   )
 
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>

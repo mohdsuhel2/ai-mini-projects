@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Play, Plus, Timer } from 'lucide-react'
 import { CategorySelect } from '@/components/common/category-select'
 import { DurationChips } from '@/components/common/duration-chips'
@@ -12,6 +12,7 @@ import { formatClock } from '@/lib/date/format'
 import { minutesOfDay, todayKey } from '@/lib/date/day-key'
 import { parseNaturalInput } from '@/lib/parse/natural-input'
 import { useDismiss } from '@/hooks/use-dismiss'
+import { useUi } from '@/store/ui-context'
 import { track } from '@/lib/analytics'
 import { cn } from '@/lib/utils/cn'
 import type { DayKey, Id } from '@/types'
@@ -56,17 +57,32 @@ export function ActivityComposer({ day }: ActivityComposerProps) {
   const [startTouched, setStartTouched] = useState(false)
   const dayActivities = useActivitiesForDay(day) ?? []
   const timer = useTimer()
+  const { compose, clearCompose } = useUi()
+
+  // The global add button can ask for a timer from anywhere. It routes to this
+  // pane first and leaves the intent here, because this is the only place that
+  // knows how to open the composer in the right mode.
+  const timerRequested = compose === 'timer'
+
+  // Only the focus is an effect. The mode and the open panel are derived below
+  // — writing them here would be state chasing state.
+  useEffect(() => {
+    if (timerRequested) inputRef.current?.focus()
+  }, [timerRequested])
 
   const parsed = parseNaturalInput(title)
   const missingCategory = categoryId === null
   const effectiveDuration = durationTouched ? duration : (parsed.durationMinutes ?? duration)
-  useDismiss(formRef, panelOpen, () => setPanelOpen(false))
+  useDismiss(formRef, panelOpen || timerRequested, () => {
+    setPanelOpen(false)
+    clearCompose()
+  })
 
-  const expanded = panelOpen || title.length > 0
+  const expanded = panelOpen || timerRequested || title.length > 0
   // Nothing can be started on a day that has already been and gone, so the
   // choice only appears where it means something.
   const canStart = day === todayKey()
-  const starting = mode === 'starting' && canStart
+  const starting = (mode === 'starting' || timerRequested) && canStart
   // One timer at a time: a second would have to either steal the first one's
   // elapsed time or discard it, and neither is a thing to do quietly.
   const timerBusy = timer != null
@@ -85,6 +101,7 @@ export function ActivityComposer({ day }: ActivityComposerProps) {
     effectiveStart != null && effectiveDuration != null ? effectiveStart + effectiveDuration : null
 
   function reset() {
+    clearCompose()
     setTitle('')
     setDuration(null)
     setDurationTouched(false)
@@ -187,8 +204,11 @@ export function ActivityComposer({ day }: ActivityComposerProps) {
           {canStart && (
             <SegmentedControl<LogMode>
               aria-label="When this happened"
-              value={mode}
-              onChange={setMode}
+              value={starting ? 'starting' : 'done'}
+              onChange={(next) => {
+                clearCompose()
+                setMode(next)
+              }}
               className="flex w-full [&>button]:flex-1 [&>button]:justify-center"
               options={[
                 { value: 'done', label: 'I already did this' },
