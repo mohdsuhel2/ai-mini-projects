@@ -10,6 +10,7 @@ interface AddMenuProps {
   /** The button itself, so the rail and the bottom bar can style their own. */
   children: (props: { onClick: () => void; expanded: boolean }) => ReactNode
   align?: 'start' | 'end'
+  side?: 'bottom' | 'top'
   className?: string
 }
 
@@ -25,7 +26,7 @@ interface AddMenuProps {
  * The palette keeps its own row rather than being the whole button: it is the
  * fastest path once you know the syntax, and the slowest to discover.
  */
-export function AddMenu({ children, align = 'start', className }: AddMenuProps) {
+export function AddMenu({ children, align = 'start', side = 'bottom', className }: AddMenuProps) {
   const [open, setOpen] = useState(false)
   const { openQuickAdd, requestCompose, setMode, showDay } = useUi()
 
@@ -39,6 +40,7 @@ export function AddMenu({ children, align = 'start', className }: AddMenuProps) 
       open={open}
       onClose={() => setOpen(false)}
       align={align}
+      side={side}
       className={cn('sm:min-w-[15rem]', className)}
       trigger={children({ onClick: () => setOpen((v) => !v), expanded: open })}
     >

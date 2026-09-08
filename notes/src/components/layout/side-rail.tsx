@@ -72,7 +72,7 @@ export function SideRail() {
       </nav>
 
       <div className="mt-auto flex flex-col items-center gap-2 pb-4">
-        <AddMenu align="start">
+        <AddMenu align="start" side="top">
           {({ onClick, expanded }) => (
             <button
               type="button"

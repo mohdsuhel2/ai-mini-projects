@@ -33,7 +33,7 @@ export function BottomNav({ openCount }: { openCount: number }) {
           label="Insights"
         />
 
-        <AddMenu align="start">
+        <AddMenu align="start" side="top">
           {({ onClick, expanded }) => (
             <button
               type="button"

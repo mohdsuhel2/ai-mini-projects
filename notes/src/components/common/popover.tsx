@@ -12,6 +12,8 @@ interface PopoverProps {
   trigger: ReactNode
   children: ReactNode
   align?: 'start' | 'end'
+  /** Which way it opens. A trigger near the bottom edge has to open upward. */
+  side?: 'bottom' | 'top'
   className?: string
 }
 
@@ -24,7 +26,15 @@ interface PopoverProps {
  * bug. The sheet is the opposite case — it must escape every ancestor's
  * clipping and stacking to cover the screen, so it goes to the body.
  */
-export function Popover({ open, onClose, trigger, children, align = 'start', className }: PopoverProps) {
+export function Popover({
+  open,
+  onClose,
+  trigger,
+  children,
+  align = 'start',
+  side = 'bottom',
+  className,
+}: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const isPhone = useIsPhone()
@@ -69,8 +79,9 @@ export function Popover({ open, onClose, trigger, children, align = 'start', cla
               <div
                 role="dialog"
                 className={cn(
-                  'absolute top-[calc(100%+6px)] z-50 min-w-[13rem] rounded-lg border border-line',
+                  'absolute z-50 min-w-[13rem] rounded-lg border border-line',
                   'bg-surface p-1 shadow-[var(--shadow-pop)] animate-pop',
+                  side === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]',
                   align === 'end' ? 'right-0' : 'left-0',
                   className,
                 )}
