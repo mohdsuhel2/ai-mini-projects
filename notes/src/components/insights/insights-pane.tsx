@@ -33,7 +33,7 @@ export function InsightsPane() {
   return (
     <div className="mx-auto max-w-[860px] space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-fg">Insights</h2>
           <p className="mt-1 text-[13px] text-fg-muted">
             {range === 'week' ? 'The last seven days' : 'The last thirty days'}, as they were logged.
@@ -44,6 +44,7 @@ export function InsightsPane() {
           aria-label="Range"
           value={range}
           onChange={setRange}
+          className="flex w-full [&>button]:flex-1 [&>button]:justify-center sm:w-auto sm:[&>button]:flex-none"
           options={[
             { value: 'week', label: 'Week' },
             { value: 'month', label: 'Month' },
@@ -61,7 +62,7 @@ export function InsightsPane() {
         />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
             <Stat label="Tracked" value={formatDuration(summary.totalMinutes)} />
             <Stat label="Daily average" value={formatDuration(summary.dailyAverage) || '0m'} />
             <Stat
@@ -79,7 +80,7 @@ export function InsightsPane() {
             />
           </div>
 
-          <section className="rounded-2xl border border-card-line bg-surface p-5">
+          <section className="rounded-2xl border border-card-line bg-surface p-4 sm:p-5">
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-fg">Daily total</h3>
               {summary.busiest && (
@@ -252,7 +253,7 @@ export function InsightsPane() {
             </Panel>
           )}
 
-          <section className="rounded-2xl border border-card-line bg-surface p-5">
+          <section className="rounded-2xl border border-card-line bg-surface p-4 sm:p-5">
             <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-fg">Where it went</h3>
             <ul className="mt-4 space-y-3.5">
               {summary.byCategory.map((total) => (
@@ -284,9 +285,13 @@ export function InsightsPane() {
 
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="rounded-2xl border border-card-line bg-surface p-[18px]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">{label}</p>
-      <p className="tnum mt-1.5 text-[22px] font-semibold tracking-[-0.02em] text-fg">{value}</p>
+    <div className="rounded-2xl border border-card-line bg-surface p-3.5 sm:p-[18px]">
+      <p className="truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-faint sm:text-[11px]">
+        {label}
+      </p>
+      <p className="tnum mt-1 text-[19px] font-semibold tracking-[-0.02em] text-fg sm:mt-1.5 sm:text-[22px]">
+        {value}
+      </p>
       {detail && <p className="tnum mt-0.5 text-[11.5px] text-fg-faint">{detail}</p>}
     </div>
   )
@@ -303,7 +308,7 @@ function Panel({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl border border-card-line bg-surface p-5">
+    <section className="rounded-2xl border border-card-line bg-surface p-4 sm:p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-fg">{title}</h3>
         {note && <p className="text-[12px] text-fg-faint">{note}</p>}
