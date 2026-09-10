@@ -19,6 +19,7 @@ export type AnalyticsEvent =
   | 'data_exported'
   | 'data_imported'
   | 'data_cleared'
+  | 'data_swept'
   | 'day_navigated'
   | 'category_created'
 
