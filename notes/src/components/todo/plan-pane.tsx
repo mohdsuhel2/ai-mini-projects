@@ -87,13 +87,13 @@ export function PlanPane() {
 
             return (
               <section key={group.id} aria-labelledby={`group-${group.id}`}>
-                <div className="mb-2 flex items-center gap-2">
+                <div className="mb-1.5 flex items-center gap-2">
                   <button
                     type="button"
                     id={`group-${group.id}`}
                     onClick={() => toggle(group.id)}
                     aria-expanded={!isCollapsed}
-                    className="group -ml-1 inline-flex items-center gap-1.5 rounded-md py-1 pl-1 pr-1.5 transition-colors hover:bg-surface-hover"
+                    className="group -ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-lg py-2 pl-1 pr-1.5 text-left transition-colors hover:bg-surface-hover"
                   >
                     <ChevronRight
                       className={cn(
@@ -128,7 +128,7 @@ export function PlanPane() {
                           notify(`${moved} task${moved === 1 ? '' : 's'} moved to today`)
                         }
                       }}
-                      className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-[11.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
                     >
                       <CornerUpRight className="size-3" strokeWidth={2} aria-hidden="true" />
                       Move to today
