@@ -38,3 +38,20 @@ export function readDragPayload(event: React.DragEvent): DragPayload | null {
 export function isTreeDrag(event: React.DragEvent): boolean {
   return event.dataTransfer.types.includes(DRAG_TYPE)
 }
+
+/** List-item reorder drags — separate from folder/note tree moves. */
+export const LIST_ITEM_DRAG_TYPE = 'application/x-simply-notes-list-item'
+
+export function setListItemDragPayload(event: React.DragEvent, itemId: Id): void {
+  event.dataTransfer.setData(LIST_ITEM_DRAG_TYPE, itemId)
+  event.dataTransfer.effectAllowed = 'move'
+}
+
+export function readListItemDragPayload(event: React.DragEvent): Id | null {
+  const raw = event.dataTransfer.getData(LIST_ITEM_DRAG_TYPE)
+  return typeof raw === 'string' && raw.length > 0 ? raw : null
+}
+
+export function isListItemDrag(event: React.DragEvent): boolean {
+  return event.dataTransfer.types.includes(LIST_ITEM_DRAG_TYPE)
+}

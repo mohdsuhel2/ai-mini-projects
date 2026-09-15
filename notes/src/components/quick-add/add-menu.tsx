@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Check, ListTodo, Play, Sparkles, Tag } from 'lucide-react'
+import {
+  CheckIcon,
+  ICON_STROKE_STRONG,
+  ListTodoIcon,
+  NotebookPenIcon,
+  PlayIcon,
+  SparklesIcon,
+} from '@/lib/app-icons'
 import { Popover, PopoverItem } from '@/components/common/popover'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
@@ -45,12 +52,12 @@ export function AddMenu({ children, align = 'start', side = 'bottom', className 
       trigger={children({ onClick: () => setOpen((v) => !v), expanded: open })}
     >
       <PopoverItem onClick={() => run(() => openQuickAdd('todo'))}>
-        <ListTodo className="size-3.5 text-fg-subtle" strokeWidth={2} />
+        <ListTodoIcon size="sm" className="text-fg-subtle" />
         New task
       </PopoverItem>
 
       <PopoverItem onClick={() => run(() => openQuickAdd('activity'))}>
-        <Check className="size-3.5 text-fg-subtle" strokeWidth={2.2} />
+        <CheckIcon size="sm" className="text-fg-subtle" strokeWidth={ICON_STROKE_STRONG} />
         Log what I did
       </PopoverItem>
 
@@ -64,7 +71,7 @@ export function AddMenu({ children, align = 'start', side = 'bottom', className 
           })
         }
       >
-        <Play className="size-3.5 text-fg-subtle" strokeWidth={2} />
+        <PlayIcon size="sm" className="text-fg-subtle" />
         Start a timer
       </PopoverItem>
 
@@ -76,14 +83,14 @@ export function AddMenu({ children, align = 'start', side = 'bottom', className 
           })
         }
       >
-        <Tag className="size-3.5 text-fg-subtle" strokeWidth={2} />
+        <NotebookPenIcon size="sm" className="text-fg-subtle" />
         New note
       </PopoverItem>
 
       <div className="my-1 h-px bg-line" />
 
       <PopoverItem onClick={() => run(() => openQuickAdd())}>
-        <Sparkles className="size-3.5 text-accent" strokeWidth={2} />
+        <SparklesIcon size="sm" className="text-accent" />
         Quick add
         <kbd className="ml-auto rounded bg-bg-sunk px-1.5 py-0.5 text-[10px] text-fg-faint">
           ⌘K

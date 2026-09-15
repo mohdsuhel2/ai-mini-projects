@@ -1,7 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Clock, MoreHorizontal, Pencil, Play, Repeat, Trash2 } from 'lucide-react'
+import {
+  ClockIcon,
+  EllipsisIcon,
+  ICON_STROKE_STRONG,
+  PenLineIcon,
+  PlayIcon,
+  RepeatIcon,
+  Trash2Icon,
+} from '@/lib/app-icons'
 import { useHasHover } from '@/hooks/use-media-query'
 import { useLongPress } from '@/hooks/use-long-press'
 import { CategoryBadge } from '@/components/common/category-badge'
@@ -114,7 +122,7 @@ export function TodoRow({
                 className="inline-flex items-center gap-1 text-fg-faint"
                 title={`Repeats ${shortRecurrence(todo.recurrence).toLowerCase()}`}
               >
-                <Repeat className="size-3" strokeWidth={2.2} aria-hidden="true" />
+                <RepeatIcon size="xs" strokeWidth={ICON_STROKE_STRONG} aria-hidden="true" />
                 {shortRecurrence(todo.recurrence)}
               </span>
             )}
@@ -134,7 +142,7 @@ export function TodoRow({
       >
         {!done && hasHover && (
           <IconButton label={`Start a timer for ${todo.title}`} size="sm" onClick={onStartTimer}>
-            <Play className="size-3.5" strokeWidth={2} />
+            <PlayIcon size="sm" />
           </IconButton>
         )}
         <Popover
@@ -150,7 +158,7 @@ export function TodoRow({
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
               >
-                <MoreHorizontal className="size-4" strokeWidth={2} />
+                <EllipsisIcon size="md" />
               </IconButton>
             ) : null
           }
@@ -164,7 +172,7 @@ export function TodoRow({
                 onStartTimer()
               }}
             >
-              <Play className="size-3.5 text-fg-subtle" strokeWidth={2} />
+              <PlayIcon size="sm" className="text-fg-subtle" />
               Start a timer
             </PopoverItem>
           )}
@@ -174,7 +182,7 @@ export function TodoRow({
               onEdit()
             }}
           >
-            <Pencil className="size-3.5 text-fg-subtle" strokeWidth={2} />
+            <PenLineIcon size="sm" className="text-fg-subtle" />
             Edit details
           </PopoverItem>
           {!done && (
@@ -184,7 +192,7 @@ export function TodoRow({
                 setCompleteOpen(true)
               }}
             >
-              <Clock className="size-3.5 text-fg-subtle" strokeWidth={2} />
+              <ClockIcon size="sm" className="text-fg-subtle" />
               Complete with duration
             </PopoverItem>
           )}
@@ -196,7 +204,7 @@ export function TodoRow({
             }}
             className="text-danger hover:bg-danger-soft"
           >
-            <Trash2 className="size-3.5" strokeWidth={2} />
+            <Trash2Icon size="sm" />
             Delete
           </PopoverItem>
         </Popover>

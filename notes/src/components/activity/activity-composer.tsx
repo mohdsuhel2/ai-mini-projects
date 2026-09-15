@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Play, Plus, Timer } from 'lucide-react'
+import { ICON_STROKE_STRONG, PlayIcon, PlusIcon, TimerIcon } from '@/lib/app-icons'
 import { CategorySelect } from '@/components/common/category-select'
 import { DurationChips } from '@/components/common/duration-chips'
 import { SegmentedControl } from '@/components/common/segmented-control'
@@ -159,9 +159,9 @@ export function ActivityComposer({ day }: ActivityComposerProps) {
           )}
         >
           {starting ? (
-            <Play className="size-4" strokeWidth={2.6} />
+            <PlayIcon size="md" strokeWidth={ICON_STROKE_STRONG} />
           ) : (
-            <Plus className="size-[18px]" strokeWidth={2.4} />
+            <PlusIcon size="lg" strokeWidth={ICON_STROKE_STRONG} />
           )}
         </span>
         <input
@@ -175,11 +175,7 @@ export function ActivityComposer({ day }: ActivityComposerProps) {
           className="min-w-0 flex-1 text-[14.5px] text-fg outline-none placeholder:text-fg-faint"
         />
         {title.length === 0 && (
-          <Timer
-            className="mr-1.5 size-[18px] shrink-0 text-fg-faint"
-            strokeWidth={2}
-            aria-hidden="true"
-          />
+          <TimerIcon size="lg" className="mr-1.5 text-fg-faint" aria-hidden="true" />
         )}
         {title.trim().length > 0 && (
           <button

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, Monitor, Moon, Sun } from 'lucide-react'
+import { BellIcon, MonitorIcon, MoonIcon, SunIcon } from '@/lib/app-icons'
 import { Dialog } from '@/components/common/dialog'
 import { DataSection } from './data-section'
 import { useTheme } from '@/hooks/use-theme'
@@ -17,10 +17,10 @@ import { SITE } from '@/lib/site'
 import { cn } from '@/lib/utils/cn'
 import type { ThemePreference } from '@/types'
 
-const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
+const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof SunIcon }> = [
+  { value: 'light', label: 'Light', icon: SunIcon },
+  { value: 'dark', label: 'Dark', icon: MoonIcon },
+  { value: 'system', label: 'System', icon: MonitorIcon },
 ]
 
 const SHORTCUTS: Array<[string, string]> = [
@@ -79,7 +79,7 @@ export function SettingsDialog() {
                     : 'text-fg-muted hover:text-fg',
                 )}
               >
-                <Icon className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                <Icon size="sm" aria-hidden="true" />
                 {label}
               </button>
             ))}
@@ -98,7 +98,7 @@ export function SettingsDialog() {
             />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-[13px] text-fg">
-                <Bell className="size-3.5 text-fg-faint" strokeWidth={2} aria-hidden="true" />
+                <BellIcon size="sm" className="text-fg-faint" aria-hidden="true" />
                 Reminders and the count on the app icon
               </span>
               <span className="mt-1 block text-[12.5px] leading-[1.55] text-fg-muted">

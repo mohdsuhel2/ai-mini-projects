@@ -20,7 +20,7 @@ import {
   restoreFolderSubtree,
   restoreListItem,
   restoreListItemSnapshot,
-  toggleListItemFlag,
+  reorderListItem,
   toggleListItemPin,
   updateListItemText,
   searchNotes,
@@ -196,19 +196,34 @@ describe('list notes', () => {
     expect((await db().notes.get(id))?.items).toHaveLength(1)
   })
 
-  it('pins and flags items', async () => {
+  it('pins items and reorders around them', async () => {
     const id = await createListNote({ title: 'Discuss' })
     const first = await addListItem(id, 'First')
     const second = await addListItem(id, 'Second')
+    const third = await addListItem(id, 'Third')
 
     await toggleListItemPin(id, second)
-    await toggleListItemFlag(id, first)
 
     const note = await db().notes.get(id)
     const pinned = note?.items?.find((item) => item.id === second)
-    const flagged = note?.items?.find((item) => item.id === first)
     expect(pinned?.pinnedAt).toBeGreaterThan(0)
-    expect(flagged?.flaggedAt).toBeGreaterThan(0)
+
+    await reorderListItem(id, third, first)
+    const reordered = await db().notes.get(id)
+    expect(
+      reordered?.items
+        ?.filter((item) => item.archivedAt == null)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((item) => item.id),
+    ).toEqual([third, second, first])
+
+    await reorderListItem(id, second, first)
+    expect(
+      (await db().notes.get(id))
+        ?.items?.filter((item) => item.archivedAt == null)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((item) => item.id),
+    ).toEqual([third, second, first])
 
     await toggleListItemPin(id, second)
     expect((await db().notes.get(id))?.items?.find((item) => item.id === second)?.pinnedAt).toBeNull()

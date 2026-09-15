@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ChevronLeftIcon } from '@/lib/app-icons'
 import { SITE } from '@/lib/site'
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         href="/"
         className="inline-flex items-center gap-1.5 text-[13px] text-fg-muted transition-colors hover:text-fg"
       >
-        <ArrowLeft className="size-3.5" strokeWidth={2} aria-hidden="true" />
+        <ChevronLeftIcon size="sm" aria-hidden="true" />
         Back to {SITE.name}
       </Link>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Pause, Play, X } from 'lucide-react'
+import { CheckIcon, ICON_STROKE_STRONG, PauseIcon, PlayIcon, XIcon } from '@/lib/app-icons'
 import {
   completeTimer,
   discardTimer,
@@ -72,11 +72,7 @@ export function FocusTimer({ className }: { className?: string }) {
           size="sm"
           onClick={() => void (running ? pauseTimer() : resumeTimer())}
         >
-          {running ? (
-            <Pause className="size-3.5" strokeWidth={2} />
-          ) : (
-            <Play className="size-3.5" strokeWidth={2} />
-          )}
+          {running ? <PauseIcon size="sm" /> : <PlayIcon size="sm" />}
         </IconButton>
 
         <IconButton
@@ -89,7 +85,7 @@ export function FocusTimer({ className }: { className?: string }) {
             if (minutes) notify(`Recorded ${formatDuration(minutes)}`)
           }}
         >
-          <Check className="size-4" strokeWidth={2.4} />
+          <CheckIcon size="md" strokeWidth={ICON_STROKE_STRONG} />
         </IconButton>
 
         <IconButton
@@ -100,7 +96,7 @@ export function FocusTimer({ className }: { className?: string }) {
             notify('Timer discarded')
           }}
         >
-          <X className="size-3.5" strokeWidth={2} />
+          <XIcon size="sm" />
         </IconButton>
       </div>
     </div>

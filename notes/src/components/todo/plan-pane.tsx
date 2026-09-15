@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronRight, CornerUpRight } from 'lucide-react'
+import { ChevronRightIcon, CornerUpRightIcon, ICON_STROKE_STRONG } from '@/lib/app-icons'
 import { AnimatePresence, motion } from 'motion/react'
 import { TodoComposer } from './todo-composer'
 import { TodoRow } from './todo-row'
@@ -95,12 +95,13 @@ export function PlanPane() {
                     aria-expanded={!isCollapsed}
                     className="group -ml-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-lg py-2 pl-1 pr-1.5 text-left transition-colors hover:bg-surface-hover"
                   >
-                    <ChevronRight
+                    <ChevronRightIcon
+                      size="xs"
+                      strokeWidth={ICON_STROKE_STRONG}
                       className={cn(
-                        'size-3 text-fg-faint transition-transform duration-200',
+                        'text-fg-faint transition-transform duration-200',
                         !isCollapsed && 'rotate-90',
                       )}
-                      strokeWidth={2.5}
                       aria-hidden="true"
                     />
                     <span
@@ -130,7 +131,7 @@ export function PlanPane() {
                       }}
                       className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-[11.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
                     >
-                      <CornerUpRight className="size-3" strokeWidth={2} aria-hidden="true" />
+                      <CornerUpRightIcon size="xs" aria-hidden="true" />
                       Move to today
                     </button>
                   )}

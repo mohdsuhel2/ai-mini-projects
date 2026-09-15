@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, ListTodo, Plus, Tag } from 'lucide-react'
+import { ICON_STROKE_STRONG, PlusIcon, surfaceNavIcons } from '@/lib/app-icons'
 import { AddMenu } from '@/components/quick-add/add-menu'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
@@ -21,7 +21,7 @@ export function BottomNav({ openCount }: { openCount: number }) {
         <NavButton
           active={mode === 'day'}
           onClick={() => showDay(pane)}
-          icon={<ListTodo className="size-[19px]" strokeWidth={2} />}
+          icon={<surfaceNavIcons.day size="nav" />}
           label="Tasks"
           badge={openCount}
         />
@@ -29,7 +29,7 @@ export function BottomNav({ openCount }: { openCount: number }) {
         <NavButton
           active={mode === 'insights'}
           onClick={() => setMode('insights')}
-          icon={<BarChart3 className="size-[19px]" strokeWidth={2} />}
+          icon={<surfaceNavIcons.insights size="nav" />}
           label="Insights"
         />
 
@@ -43,13 +43,10 @@ export function BottomNav({ openCount }: { openCount: number }) {
               aria-expanded={expanded}
               className="grid size-12 place-items-center rounded-xl bg-accent text-accent-fg transition-transform duration-150 active:scale-95"
             >
-              <Plus
-                className={cn(
-                  'size-5 transition-transform duration-200',
-                  expanded && 'rotate-45',
-                )}
-                strokeWidth={2.4}
-                aria-hidden="true"
+              <PlusIcon
+                size="xl"
+                strokeWidth={ICON_STROKE_STRONG}
+                className={cn('transition-transform duration-200', expanded && 'rotate-45')}
               />
             </button>
           )}
@@ -58,7 +55,7 @@ export function BottomNav({ openCount }: { openCount: number }) {
         <NavButton
           active={mode === 'notes'}
           onClick={() => setMode('notes')}
-          icon={<Tag className="size-[19px]" strokeWidth={2} />}
+          icon={<surfaceNavIcons.notes size="nav" />}
           label="Notes"
         />
       </div>

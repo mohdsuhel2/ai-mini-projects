@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { XIcon } from '@/lib/app-icons'
 import { cn } from '@/lib/utils/cn'
 import { IconButton } from './icon-button'
 
@@ -99,7 +99,7 @@ export function Dialog({
               {description && <p className="mt-0.5 text-[13px] text-fg-muted">{description}</p>}
             </div>
             <IconButton label="Close" size="sm" onClick={onClose} className="-mr-1 -mt-0.5">
-              <X className="size-4" strokeWidth={2} />
+              <XIcon size="md" />
             </IconButton>
           </header>
         )}

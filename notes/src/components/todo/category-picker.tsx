@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Tag } from 'lucide-react'
+import { CheckIcon, ICON_STROKE_STRONG, TagIcon } from '@/lib/app-icons'
 import { Chip } from '@/components/common/chip'
 import { Popover, PopoverItem } from '@/components/common/popover'
 import { categoriesForScope } from '@/features/categories/api'
@@ -52,7 +52,7 @@ export function CategoryPicker({
             </>
           ) : (
             <>
-              <Tag className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              <TagIcon size="sm" aria-hidden="true" />
               Category
             </>
           )}
@@ -67,7 +67,7 @@ export function CategoryPicker({
         selected={value === null}
       >
         <span className="grid size-4 place-items-center">
-          {value === null && <Check className="size-3.5" strokeWidth={2.5} />}
+          {value === null && <CheckIcon size="sm" strokeWidth={ICON_STROKE_STRONG} />}
         </span>
         <span className="text-fg-muted">No category</span>
       </PopoverItem>
@@ -86,7 +86,7 @@ export function CategoryPicker({
             }}
           >
             <span className="grid size-4 place-items-center">
-              {active && <Check className="size-3.5" strokeWidth={2.5} />}
+              {active && <CheckIcon size="sm" strokeWidth={ICON_STROKE_STRONG} />}
             </span>
             <span
               data-tone={category.tone}

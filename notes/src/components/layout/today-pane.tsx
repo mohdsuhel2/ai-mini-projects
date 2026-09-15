@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeftIcon, ChevronRightIcon } from '@/lib/app-icons'
 import { ActivityComposer } from '@/components/activity/activity-composer'
 import { DailySummary } from '@/components/dashboard/daily-summary'
 import { Timeline } from '@/components/timeline/timeline'
@@ -46,7 +46,7 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
             onClick={() => step(-1)}
             className="size-9 rounded-full border border-card-line bg-surface"
           >
-            <ChevronLeft className="size-4" strokeWidth={2} />
+            <ChevronLeftIcon size="md" />
           </IconButton>
 
           <div className="min-w-0 flex-1 text-center">
@@ -62,7 +62,7 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
             disabled={day >= today}
             className="size-9 rounded-full border border-card-line bg-surface"
           >
-            <ChevronRight className="size-4" strokeWidth={2} />
+            <ChevronRightIcon size="md" />
           </IconButton>
         </div>
 

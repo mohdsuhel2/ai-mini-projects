@@ -1,16 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { Archive, ArrowLeft, CornerDownLeft, Flag, Pin, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import {
+  ArchiveIcon,
+  ArrowDownLeftIcon,
+  ChevronLeftIcon,
+  GripVerticalIcon,
+  ICON_STROKE_STRONG,
+  PinIcon,
+  Trash2Icon,
+} from '@/lib/app-icons'
 import { Checkbox } from '@/components/common/checkbox'
 import { IconButton } from '@/components/common/icon-button'
 import {
   addListItem,
   archiveListItem,
   deleteListItem,
+  reorderListItem,
   restoreListItem,
   restoreListItemSnapshot,
-  toggleListItemFlag,
   toggleListItemPin,
   updateListItemText,
   updateNote,
@@ -18,11 +26,12 @@ import {
 import {
   activeListItems,
   archivedListItems,
-  isItemFlagged,
   isItemPinned,
 } from '@/features/notes/list-note'
 import { folderPath } from '@/features/notes/tree'
+import { formatInstantStamp } from '@/lib/date/format'
 import { useHasHover } from '@/hooks/use-media-query'
+import { usePointerListReorder } from '@/hooks/use-pointer-list-reorder'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
 import type { Folder, Id, ListNoteItem, Note } from '@/types'
@@ -55,6 +64,24 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
   }
 
   const active = activeListItems(note)
+  const lockedIds = useMemo(
+    () => new Set(active.filter(isItemPinned).map((item) => item.id)),
+    [active],
+  )
+
+  const commitReorder = useCallback(
+    async (draggedId: Id, insertBeforeId: Id | null) => {
+      if (draggedId === insertBeforeId) return
+      await reorderListItem(note.id, draggedId, insertBeforeId)
+    },
+    [note.id],
+  )
+
+  const { draggingId, dragDeltaY, layoutShiftById, setRowRef, startDrag } = usePointerListReorder(
+    active.map((item) => item.id),
+    (draggedId, beforeId) => void commitReorder(draggedId, beforeId),
+    { lockedIds },
+  )
   const archived = archivedListItems(note)
   const visibleScreen: ListScreen =
     screen === 'archive' && archived.length === 0 ? 'active' : screen
@@ -85,7 +112,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="mb-4 flex items-center gap-2">
           <IconButton label="Back to list" size="sm" onClick={() => setScreen('active')}>
-            <ArrowLeft className="size-4" strokeWidth={2} />
+            <ChevronLeftIcon size="md" />
           </IconButton>
           <div className="min-w-0 flex-1">
             <h2 className="text-[18px] font-semibold tracking-tight text-fg">Archived</h2>
@@ -105,7 +132,6 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
                 editing={editingId === item.id}
                 actionLabel={`Restore “${previewLabel(item.text)}”`}
                 onToggle={() => void restoreListItem(note.id, item.id)}
-                onToggleFlag={() => void toggleListItemFlag(note.id, item.id)}
                 onStartEdit={() => setEditingId(item.id)}
                 onEndEdit={() => setEditingId(null)}
                 onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
@@ -123,7 +149,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
       <header className="mb-4 flex items-start gap-2">
         {onBack && (
           <IconButton label="Back to folders" size="sm" className="mt-0.5 shrink-0" onClick={onBack}>
-            <ArrowLeft className="size-4" strokeWidth={2} />
+            <ChevronLeftIcon size="md" />
           </IconButton>
         )}
         <div className="min-w-0 flex-1">
@@ -153,7 +179,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
                 'text-[12px] font-medium text-fg-subtle transition-colors hover:border-line-strong hover:bg-surface-hover hover:text-fg',
               )}
             >
-              <Archive className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              <ArchiveIcon size="sm" />
               Archive
               {archived.length > 0 && (
                 <span className="tnum grid h-5 min-w-5 place-items-center rounded-full bg-surface px-1.5 text-[10px] font-semibold text-fg">
@@ -163,7 +189,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
             </button>
           </div>
           <p className="mt-1 text-[12px] text-fg-subtle">
-            Tick to complete, tap text to edit, flag or pin items, or delete permanently.
+            Tick to complete, drag to reorder, tap text to edit, pin items, or delete permanently.
           </p>
         </div>
       </header>
@@ -180,15 +206,25 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
             <ListItemRow
               key={item.id}
               item={item}
+              rowRef={(node) => setRowRef(item.id, node)}
               editing={editingId === item.id}
+              sortable={editingId !== item.id && !isItemPinned(item)}
+              dragging={draggingId === item.id}
+              dragDeltaY={draggingId === item.id ? dragDeltaY : 0}
+              layoutShiftY={layoutShiftById.get(item.id) ?? 0}
+              reordering={draggingId != null}
               actionLabel={`Mark done: ${previewLabel(item.text)}`}
               onToggle={() => void archiveListItem(note.id, item.id)}
-              onToggleFlag={() => void toggleListItemFlag(note.id, item.id)}
               onTogglePin={() => void toggleListItemPin(note.id, item.id)}
               onStartEdit={() => setEditingId(item.id)}
               onEndEdit={() => setEditingId(null)}
               onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
               onDelete={() => void handleDeleteItem(item)}
+              onGripPointerDown={(event) => {
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+                startDrag(item.id, event.clientY)
+              }}
             />
           ))}
           <ListItemComposer
@@ -314,7 +350,7 @@ function ListItemDraftForm({
             className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-accent px-3 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover animate-fade-in"
           >
             {submitLabel}
-            <CornerDownLeft className="size-3" strokeWidth={2.4} aria-hidden="true" />
+            <ArrowDownLeftIcon size="xs" strokeWidth={ICON_STROKE_STRONG} />
           </button>
         )}
       </div>
@@ -440,32 +476,44 @@ function ListItemEditRow({
 
 function ListItemRow({
   item,
+  rowRef,
   done = false,
   editing = false,
+  sortable = false,
+  dragging = false,
+  dragDeltaY = 0,
+  layoutShiftY = 0,
+  reordering = false,
   actionLabel,
   onToggle,
-  onToggleFlag,
   onTogglePin,
   onStartEdit,
   onEndEdit,
   onSaveText,
   onDelete,
+  onGripPointerDown,
 }: {
   item: ListNoteItem
+  rowRef?: (node: HTMLLIElement | null) => void
   done?: boolean
   editing?: boolean
+  sortable?: boolean
+  dragging?: boolean
+  dragDeltaY?: number
+  layoutShiftY?: number
+  reordering?: boolean
   actionLabel: string
   onToggle: () => void
-  onToggleFlag?: () => void
   onTogglePin?: () => void
   onStartEdit: () => void
   onEndEdit: () => void
   onSaveText: (text: string) => void
   onDelete: () => void
+  onGripPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void
 }) {
   const hasHover = useHasHover()
-  const flagged = isItemFlagged(item)
   const pinned = isItemPinned(item)
+  const createdLabel = formatInstantStamp(item.createdAt)
 
   if (editing) {
     return (
@@ -477,12 +525,24 @@ function ListItemRow({
 
   return (
     <li
+      ref={rowRef}
       className={cn(
-        'group/row flex items-start gap-2 border-b border-line px-2.5 py-2.5 last:border-b-0 sm:px-3.5 sm:py-3',
-        'transition-colors hover:bg-surface-hover',
-        pinned && !done && 'bg-accent-soft/35',
-        flagged && !done && !pinned && 'bg-amber-500/[0.06]',
+        'group/row relative flex items-start gap-2 border-b border-line px-2.5 py-2.5 last:border-b-0 sm:px-3.5 sm:py-3',
+        dragging
+          ? 'z-20 touch-none rounded-xl border-transparent bg-surface shadow-pop ring-1 ring-accent/20'
+          : cn(
+              'transition-[transform,colors] duration-200 ease-out hover:bg-surface-hover',
+              reordering && layoutShiftY !== 0 && 'relative z-10',
+            ),
+        pinned && !done && !dragging && 'bg-accent-soft/35',
       )}
+      style={{
+        transform: dragging
+          ? `translateY(${dragDeltaY}px) scale(1.01)`
+          : layoutShiftY !== 0
+            ? `translateY(${layoutShiftY}px)`
+            : undefined,
+      }}
     >
       <Checkbox
         checked={done}
@@ -491,25 +551,37 @@ function ListItemRow({
         className="mt-0.5"
       />
 
-      {(pinned || flagged) && (
-        <div className="mt-1 flex shrink-0 flex-col gap-0.5 sm:hidden">
-          {pinned && <Pin className="size-3 text-accent" strokeWidth={2.4} aria-hidden="true" />}
-          {flagged && <Flag className="size-3 text-amber-600" strokeWidth={2.4} aria-hidden="true" />}
-        </div>
-      )}
-
       <button
         type="button"
         onClick={onStartEdit}
         className={cn(
           'min-w-0 flex-1 rounded-lg py-0.5 text-left transition-colors hover:bg-bg-sunk/80',
           'text-fg',
-          flagged && !done && 'font-medium',
         )}
       >
         <span className="block text-[14px] font-[450] leading-[1.45] whitespace-pre-wrap">
           {item.text}
         </span>
+        {(createdLabel || (pinned && !done)) && (
+          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+            {createdLabel && (
+              <time
+                dateTime={new Date(item.createdAt!).toISOString()}
+                className="text-[11px] leading-none text-fg-faint"
+              >
+                Added {createdLabel}
+              </time>
+            )}
+            {pinned && !done && (
+              <span
+                data-tone="blue"
+                className="inline-flex rounded-full bg-[var(--tone-bg)] px-2 py-0.5 text-[10px] font-semibold leading-none text-[var(--tone-fg)]"
+              >
+                Pinned
+              </span>
+            )}
+          </span>
+        )}
       </button>
 
       <div
@@ -518,26 +590,11 @@ function ListItemRow({
           hasHover
             ? cn(
                 'opacity-0 group-hover/row:opacity-100 focus-within:opacity-100',
-                (flagged || pinned) && 'opacity-100',
+                pinned && 'opacity-100',
               )
             : 'opacity-100',
         )}
       >
-        {onToggleFlag && (
-          <IconButton
-            label={flagged ? `Unflag “${previewLabel(item.text)}”` : `Flag “${previewLabel(item.text)}”`}
-            size="sm"
-            onClick={onToggleFlag}
-            className={cn(
-              flagged && 'text-amber-600 hover:bg-amber-500/10 hover:text-amber-700',
-            )}
-          >
-            <Flag
-              className={cn('size-3.5', flagged && 'fill-amber-500/25')}
-              strokeWidth={flagged ? 2.4 : 2}
-            />
-          </IconButton>
-        )}
         {onTogglePin && !done && (
           <IconButton
             label={pinned ? `Unpin “${previewLabel(item.text)}”` : `Pin “${previewLabel(item.text)}”`}
@@ -545,9 +602,10 @@ function ListItemRow({
             onClick={onTogglePin}
             className={cn(pinned && 'text-accent hover:bg-accent-soft hover:text-accent')}
           >
-            <Pin
-              className={cn('size-3.5', pinned && 'fill-accent/20')}
-              strokeWidth={pinned ? 2.4 : 2}
+            <PinIcon
+              size="sm"
+              className={cn(pinned && 'text-accent')}
+              strokeWidth={pinned ? ICON_STROKE_STRONG : undefined}
             />
           </IconButton>
         )}
@@ -557,8 +615,24 @@ function ListItemRow({
           onClick={onDelete}
           className="text-danger hover:bg-danger-soft hover:text-danger"
         >
-          <Trash2 className="size-3.5" strokeWidth={2} />
+          <Trash2Icon size="sm" />
         </IconButton>
+        {sortable && (
+          <button
+            type="button"
+            aria-label={`Drag to reorder “${previewLabel(item.text)}”`}
+            onPointerDown={onGripPointerDown}
+            className={cn(
+              'mt-0.5 inline-flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-fg-faint transition-[color,background-color,box-shadow,transform]',
+              'hover:bg-bg-sunk hover:text-fg-subtle active:cursor-grabbing',
+              dragging && 'cursor-grabbing bg-bg-sunk text-fg',
+              hasHover ? 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100' : 'opacity-100',
+              (pinned || dragging) && 'opacity-100',
+            )}
+          >
+            <GripVerticalIcon size="md" />
+          </button>
+        )}
       </div>
     </li>
   )

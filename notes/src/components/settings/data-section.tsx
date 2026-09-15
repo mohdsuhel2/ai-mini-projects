@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Download, Eraser, Trash2, Upload } from 'lucide-react'
+import { DownloadIcon, EraserIcon, Trash2Icon, UploadIcon } from '@/lib/app-icons'
 import { Button } from '@/components/common/button'
 import {
   BackupError,
@@ -131,12 +131,12 @@ export function DataSection() {
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={handleExport}>
-          <Download className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          <DownloadIcon size="sm" aria-hidden="true" />
           Export JSON
         </Button>
 
         <Button size="sm" onClick={() => fileInput.current?.click()}>
-          <Upload className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          <UploadIcon size="sm" aria-hidden="true" />
           Import
         </Button>
         <input
@@ -174,7 +174,7 @@ export function DataSection() {
           and removes what came before. Unfinished tasks and all notes are kept.
         </p>
         <Button size="sm" onClick={() => void reviewSweep()}>
-          <Eraser className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          <EraserIcon size="sm" aria-hidden="true" />
           Review what would go
         </Button>
       </div>
@@ -212,7 +212,7 @@ export function DataSection() {
             className="text-danger hover:bg-danger-soft hover:text-danger"
             onClick={() => setConfirmingClear(true)}
           >
-            <Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
+            <Trash2Icon size="sm" aria-hidden="true" />
             Clear all data
           </Button>
         )}

@@ -1,7 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { CalendarDays, Check, Clock, Hourglass, ListTodo, Sparkles } from 'lucide-react'
+import {
+  CalendarDaysIcon,
+  CheckIcon,
+  ClockIcon,
+  HourglassIcon,
+  ICON_STROKE_STRONG,
+  ListTodoIcon,
+  SparklesIcon,
+} from '@/lib/app-icons'
 import { Dialog } from '@/components/common/dialog'
 import { CategoryPicker } from '@/components/todo/category-picker'
 import { createTodo } from '@/features/todos/api'
@@ -18,9 +26,9 @@ type Mode = 'todo' | 'activity'
 const EXAMPLES = ['Buy groceries tomorrow', 'Gym at 6 pm', 'Watched YouTube for 1 hour']
 
 const TOKEN_ICONS = {
-  date: CalendarDays,
-  time: Clock,
-  duration: Hourglass,
+  date: CalendarDaysIcon,
+  time: ClockIcon,
+  duration: HourglassIcon,
 } as const
 
 /**
@@ -112,7 +120,7 @@ function QuickAddForm({ flush }: { flush: RefObject<(() => Promise<void>) | null
   return (
     <>
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <Sparkles className="size-4 shrink-0 text-accent" strokeWidth={2} aria-hidden="true" />
+        <SparklesIcon size="md" className="text-accent" aria-hidden="true" />
         <input
           autoFocus
           value={value}
@@ -157,9 +165,9 @@ function QuickAddForm({ flush }: { flush: RefObject<(() => Promise<void>) | null
               )}
             >
               {option === 'todo' ? (
-                <ListTodo className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                <ListTodoIcon size="sm" aria-hidden="true" />
               ) : (
-                <Check className="size-3.5" strokeWidth={2.2} aria-hidden="true" />
+                <CheckIcon size="sm" strokeWidth={ICON_STROKE_STRONG} aria-hidden="true" />
               )}
               {option === 'todo' ? 'Task' : 'Activity'}
             </button>
@@ -188,7 +196,7 @@ function QuickAddForm({ flush }: { flush: RefObject<(() => Promise<void>) | null
                   key={token.kind}
                   className="inline-flex items-center gap-1 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[11.5px] text-accent"
                 >
-                  <Icon className="size-3" strokeWidth={2} aria-hidden="true" />
+                  <Icon size="xs" aria-hidden="true" />
                   {token.label}
                 </span>
               )

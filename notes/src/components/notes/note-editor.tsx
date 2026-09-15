@@ -2,16 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ArrowLeft,
-  Bold,
-  Heading1,
-  Heading2,
-  Italic,
-  List,
-  ListOrdered,
-  Quote,
-  Strikethrough,
-} from 'lucide-react'
+  BoldIcon,
+  ChevronLeftIcon,
+  Heading1Icon,
+  Heading2Icon,
+  ICON_STROKE_STRONG,
+  ItalicIcon,
+  ListIcon,
+  ListOrderedIcon,
+  QuoteIcon,
+  StrikethroughIcon,
+} from '@/lib/app-icons'
 import { IconButton } from '@/components/common/icon-button'
 import { updateNote } from '@/features/notes/api'
 import { folderPath } from '@/features/notes/tree'
@@ -104,7 +105,7 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
         <div className="flex items-start gap-3">
           {onBack && (
             <IconButton label="Back to notes" size="sm" onClick={onBack} className="mt-1 lg:hidden">
-              <ArrowLeft className="size-4" strokeWidth={2} />
+              <ChevronLeftIcon size="md" />
             </IconButton>
           )}
 
@@ -144,10 +145,10 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
           className="no-scrollbar edge-fade-x mt-3 flex items-center gap-0.5 overflow-x-auto"
         >
           <ToolbarButton label="Heading" onClick={() => run('formatBlock', 'h2')}>
-            <Heading1 className="size-4" strokeWidth={2} />
+            <Heading1Icon size="md" />
           </ToolbarButton>
           <ToolbarButton label="Subheading" onClick={() => run('formatBlock', 'h3')}>
-            <Heading2 className="size-4" strokeWidth={2} />
+            <Heading2Icon size="md" />
           </ToolbarButton>
           <ToolbarButton label="Body text" onClick={() => run('formatBlock', 'p')}>
             <span className="text-[13px] font-semibold leading-none">¶</span>
@@ -156,25 +157,25 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
           <span className="mx-1 h-4 w-px shrink-0 bg-line" aria-hidden="true" />
 
           <ToolbarButton label="Bold" shortcut="⌘B" onClick={() => run('bold')}>
-            <Bold className="size-4" strokeWidth={2.6} />
+            <BoldIcon size="md" strokeWidth={ICON_STROKE_STRONG} />
           </ToolbarButton>
           <ToolbarButton label="Italic" shortcut="⌘I" onClick={() => run('italic')}>
-            <Italic className="size-4" strokeWidth={2.2} />
+            <ItalicIcon size="md" strokeWidth={ICON_STROKE_STRONG} />
           </ToolbarButton>
           <ToolbarButton label="Strikethrough" onClick={() => run('strikeThrough')}>
-            <Strikethrough className="size-4" strokeWidth={2.2} />
+            <StrikethroughIcon size="md" strokeWidth={ICON_STROKE_STRONG} />
           </ToolbarButton>
 
           <span className="mx-1 h-4 w-px shrink-0 bg-line" aria-hidden="true" />
 
           <ToolbarButton label="Bulleted list" onClick={() => run('insertUnorderedList')}>
-            <List className="size-4" strokeWidth={2} />
+            <ListIcon size="md" />
           </ToolbarButton>
           <ToolbarButton label="Numbered list" onClick={() => run('insertOrderedList')}>
-            <ListOrdered className="size-4" strokeWidth={2} />
+            <ListOrderedIcon size="md" />
           </ToolbarButton>
           <ToolbarButton label="Quote" onClick={() => run('formatBlock', 'blockquote')}>
-            <Quote className="size-4" strokeWidth={2} />
+            <QuoteIcon size="md" />
           </ToolbarButton>
         </div>
       </header>

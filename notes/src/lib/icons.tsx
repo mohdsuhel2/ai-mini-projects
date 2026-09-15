@@ -20,6 +20,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
+import { ICON_STROKE } from '@/lib/app-icons'
 
 /**
  * Categories store an icon key rather than a component, so the value survives
@@ -57,12 +58,20 @@ export const ICON_KEYS = Object.keys(CATEGORY_ICONS)
 export function CategoryIcon({
   icon,
   className,
-  strokeWidth = 2,
+  strokeWidth = ICON_STROKE,
 }: {
   icon: string | undefined | null
   className?: string
   strokeWidth?: number
 }) {
   const Icon = (icon ? CATEGORY_ICONS[icon] : undefined) ?? CircleDashed
-  return <Icon className={className} strokeWidth={strokeWidth} aria-hidden="true" />
+  return (
+    <Icon
+      className={className}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    />
+  )
 }

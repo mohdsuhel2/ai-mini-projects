@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Folder as FolderIcon, Home } from 'lucide-react'
+import { CheckIcon, FolderIcon, HomeIcon, ICON_STROKE_STRONG } from '@/lib/app-icons'
 import { Dialog } from '@/components/common/dialog'
 import { buildFolderTree, canMoveFolder, flattenTree } from '@/features/notes/tree'
 import { cn } from '@/lib/utils/cn'
@@ -38,7 +38,7 @@ export function MoveDialog({
       <div className="max-h-[24rem] flex-1 overflow-y-auto p-2">
         <DestinationRow
           label="Unfiled"
-          icon={<Home className="size-3.5 text-fg-subtle" strokeWidth={2} aria-hidden="true" />}
+          icon={<HomeIcon size="sm" className="text-fg-subtle" aria-hidden="true" />}
           depth={0}
           selected={currentParentId === null}
           disabled={false}
@@ -56,7 +56,7 @@ export function MoveDialog({
               key={node.folder.id}
               label={node.folder.name}
               icon={
-                <FolderIcon className="size-3.5 text-fg-subtle" strokeWidth={2} aria-hidden="true" />
+                <FolderIcon size="sm" className="text-fg-subtle" aria-hidden="true" />
               }
               depth={node.depth + 1}
               selected={currentParentId === node.folder.id}
@@ -109,7 +109,9 @@ function DestinationRow({
       {icon}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {hint && <span className="shrink-0 text-[11px] text-fg-faint">{hint}</span>}
-      {selected && !disabled && <Check className="size-3.5 shrink-0" strokeWidth={2.4} />}
+      {selected && !disabled && (
+        <CheckIcon size="sm" className="shrink-0" strokeWidth={ICON_STROKE_STRONG} />
+      )}
     </button>
   )
 }

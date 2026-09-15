@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, type FormEvent } from 'react'
-import { CornerDownLeft, Plus } from 'lucide-react'
+import { ArrowDownLeftIcon, ICON_STROKE_STRONG, PlusIcon } from '@/lib/app-icons'
 import { CategorySelect } from '@/components/common/category-select'
 import { DateChips } from './date-chips'
 import { RepeatPicker } from './repeat-picker'
@@ -118,7 +118,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
             expanded ? 'bg-accent text-accent-fg' : 'bg-accent-soft text-accent',
           )}
         >
-          <Plus className="size-[18px]" strokeWidth={2.4} />
+          <PlusIcon size="lg" strokeWidth={ICON_STROKE_STRONG} />
         </span>
         <input
           ref={inputRef}
@@ -144,7 +144,7 @@ export function TodoComposer({ defaultDay, onCreated }: TodoComposerProps) {
             className="mr-1 inline-flex h-7 items-center gap-1 rounded-full bg-accent px-3 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40 animate-fade-in"
           >
             Add
-            <CornerDownLeft className="size-3" strokeWidth={2.4} aria-hidden="true" />
+            <ArrowDownLeftIcon size="xs" strokeWidth={ICON_STROKE_STRONG} aria-hidden="true" />
           </button>
         )}
       </div>

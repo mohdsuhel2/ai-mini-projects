@@ -1,6 +1,6 @@
 'use client'
 
-import { CalendarDays, Moon, Settings2, Sun } from 'lucide-react'
+import { CalendarDaysIcon, MoonIcon, Settings2Icon, SunIcon } from '@/lib/app-icons'
 import { BrandMark } from './brand'
 import { IconButton } from '@/components/common/icon-button'
 import { SegmentedControl } from '@/components/common/segmented-control'
@@ -59,7 +59,7 @@ export function AppHeader() {
 
         <div className="ml-auto flex items-center gap-2">
           <p className="hidden items-center gap-2 rounded-full bg-bg-sunk px-3.5 py-2 text-[13px] font-medium text-fg-muted sm:inline-flex">
-            <CalendarDays className="size-4 text-fg-faint" strokeWidth={2} aria-hidden="true" />
+            <CalendarDaysIcon size="md" className="text-fg-faint" />
             {/* The date is the first thing to go when the bar gets tight: the
                 clock is the half that changes, and the one you glance up for. */}
             <span className="hidden md:inline">{formatDayFull(todayKey(clock))}</span>
@@ -74,11 +74,7 @@ export function AppHeader() {
             onClick={toggle}
             className="size-9 rounded-full"
           >
-            {resolved === 'dark' ? (
-              <Sun className="size-[18px]" strokeWidth={2} />
-            ) : (
-              <Moon className="size-[18px]" strokeWidth={2} />
-            )}
+            {resolved === 'dark' ? <SunIcon size="lg" /> : <MoonIcon size="lg" />}
           </IconButton>
 
           <IconButton
@@ -86,7 +82,7 @@ export function AppHeader() {
             onClick={openSettings}
             className="size-9 rounded-full bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent"
           >
-            <Settings2 className="size-[18px]" strokeWidth={2} />
+            <Settings2Icon size="lg" />
           </IconButton>
         </div>
       </div>

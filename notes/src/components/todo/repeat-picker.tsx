@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Repeat } from 'lucide-react'
+import { CheckIcon, ICON_STROKE_STRONG, RepeatIcon } from '@/lib/app-icons'
 import { Chip } from '@/components/common/chip'
 import { Popover, PopoverItem } from '@/components/common/popover'
 import {
@@ -66,7 +66,7 @@ export function RepeatPicker({ value, onChange, anchor, className }: RepeatPicke
           onClick={() => setOpen((v) => !v)}
           className={className}
         >
-          <Repeat className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          <RepeatIcon size="sm" aria-hidden="true" />
           {value ? shortRecurrence(value) : 'Repeat'}
         </Chip>
       }
@@ -137,9 +137,10 @@ function Option({
 }) {
   return (
     <PopoverItem onClick={onClick} selected={selected}>
-      <Check
-        className={cn('size-3.5 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
-        strokeWidth={2.4}
+      <CheckIcon
+        size="sm"
+        className={cn('shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+        strokeWidth={ICON_STROKE_STRONG}
         aria-hidden="true"
       />
       {label}

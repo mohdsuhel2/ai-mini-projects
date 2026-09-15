@@ -1,7 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FolderPlus, ListChecks, Search, SquarePen, X } from 'lucide-react'
+import {
+  FolderPlusIcon,
+  ICON_STROKE_STRONG,
+  LayoutListIcon,
+  PenLineIcon,
+  SearchIcon,
+  XIcon,
+} from '@/lib/app-icons'
 import { FolderTree } from './folder-tree'
 import { ListNoteEditor } from './list-note-editor'
 import { NoteEditor } from './note-editor'
@@ -244,15 +251,14 @@ export function NotesPane() {
   const showTree = isWide || !showEditor
 
   return (
-    <div className={cn('grid gap-x-8', isWide && 'grid-cols-[minmax(0,20rem)_minmax(0,1fr)]')}>
+    <div className={cn('grid min-h-0 flex-1 gap-x-6', isWide && 'grid-cols-[minmax(0,18.5rem)_minmax(0,1fr)]')}>
       {showTree && (
-        <section aria-label="Folders" className="min-w-0">
+        <section aria-label="Folders" className="flex min-h-0 min-w-0 flex-col">
           <div className="mb-3 flex items-center gap-1.5">
             <div className="relative min-w-0 flex-1">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-fg-faint"
-                strokeWidth={2}
-                aria-hidden="true"
+              <SearchIcon
+                size="sm"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-faint"
               />
               <input
                 value={query}
@@ -268,7 +274,7 @@ export function NotesPane() {
                   aria-label="Clear filter"
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-fg-faint hover:text-fg"
                 >
-                  <X className="size-3" strokeWidth={2.2} />
+                  <XIcon size="xs" strokeWidth={ICON_STROKE_STRONG} />
                 </button>
               )}
             </div>
@@ -278,21 +284,21 @@ export function NotesPane() {
               size="sm"
               onClick={() => setNewFolderParent({ parentId: activeFolderId })}
             >
-              <FolderPlus className="size-4" strokeWidth={2} />
+              <FolderPlusIcon size="md" />
             </IconButton>
             <IconButton
               label={`New list in ${activeFolderName}`}
               size="sm"
               onClick={() => void handleNewListNote(activeFolderId)}
             >
-              <ListChecks className="size-4" strokeWidth={2} />
+              <LayoutListIcon size="md" />
             </IconButton>
             <IconButton
               label={`New note in ${activeFolderName}`}
               size="sm"
               onClick={() => void handleNewNote(activeFolderId)}
             >
-              <SquarePen className="size-4" strokeWidth={2} />
+              <PenLineIcon size="md" />
             </IconButton>
           </div>
 

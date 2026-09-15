@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, ListTodo, Plus, Settings, Tag } from 'lucide-react'
+import { ICON_STROKE_STRONG, PlusIcon, Settings2Icon, surfaceNavIcons } from '@/lib/app-icons'
 import { BrandMark } from './brand'
 import { AddMenu } from '@/components/quick-add/add-menu'
 import { useUi } from '@/store/ui-context'
@@ -10,7 +10,7 @@ import type { Mode } from '@/lib/tab-url'
 interface RailItem {
   mode: Mode
   label: string
-  icon: typeof ListTodo
+  icon: (typeof surfaceNavIcons)[keyof typeof surfaceNavIcons]
 }
 
 /**
@@ -19,9 +19,9 @@ interface RailItem {
  * it does not change with usage.
  */
 const ITEMS: RailItem[] = [
-  { mode: 'day', label: 'Tasks', icon: ListTodo },
-  { mode: 'insights', label: 'Insights', icon: BarChart3 },
-  { mode: 'notes', label: 'Notes', icon: Tag },
+  { mode: 'day', label: 'Tasks', icon: surfaceNavIcons.day },
+  { mode: 'insights', label: 'Insights', icon: surfaceNavIcons.insights },
+  { mode: 'notes', label: 'Notes', icon: surfaceNavIcons.notes },
 ]
 
 /**
@@ -65,7 +65,7 @@ export function SideRail() {
                   className="absolute -left-[13px] h-5 w-[3px] rounded-r-full bg-accent"
                 />
               )}
-              <Icon className="size-[19px]" strokeWidth={2} aria-hidden="true" />
+              <Icon size="nav" />
             </button>
           )
         })}
@@ -83,13 +83,10 @@ export function SideRail() {
               aria-expanded={expanded}
               className="grid size-11 place-items-center rounded-full bg-accent text-accent-fg shadow-pop transition-[transform,background-color] duration-150 hover:bg-accent-hover active:scale-95"
             >
-              <Plus
-                className={cn(
-                  'size-5 transition-transform duration-200',
-                  expanded && 'rotate-45',
-                )}
-                strokeWidth={2.4}
-                aria-hidden="true"
+              <PlusIcon
+                size="xl"
+                strokeWidth={ICON_STROKE_STRONG}
+                className={cn('transition-transform duration-200', expanded && 'rotate-45')}
               />
             </button>
           )}
@@ -102,7 +99,7 @@ export function SideRail() {
           title="Settings"
           className="grid size-10 place-items-center rounded-xl text-fg-faint transition-colors duration-150 hover:bg-surface-hover hover:text-fg-muted"
         >
-          <Settings className="size-[18px]" strokeWidth={2} aria-hidden="true" />
+          <Settings2Icon size="lg" />
         </button>
       </div>
     </div>

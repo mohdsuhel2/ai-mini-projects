@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Check } from 'lucide-react'
+import { CheckIcon, ICON_STROKE_STRONG } from '@/lib/app-icons'
 import {
   blockAt,
   MINUTES_IN_DAY,
@@ -97,7 +97,7 @@ export function DailySummary({ summary, schedule, isToday, highlightId }: DailyS
       {parts.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
           <span className="grid size-6 shrink-0 place-items-center rounded-full bg-success/12 text-success">
-            <Check className="size-3.5" strokeWidth={2.6} aria-hidden="true" />
+            <CheckIcon size="sm" strokeWidth={ICON_STROKE_STRONG} aria-hidden="true" />
           </span>
           {parts.map((part, index) => (
             <span key={part.label} className="inline-flex items-baseline gap-1.5">

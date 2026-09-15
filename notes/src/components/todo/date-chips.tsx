@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDaysIcon } from '@/lib/app-icons'
 import { Chip } from '@/components/common/chip'
 import { shiftDay, todayKey, weekendKey } from '@/lib/date/day-key'
 import { formatDayLabel } from '@/lib/date/format'
@@ -67,7 +67,7 @@ export function DateChips({ value, onChange, allowNone, className }: DateChipsPr
             }
           }}
         >
-          <CalendarDays className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          <CalendarDaysIcon size="sm" aria-hidden="true" />
           {isCustom && value ? formatDayLabel(value) : 'Pick date'}
         </Chip>
         <input

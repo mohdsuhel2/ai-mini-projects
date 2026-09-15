@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ChevronLeftIcon } from '@/lib/app-icons'
 import { SiteContent } from '@/components/layout/site-content'
 import { SITE } from '@/lib/site'
 
@@ -27,7 +27,7 @@ export default function AboutPage() {
           href="/"
           className="inline-flex items-center gap-1.5 text-[13px] text-fg-muted transition-colors hover:text-fg"
         >
-          <ArrowLeft className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          <ChevronLeftIcon size="sm" aria-hidden="true" />
           Back to {SITE.name}
         </Link>
         <h1 className="mt-8 text-[28px] font-semibold tracking-[-0.025em] text-fg">

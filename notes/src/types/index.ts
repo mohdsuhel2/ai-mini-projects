@@ -133,10 +133,10 @@ export interface ListNoteItem {
   id: Id
   text: string
   createdAt?: Instant
+  /** Manual sort position among active items (lower = higher in the list). */
+  order?: number
   /** Set when the item is pinned to the top of the active list. */
   pinnedAt?: Instant | null
-  /** Set when the item is flagged for follow-up (Outlook-style). */
-  flaggedAt?: Instant | null
   archivedAt?: Instant | null
 }
 

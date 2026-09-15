@@ -2,19 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  ChevronRight,
-  Copy,
-  FilePlus2,
-  FileText,
-  ListChecks,
-  Folder as FolderIcon,
-  FolderOpen,
-  FolderPlus,
-  Home,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-} from 'lucide-react'
+  ChevronRightIcon,
+  CopyIcon,
+  EllipsisIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  FolderPlusIcon,
+  HomeIcon,
+  ICON_STROKE_STRONG,
+  LayoutListIcon,
+  PenLineIcon,
+  Trash2Icon,
+} from '@/lib/app-icons'
 import { IconButton } from '@/components/common/icon-button'
 import {
   ContextMenu,
@@ -174,12 +175,9 @@ export function FolderTree(props: FolderTreeProps) {
             onClick={() => props.onSelectFolder(null)}
             className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-[19px] text-left"
           >
-            <Home
-              className={cn(
-                'size-4 shrink-0',
-                activeFolderId === null ? 'text-fg' : 'text-fg-subtle',
-              )}
-              strokeWidth={2}
+            <HomeIcon
+              size="md"
+              className={activeFolderId === null ? 'text-fg' : 'text-fg-subtle'}
               aria-hidden="true"
             />
             <span
@@ -241,15 +239,15 @@ function FolderRow({
   // Lifted out so the icon is identical whether the name is a button or a field.
   const folderIcon =
     open && node.children.length + node.notes.length > 0 ? (
-      <FolderOpen
-        className={cn('size-4 shrink-0', active ? 'text-fg' : 'text-fg-subtle')}
-        strokeWidth={2}
+      <FolderOpenIcon
+        size="md"
+        className={active ? 'text-fg' : 'text-fg-subtle'}
         aria-hidden="true"
       />
     ) : (
       <FolderIcon
-        className={cn('size-4 shrink-0', active ? 'text-fg' : 'text-fg-subtle')}
-        strokeWidth={2}
+        size="md"
+        className={active ? 'text-fg' : 'text-fg-subtle'}
         aria-hidden="true"
       />
     )
@@ -301,13 +299,14 @@ function FolderRow({
           disabled={!hasChildren}
           className="ml-1 grid size-4 shrink-0 place-items-center rounded"
         >
-          <ChevronRight
+          <ChevronRightIcon
+            size="xs"
+            strokeWidth={ICON_STROKE_STRONG}
             className={cn(
-              'size-3 text-fg-faint transition-transform duration-200',
+              'text-fg-faint transition-transform duration-200',
               open && 'rotate-90',
               !hasChildren && 'opacity-0',
             )}
-            strokeWidth={2.5}
             aria-hidden="true"
           />
         </button>
@@ -362,14 +361,14 @@ function FolderRow({
             size="sm"
             onClick={() => props.onNewListNote(node.folder.id)}
           >
-            <ListChecks className="size-3.5" strokeWidth={2.2} />
+            <LayoutListIcon size="sm" strokeWidth={ICON_STROKE_STRONG} />
           </IconButton>
           <IconButton
             label={`New note in ${node.folder.name}`}
             size="sm"
             onClick={() => props.onNewNote(node.folder.id)}
           >
-            <FilePlus2 className="size-3.5" strokeWidth={2.2} />
+            <FilePlusIcon size="sm" strokeWidth={ICON_STROKE_STRONG} />
           </IconButton>
 
           <IconButton
@@ -377,40 +376,40 @@ function FolderRow({
             size="sm"
             onClick={(event) => setMenu(menuAnchorFor(event.currentTarget))}
           >
-            <MoreHorizontal className="size-3.5" strokeWidth={2} />
+            <EllipsisIcon size="sm" />
           </IconButton>
         </div>
       </div>
 
       <ContextMenu state={menu} onClose={close} label={`Actions for ${node.folder.name}`}>
         <ContextMenuItem onClick={() => { close(); props.onNewNote(node.folder.id) }}>
-          <FilePlus2 className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <FilePlusIcon size="sm" className="text-fg-subtle" />
           New note inside
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); props.onNewListNote(node.folder.id) }}>
-          <ListChecks className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <LayoutListIcon size="sm" className="text-fg-subtle" />
           New list inside
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); props.onNewFolder(node.folder.id) }}>
-          <FolderPlus className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <FolderPlusIcon size="sm" className="text-fg-subtle" />
           New folder inside
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => { close(); setRenaming({ kind: 'folder', id: node.folder.id }) }}>
-          <Pencil className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <PenLineIcon size="sm" className="text-fg-subtle" />
           Rename
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); props.onDuplicateFolder(node) }}>
-          <Copy className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <CopyIcon size="sm" className="text-fg-subtle" />
           Duplicate
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); props.onMoveFolder(node) }}>
-          <FolderOpen className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <FolderOpenIcon size="sm" className="text-fg-subtle" />
           Move to…
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem danger onClick={() => { close(); props.onDeleteFolder(node) }}>
-          <Trash2 className="size-3.5" strokeWidth={2} />
+          <Trash2Icon size="sm" />
           Delete folder
         </ContextMenuItem>
       </ContextMenu>
@@ -462,15 +461,15 @@ function NoteRow({
   const close = () => setMenu(null)
   const editing = renaming?.kind === 'note' && renaming.id === note.id
   const noteIcon = isListNote(note) ? (
-    <ListChecks
-      className={cn('size-4 shrink-0', selected ? 'text-fg' : 'text-fg-faint')}
-      strokeWidth={2}
+    <LayoutListIcon
+      size="md"
+      className={selected ? 'text-fg' : 'text-fg-faint'}
       aria-hidden="true"
     />
   ) : (
-    <FileText
-      className={cn('size-4 shrink-0', selected ? 'text-fg' : 'text-fg-faint')}
-      strokeWidth={2}
+    <FileTextIcon
+      size="md"
+      className={selected ? 'text-fg' : 'text-fg-faint'}
       aria-hidden="true"
     />
   )
@@ -539,31 +538,31 @@ function NoteRow({
             size="sm"
             onClick={(event) => setMenu(menuAnchorFor(event.currentTarget))}
           >
-            <MoreHorizontal className="size-3.5" strokeWidth={2} />
+            <EllipsisIcon size="sm" />
           </IconButton>
         </div>
       </div>
 
       <ContextMenu state={menu} onClose={close} label={`Actions for ${note.title}`}>
         <ContextMenuItem onClick={() => { close(); onSelectNote(note.id) }}>
-          <FileText className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <FileTextIcon size="sm" className="text-fg-subtle" />
           Open
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); setRenaming({ kind: 'note', id: note.id }) }}>
-          <Pencil className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <PenLineIcon size="sm" className="text-fg-subtle" />
           Rename
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); onDuplicateNote(note) }}>
-          <Copy className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <CopyIcon size="sm" className="text-fg-subtle" />
           Duplicate
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); onMoveNote(note) }}>
-          <FolderOpen className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          <FolderOpenIcon size="sm" className="text-fg-subtle" />
           Move to…
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem danger onClick={() => { close(); onDeleteNote(note) }}>
-          <Trash2 className="size-3.5" strokeWidth={2} />
+          <Trash2Icon size="sm" />
           Delete note
         </ContextMenuItem>
       </ContextMenu>

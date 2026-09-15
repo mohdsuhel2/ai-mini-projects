@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, MoreHorizontal, Trash2 } from 'lucide-react'
+import { CheckIcon, EllipsisIcon, ICON_STROKE_STRONG, Trash2Icon } from '@/lib/app-icons'
 import { IconButton } from '@/components/common/icon-button'
 import { Popover, PopoverItem } from '@/components/common/popover'
 import { CategoryIcon } from '@/lib/icons'
@@ -83,7 +83,7 @@ export function TimelineItem({
         )}
       >
         {fromTodo && !category ? (
-          <Check className="size-[18px]" strokeWidth={2.6} />
+          <CheckIcon size="lg" strokeWidth={ICON_STROKE_STRONG} />
         ) : (
           <CategoryIcon icon={category?.icon} className="size-[18px]" />
         )}
@@ -151,7 +151,7 @@ export function TimelineItem({
                 size="sm"
                 onClick={() => setMenuOpen((v) => !v)}
               >
-                <MoreHorizontal className="size-4" strokeWidth={2} />
+                <EllipsisIcon size="md" />
               </IconButton>
             ) : null
           }
@@ -163,7 +163,7 @@ export function TimelineItem({
             }}
             className="text-danger hover:bg-danger-soft"
           >
-            <Trash2 className="size-3.5" strokeWidth={2} />
+            <Trash2Icon size="sm" />
             {fromTodo ? 'Remove and reopen task' : 'Delete'}
           </PopoverItem>
         </Popover>

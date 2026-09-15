@@ -1,6 +1,6 @@
 import { format, isValid } from 'date-fns'
-import type { DayKey, MinuteOfDay } from '@/types'
-import { daysBetween, fromDayKey, todayKey } from './day-key'
+import type { DayKey, Instant, MinuteOfDay } from '@/types'
+import { daysBetween, fromDayKey, todayKey, toDayKey } from './day-key'
 
 /** "2h 15m", "45m", "1h". Empty string for nothing worth showing. */
 export function formatDuration(minutes: number | null | undefined): string {
@@ -83,6 +83,25 @@ export function formatDayLabel(day: DayKey, reference: DayKey = todayKey()): str
 export function formatDayFull(day: DayKey): string {
   const date = fromDayKey(day)
   return isValid(date) ? format(date, 'EEEE, d MMMM') : day
+}
+
+/** "2:25 PM" — a wall time without seconds for quiet metadata lines. */
+export function formatShortClock(date: Date): string {
+  const h24 = date.getHours()
+  const suffix = h24 < 12 ? 'AM' : 'PM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(date.getMinutes()).padStart(2, '0')} ${suffix}`
+}
+
+/** "Today · 2:25 PM" or "Mon 15 Sep · 2:25 PM" for when a list item was added. */
+export function formatInstantStamp(
+  instant: Instant | null | undefined,
+  reference: Date = new Date(),
+): string {
+  if (instant == null || !Number.isFinite(instant)) return ''
+  const date = new Date(instant)
+  if (!isValid(date)) return ''
+  return `${formatDayLabel(toDayKey(date), toDayKey(reference))} · ${formatShortClock(date)}`
 }
 
 export function greetingFor(date: Date = new Date()): string {

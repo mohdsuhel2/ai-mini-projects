@@ -1,26 +1,26 @@
 import Link from 'next/link'
-import { CalendarCheck, Clock3, Lock, WifiOff } from 'lucide-react'
+import { CalendarCheckIcon, Clock3Icon, LockIcon, WifiOffIcon } from '@/lib/app-icons'
 import { BrandMark } from './brand'
 import { FAQ, SITE } from '@/lib/site'
 
 const FEATURES = [
   {
-    icon: CalendarCheck,
+    icon: CalendarCheckIcon,
     title: 'Plan your day',
     body: 'Add a task in one line, give it a day, a category and a time if it needs one. Everything else stays out of the way until you want it.',
   },
   {
-    icon: Clock3,
+    icon: Clock3Icon,
     title: 'Track what you did',
     body: 'Log anything you actually did — a run, a meeting, an hour lost to a feed. Completed tasks record themselves, so the timeline is the day as it happened.',
   },
   {
-    icon: Lock,
+    icon: LockIcon,
     title: 'Private by construction',
     body: 'Your data is stored in your own browser. There is no account and no server to send it to, so there is nothing to breach and nothing to sell.',
   },
   {
-    icon: WifiOff,
+    icon: WifiOffIcon,
     title: 'Works offline',
     body: 'Install it and it keeps working on a plane, on the underground, or on a bad connection. The data was never remote to begin with.',
   },
@@ -56,7 +56,7 @@ export function SiteContent() {
             {FEATURES.map(({ icon: Icon, title, body }) => (
               <li key={title} className="max-w-[46ch]">
                 <div className="flex items-center gap-2">
-                  <Icon className="size-4 text-accent" strokeWidth={2} aria-hidden="true" />
+                  <Icon size="md" className="text-accent" />
                   <h3 className="text-[14px] font-medium text-fg">{title}</h3>
                 </div>
                 <p className="mt-1.5 text-[13.5px] leading-[1.65] text-fg-muted">{body}</p>

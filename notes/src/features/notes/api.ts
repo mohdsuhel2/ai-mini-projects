@@ -3,8 +3,10 @@ import { liveOnly, newId, now } from '@/lib/db/records'
 import {
   insertListItem,
   listItemsForSearch,
+  nextListItemOrder,
   patchListItem,
   removeListItem,
+  reorderActiveListItems,
   toggleItemTimestamp,
   UNTITLED_LIST,
   withArchivedAt,
@@ -162,7 +164,14 @@ export async function addListItem(noteId: Id, text: string): Promise<Id> {
   const stamp = now()
   await mutateListItems(noteId, (items) => [
     ...items,
-    { id: itemId, text: trimmed, createdAt: stamp, archivedAt: null, pinnedAt: null, flaggedAt: null },
+    {
+      id: itemId,
+      text: trimmed,
+      createdAt: stamp,
+      order: nextListItemOrder(items),
+      archivedAt: null,
+      pinnedAt: null,
+    },
   ])
   return itemId
 }
@@ -180,9 +189,12 @@ export async function toggleListItemPin(noteId: Id, itemId: Id): Promise<void> {
   await mutateListItems(noteId, (items) => toggleItemTimestamp(items, itemId, 'pinnedAt', stamp))
 }
 
-export async function toggleListItemFlag(noteId: Id, itemId: Id): Promise<void> {
-  const stamp = now()
-  await mutateListItems(noteId, (items) => toggleItemTimestamp(items, itemId, 'flaggedAt', stamp))
+export async function reorderListItem(
+  noteId: Id,
+  draggedId: Id,
+  insertBeforeId: Id | null,
+): Promise<void> {
+  await mutateListItems(noteId, (items) => reorderActiveListItems(items, draggedId, insertBeforeId))
 }
 
 export async function updateListItemText(noteId: Id, itemId: Id, text: string): Promise<void> {
