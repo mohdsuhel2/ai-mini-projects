@@ -6,6 +6,7 @@ import {
   Copy,
   FilePlus2,
   FileText,
+  ListChecks,
   Folder as FolderIcon,
   FolderOpen,
   FolderPlus,
@@ -21,6 +22,7 @@ import {
   ContextMenuSeparator,
   type ContextMenuState,
 } from '@/components/common/context-menu'
+import { isListNote, listNotePreview } from '@/features/notes/list-note'
 import { noteCount } from '@/features/notes/tree'
 import { plainTextPreview } from '@/lib/markdown/render'
 import { useHasHover } from '@/hooks/use-media-query'
@@ -44,6 +46,7 @@ export interface TreeActions {
   onSelectFolder: (id: Id | null) => void
   onToggleFolder: (id: Id) => void
   onNewNote: (folderId: Id | null) => void
+  onNewListNote: (folderId: Id | null) => void
   onNewFolder: (parentId: Id | null) => void
   onMoveFolder: (node: FolderNode) => void
   onDuplicateFolder: (node: FolderNode) => void
@@ -355,6 +358,13 @@ function FolderRow({
           )}
         >
           <IconButton
+            label={`New list in ${node.folder.name}`}
+            size="sm"
+            onClick={() => props.onNewListNote(node.folder.id)}
+          >
+            <ListChecks className="size-3.5" strokeWidth={2.2} />
+          </IconButton>
+          <IconButton
             label={`New note in ${node.folder.name}`}
             size="sm"
             onClick={() => props.onNewNote(node.folder.id)}
@@ -376,6 +386,10 @@ function FolderRow({
         <ContextMenuItem onClick={() => { close(); props.onNewNote(node.folder.id) }}>
           <FilePlus2 className="size-3.5 text-fg-subtle" strokeWidth={2} />
           New note inside
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => { close(); props.onNewListNote(node.folder.id) }}>
+          <ListChecks className="size-3.5 text-fg-subtle" strokeWidth={2} />
+          New list inside
         </ContextMenuItem>
         <ContextMenuItem onClick={() => { close(); props.onNewFolder(node.folder.id) }}>
           <FolderPlus className="size-3.5 text-fg-subtle" strokeWidth={2} />
@@ -444,10 +458,16 @@ function NoteRow({
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const hasHover = useHasHover()
   const longPress = useLongPress((at) => setMenu(at))
-  const preview = plainTextPreview(note.body, 60)
+  const preview = isListNote(note) ? listNotePreview(note, 60) : plainTextPreview(note.body, 60)
   const close = () => setMenu(null)
   const editing = renaming?.kind === 'note' && renaming.id === note.id
-  const noteIcon = (
+  const noteIcon = isListNote(note) ? (
+    <ListChecks
+      className={cn('size-4 shrink-0', selected ? 'text-fg' : 'text-fg-faint')}
+      strokeWidth={2}
+      aria-hidden="true"
+    />
+  ) : (
     <FileText
       className={cn('size-4 shrink-0', selected ? 'text-fg' : 'text-fg-faint')}
       strokeWidth={2}

@@ -3,9 +3,13 @@ import { db } from '@/lib/db/database'
 import { freshDatabase } from '@/lib/db/test-utils'
 import {
   FolderCycleError,
+  addListItem,
+  archiveListItem,
+  deleteListItem,
   createFolder,
   duplicateFolder,
   duplicateNote,
+  createListNote,
   createNote,
   deleteFolder,
   deleteNote,
@@ -14,10 +18,16 @@ import {
   moveFolder,
   moveNote,
   restoreFolderSubtree,
+  restoreListItem,
+  restoreListItemSnapshot,
+  toggleListItemFlag,
+  toggleListItemPin,
+  updateListItemText,
   searchNotes,
   updateNote,
   UNTITLED_NOTE,
 } from './api'
+import { UNTITLED_LIST } from './list-note'
 import { buildFolderTree } from './tree'
 
 beforeEach(async () => {
@@ -133,6 +143,84 @@ describe('notes', () => {
     await deleteNote(id)
     expect(await listNotes()).toEqual([])
     expect((await db().notes.get(id))?.deletedAt).toBeGreaterThan(0)
+  })
+})
+
+describe('list notes', () => {
+  it('creates an empty list note', async () => {
+    const id = await createListNote({ title: 'Discuss' })
+    expect(await db().notes.get(id)).toMatchObject({
+      kind: 'list',
+      title: 'Discuss',
+      items: [],
+    })
+  })
+
+  it('defaults the title when empty', async () => {
+    const id = await createListNote({ title: '   ' })
+    expect((await db().notes.get(id))?.title).toBe(UNTITLED_LIST)
+  })
+
+  it('adds, archives, and restores items', async () => {
+    const id = await createListNote({ title: 'Discuss' })
+    const itemId = await addListItem(id, 'Talk about pricing')
+    await archiveListItem(id, itemId)
+
+    let note = await db().notes.get(id)
+    expect(note?.items?.[0]).toMatchObject({ text: 'Talk about pricing', archivedAt: expect.any(Number) })
+
+    await restoreListItem(id, itemId)
+    note = await db().notes.get(id)
+    expect(note?.items?.[0].archivedAt).toBeNull()
+  })
+
+  it('searches list item text', async () => {
+    const id = await createListNote({ title: 'Discuss' })
+    await addListItem(id, 'Quarterly planning')
+    const notes = await listNotes()
+    expect(searchNotes(notes, 'quarterly').map((n) => n.id)).toEqual([id])
+  })
+
+  it('updates and deletes items', async () => {
+    const id = await createListNote({ title: 'Discuss' })
+    const itemId = await addListItem(id, 'Original text')
+
+    await updateListItemText(id, itemId, 'Updated text')
+    expect((await db().notes.get(id))?.items?.[0].text).toBe('Updated text')
+
+    const removed = await deleteListItem(id, itemId)
+    expect(removed?.text).toBe('Updated text')
+    expect((await db().notes.get(id))?.items).toEqual([])
+
+    await restoreListItemSnapshot(id, removed!)
+    expect((await db().notes.get(id))?.items).toHaveLength(1)
+  })
+
+  it('pins and flags items', async () => {
+    const id = await createListNote({ title: 'Discuss' })
+    const first = await addListItem(id, 'First')
+    const second = await addListItem(id, 'Second')
+
+    await toggleListItemPin(id, second)
+    await toggleListItemFlag(id, first)
+
+    const note = await db().notes.get(id)
+    const pinned = note?.items?.find((item) => item.id === second)
+    const flagged = note?.items?.find((item) => item.id === first)
+    expect(pinned?.pinnedAt).toBeGreaterThan(0)
+    expect(flagged?.flaggedAt).toBeGreaterThan(0)
+
+    await toggleListItemPin(id, second)
+    expect((await db().notes.get(id))?.items?.find((item) => item.id === second)?.pinnedAt).toBeNull()
+  })
+
+  it('duplicates list items with fresh ids', async () => {
+    const id = await createListNote({ title: 'Discuss' })
+    await addListItem(id, 'One')
+    const copyId = await duplicateNote(id)
+    const copy = await db().notes.get(copyId!)
+    expect(copy?.items).toHaveLength(1)
+    expect(copy?.items?.[0].id).not.toBe((await db().notes.get(id))?.items?.[0].id)
   })
 })
 

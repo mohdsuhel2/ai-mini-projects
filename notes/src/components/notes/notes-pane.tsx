@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FolderPlus, Search, SquarePen, X } from 'lucide-react'
+import { FolderPlus, ListChecks, Search, SquarePen, X } from 'lucide-react'
 import { FolderTree } from './folder-tree'
+import { ListNoteEditor } from './list-note-editor'
 import { NoteEditor } from './note-editor'
 import { MoveDialog } from './move-dialog'
 import { Button } from '@/components/common/button'
@@ -14,6 +15,7 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
   FolderCycleError,
   createFolder,
+  createListNote,
   createNote,
   deleteFolder,
   deleteNote,
@@ -105,8 +107,7 @@ export function NotesPane() {
     void handleNewNote(activeFolderId)
   }, [compose, clearCompose, activeFolderId])
 
-  async function handleNewNote(folderId: Id | null) {
-    const id = await createNote({ folderId })
+  async function openNewNote(id: Id, folderId: Id | null) {
     setSelectedId(id)
     if (folderId) {
       setCollapsed((current) => {
@@ -115,6 +116,14 @@ export function NotesPane() {
         return next
       })
     }
+  }
+
+  async function handleNewNote(folderId: Id | null) {
+    await openNewNote(await createNote({ folderId }), folderId)
+  }
+
+  async function handleNewListNote(folderId: Id | null) {
+    await openNewNote(await createListNote({ folderId }), folderId)
   }
 
   async function handleDeleteNote(note: Note) {
@@ -272,6 +281,13 @@ export function NotesPane() {
               <FolderPlus className="size-4" strokeWidth={2} />
             </IconButton>
             <IconButton
+              label={`New list in ${activeFolderName}`}
+              size="sm"
+              onClick={() => void handleNewListNote(activeFolderId)}
+            >
+              <ListChecks className="size-4" strokeWidth={2} />
+            </IconButton>
+            <IconButton
               label={`New note in ${activeFolderName}`}
               size="sm"
               onClick={() => void handleNewNote(activeFolderId)}
@@ -327,6 +343,7 @@ export function NotesPane() {
                   setSelection(note ? { kind: 'note', note } : null)
                 }}
                 onNewNote={(folderId) => void handleNewNote(folderId)}
+                onNewListNote={(folderId) => void handleNewListNote(folderId)}
                 onNewFolder={(parentId) => setNewFolderParent({ parentId })}
                 onMoveFolder={(node) => setMoving({ kind: 'folder', node })}
                 onDuplicateFolder={(node) => void handleDuplicateFolder(node)}
@@ -351,12 +368,21 @@ export function NotesPane() {
           aria-label="Note"
           className={cn('flex min-w-0 flex-col', isWide && 'pl-1')}
         >
-          <NoteEditor
-            key={selected.id}
-            note={selected}
-            folders={folders}
-            onBack={() => setSelectedId(null)}
-          />
+          {selected.kind === 'list' ? (
+            <ListNoteEditor
+              key={selected.id}
+              note={selected}
+              folders={folders}
+              onBack={() => setSelectedId(null)}
+            />
+          ) : (
+            <NoteEditor
+              key={selected.id}
+              note={selected}
+              folders={folders}
+              onBack={() => setSelectedId(null)}
+            />
+          )}
         </section>
       ) : (
         isWide && (

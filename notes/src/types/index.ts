@@ -126,11 +126,29 @@ export interface Folder {
   deletedAt?: Instant | null
 }
 
+export type NoteKind = 'document' | 'list'
+
+/** One entry inside a list-style note (e.g. a “discuss” board). */
+export interface ListNoteItem {
+  id: Id
+  text: string
+  createdAt?: Instant
+  /** Set when the item is pinned to the top of the active list. */
+  pinnedAt?: Instant | null
+  /** Set when the item is flagged for follow-up (Outlook-style). */
+  flaggedAt?: Instant | null
+  archivedAt?: Instant | null
+}
+
 export interface Note {
   id: Id
   title: string
+  /** `document` is the default rich-text note; `list` is a checklist-style board. */
+  kind?: NoteKind
   /** Markdown source, stored as plain text so it survives any export. */
   body: string
+  /** Populated when `kind` is `list`. */
+  items?: ListNoteItem[]
   /** Null means the note sits at the root, outside any folder. */
   folderId: Id | null
   createdAt: Instant
