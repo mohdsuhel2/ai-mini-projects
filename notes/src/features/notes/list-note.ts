@@ -19,9 +19,37 @@ export function activeListItems(note: Note): ListNoteItem[] {
 }
 
 export function sortedActiveListItems(note: Note): ListNoteItem[] {
-  return (note.items ?? [])
-    .filter((item) => item.archivedAt == null)
+  const active = (note.items ?? []).filter((item) => item.archivedAt == null)
+  const pinned = active
+    .filter(isItemPinned)
     .sort((a, b) => itemSortKey(a) - itemSortKey(b))
+  const unpinned = active
+    .filter((item) => !isItemPinned(item))
+    .sort((a, b) => itemSortKey(a) - itemSortKey(b))
+  return [...pinned, ...unpinned]
+}
+
+export function pinnedListItems(note: Note): ListNoteItem[] {
+  return sortedActiveListItems(note).filter(isItemPinned)
+}
+
+export function unpinnedListItems(note: Note): ListNoteItem[] {
+  return sortedActiveListItems(note).filter((item) => !isItemPinned(item))
+}
+
+function activeItemsFrom(items: ListNoteItem[]): ListNoteItem[] {
+  const active = items.filter((item) => item.archivedAt == null)
+  const pinned = active
+    .filter(isItemPinned)
+    .sort((a, b) => itemSortKey(a) - itemSortKey(b))
+  const unpinned = active
+    .filter((item) => !isItemPinned(item))
+    .sort((a, b) => itemSortKey(a) - itemSortKey(b))
+  return [...pinned, ...unpinned]
+}
+
+function maxOrderIn(items: ListNoteItem[]): number {
+  return items.reduce((highest, item) => Math.max(highest, itemSortKey(item)), 0)
 }
 
 export function archivedListItems(note: Note): ListNoteItem[] {
@@ -100,21 +128,18 @@ export function reorderActiveListItems(
   draggedId: Id,
   insertBeforeId: Id | null,
 ): ListNoteItem[] {
-  const active = items
-    .filter((item) => item.archivedAt == null)
-    .sort((a, b) => itemSortKey(a) - itemSortKey(b))
+  const active = activeItemsFrom(items)
+  const dragged = active.find((item) => item.id === draggedId)
+  if (!dragged || isItemPinned(dragged)) return items
 
-  const fromIndex = active.findIndex((item) => item.id === draggedId)
-  if (fromIndex < 0) return items
-  if (isItemPinned(active[fromIndex])) return items
-
-  const lockedIds = new Set(active.filter(isItemPinned).map((item) => item.id))
-  const previewIds = buildPreviewIds(
-    active.map((item) => item.id),
+  const pinned = active.filter(isItemPinned)
+  const unpinned = active.filter((item) => !isItemPinned(item))
+  const previewUnpinned = buildPreviewIds(
+    unpinned.map((item) => item.id),
     draggedId,
     insertBeforeId,
-    lockedIds,
   )
+  const previewIds = [...pinned.map((item) => item.id), ...previewUnpinned]
 
   const orderById = new Map(previewIds.map((id, index) => [id, (index + 1) * 10]))
   return items.map((item) => (orderById.has(item.id) ? { ...item, order: orderById.get(item.id) } : item))
@@ -170,6 +195,27 @@ export function toggleItemTimestamp(
     if (item.id !== itemId) return item
     const active = item[field] != null
     return { ...item, [field]: active ? null : stamp }
+  })
+}
+
+/** Pin moves the item into the top section; unpin returns it to the bottom of active items. */
+export function toggleItemPin(items: ListNoteItem[], itemId: Id, stamp: Instant): ListNoteItem[] {
+  const target = items.find((item) => item.id === itemId)
+  if (!target || target.archivedAt != null) return items
+
+  const active = activeItemsFrom(items)
+  if (isItemPinned(target)) {
+    const unpinned = active.filter((item) => !isItemPinned(item) && item.id !== itemId)
+    return patchListItem(items, itemId, {
+      pinnedAt: null,
+      order: maxOrderIn(unpinned) + 10,
+    })
+  }
+
+  const pinned = active.filter(isItemPinned)
+  return patchListItem(items, itemId, {
+    pinnedAt: stamp,
+    order: maxOrderIn(pinned) + 10,
   })
 }
 

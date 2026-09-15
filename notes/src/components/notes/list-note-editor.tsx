@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import {
   ArchiveIcon,
   ArrowDownLeftIcon,
@@ -24,9 +24,10 @@ import {
   updateNote,
 } from '@/features/notes/api'
 import {
-  activeListItems,
   archivedListItems,
   isItemPinned,
+  pinnedListItems,
+  unpinnedListItems,
 } from '@/features/notes/list-note'
 import { folderPath } from '@/features/notes/tree'
 import { formatInstantStamp } from '@/lib/date/format'
@@ -63,11 +64,9 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
     })
   }
 
-  const active = activeListItems(note)
-  const lockedIds = useMemo(
-    () => new Set(active.filter(isItemPinned).map((item) => item.id)),
-    [active],
-  )
+  const pinned = pinnedListItems(note)
+  const unpinned = unpinnedListItems(note)
+  const hasActive = pinned.length > 0 || unpinned.length > 0
 
   const commitReorder = useCallback(
     async (draggedId: Id, insertBeforeId: Id | null) => {
@@ -78,9 +77,8 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
   )
 
   const { draggingId, dragDeltaY, layoutShiftById, setRowRef, startDrag } = usePointerListReorder(
-    active.map((item) => item.id),
+    unpinned.map((item) => item.id),
     (draggedId, beforeId) => void commitReorder(draggedId, beforeId),
-    { lockedIds },
   )
   const archived = archivedListItems(note)
   const visibleScreen: ListScreen =
@@ -189,26 +187,49 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
             </button>
           </div>
           <p className="mt-1 text-[12px] text-fg-subtle">
-            Tick to complete, drag to reorder, tap text to edit, pin items, or delete permanently.
+            Pin to keep items at the top. Drag others to reorder, tap text to edit, or archive when done.
           </p>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {active.length === 0 && archived.length > 0 && (
+        {!hasActive && archived.length > 0 && (
           <p className="mb-3 px-1 text-center text-[13px] text-fg-subtle">
             No active items. Use Archive on the right to see or restore earlier notes.
           </p>
         )}
 
-        <ListItemsPanel label="Active items">
-          {active.map((item) => (
+        {pinned.length > 0 && (
+          <ListSection title="Pinned" label="Pinned items" variant="pinned">
+            {pinned.map((item) => (
+              <ListItemRow
+                key={item.id}
+                item={item}
+                editing={editingId === item.id}
+                showPinnedBadge={false}
+                actionLabel={`Mark done: ${previewLabel(item.text)}`}
+                onToggle={() => void archiveListItem(note.id, item.id)}
+                onTogglePin={() => void toggleListItemPin(note.id, item.id)}
+                onStartEdit={() => setEditingId(item.id)}
+                onEndEdit={() => setEditingId(null)}
+                onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
+                onDelete={() => void handleDeleteItem(item)}
+              />
+            ))}
+          </ListSection>
+        )}
+
+        <ListSection
+          title={pinned.length > 0 ? 'Items' : undefined}
+          label={pinned.length > 0 ? 'List items' : 'Active items'}
+        >
+          {unpinned.map((item) => (
             <ListItemRow
               key={item.id}
               item={item}
               rowRef={(node) => setRowRef(item.id, node)}
               editing={editingId === item.id}
-              sortable={editingId !== item.id && !isItemPinned(item)}
+              sortable={editingId !== item.id}
               dragging={draggingId === item.id}
               dragDeltaY={draggingId === item.id ? dragDeltaY : 0}
               layoutShiftY={layoutShiftById.get(item.id) ?? 0}
@@ -230,9 +251,9 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
           <ListItemComposer
             noteId={note.id}
             inputRef={composerRef}
-            embedded={active.length > 0}
+            embedded={hasActive}
           />
-        </ListItemsPanel>
+        </ListSection>
       </div>
     </div>
   )
@@ -243,14 +264,43 @@ function previewLabel(text: string): string {
   return flat.length > 48 ? `${flat.slice(0, 47)}…` : flat
 }
 
+function ListSection({
+  title,
+  label,
+  variant = 'default',
+  children,
+}: {
+  title?: string
+  label: string
+  variant?: 'default' | 'pinned'
+  children: ReactNode
+}) {
+  return (
+    <section className={cn(title ? 'mb-3' : '')}>
+      {title && (
+        <h3 className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">
+          {variant === 'pinned' && <PinIcon size="xs" className="text-accent" strokeWidth={ICON_STROKE_STRONG} />}
+          {title}
+        </h3>
+      )}
+      <ul
+        aria-label={label}
+        className={cn(
+          'overflow-hidden rounded-2xl border border-card-line bg-surface shadow-[0_1px_0_rgba(15,23,42,0.04)]',
+          variant === 'pinned' && 'border-accent-line/70 bg-accent-soft/20',
+        )}
+      >
+        {children}
+      </ul>
+    </section>
+  )
+}
+
 function ListItemsPanel({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <ul
-      aria-label={label}
-      className="overflow-hidden rounded-2xl border border-card-line bg-surface shadow-[0_1px_0_rgba(15,23,42,0.04)]"
-    >
+    <ListSection label={label}>
       {children}
-    </ul>
+    </ListSection>
   )
 }
 
@@ -479,6 +529,7 @@ function ListItemRow({
   rowRef,
   done = false,
   editing = false,
+  showPinnedBadge = true,
   sortable = false,
   dragging = false,
   dragDeltaY = 0,
@@ -497,6 +548,7 @@ function ListItemRow({
   rowRef?: (node: HTMLLIElement | null) => void
   done?: boolean
   editing?: boolean
+  showPinnedBadge?: boolean
   sortable?: boolean
   dragging?: boolean
   dragDeltaY?: number
@@ -534,7 +586,7 @@ function ListItemRow({
               'transition-[transform,colors] duration-200 ease-out hover:bg-surface-hover',
               reordering && layoutShiftY !== 0 && 'relative z-10',
             ),
-        pinned && !done && !dragging && 'bg-accent-soft/35',
+        showPinnedBadge && pinned && !done && !dragging && 'bg-accent-soft/20',
       )}
       style={{
         transform: dragging
@@ -562,7 +614,7 @@ function ListItemRow({
         <span className="block text-[14px] font-[450] leading-[1.45] whitespace-pre-wrap">
           {item.text}
         </span>
-        {(createdLabel || (pinned && !done)) && (
+        {(createdLabel || (showPinnedBadge && pinned && !done)) && (
           <span className="mt-1 flex flex-wrap items-center gap-1.5">
             {createdLabel && (
               <time
@@ -572,7 +624,7 @@ function ListItemRow({
                 Added {createdLabel}
               </time>
             )}
-            {pinned && !done && (
+            {showPinnedBadge && pinned && !done && (
               <span
                 data-tone="blue"
                 className="inline-flex rounded-full bg-[var(--tone-bg)] px-2 py-0.5 text-[10px] font-semibold leading-none text-[var(--tone-fg)]"

@@ -7,7 +7,7 @@ import {
   patchListItem,
   removeListItem,
   reorderActiveListItems,
-  toggleItemTimestamp,
+  toggleItemPin,
   UNTITLED_LIST,
   withArchivedAt,
 } from './list-note'
@@ -186,7 +186,7 @@ export async function restoreListItem(noteId: Id, itemId: Id): Promise<void> {
 
 export async function toggleListItemPin(noteId: Id, itemId: Id): Promise<void> {
   const stamp = now()
-  await mutateListItems(noteId, (items) => toggleItemTimestamp(items, itemId, 'pinnedAt', stamp))
+  await mutateListItems(noteId, (items) => toggleItemPin(items, itemId, stamp))
 }
 
 export async function reorderListItem(

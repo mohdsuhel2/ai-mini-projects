@@ -7,9 +7,12 @@ import {
   buildPreviewIds,
   layoutShifts,
   nextListItemOrder,
+  pinnedListItems,
   reorderActiveListItems,
   sortedActiveListItems,
+  toggleItemPin,
   toggleItemTimestamp,
+  unpinnedListItems,
   withArchivedAt,
 } from './list-note'
 import type { ListNoteItem, Note } from '@/types'
@@ -56,13 +59,23 @@ describe('list-note helpers', () => {
     expect(next[1].pinnedAt).toBeNull()
   })
 
-  it('sorts active items by manual order', () => {
+  it('sorts active items by manual order within each section', () => {
     const note = listNote([
       { id: 'a', text: 'later', order: 30, archivedAt: null },
       { id: 'b', text: 'first', order: 10, archivedAt: null },
       { id: 'c', text: 'middle', order: 20, archivedAt: null },
     ])
     expect(sortedActiveListItems(note).map((i) => i.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('keeps pinned items above unpinned items', () => {
+    const note = listNote([
+      { id: 'a', text: 'open', order: 10, archivedAt: null },
+      { id: 'b', text: 'pinned', order: 20, pinnedAt: 5, archivedAt: null },
+    ])
+    expect(pinnedListItems(note).map((item) => item.id)).toEqual(['b'])
+    expect(unpinnedListItems(note).map((item) => item.id)).toEqual(['a'])
+    expect(sortedActiveListItems(note).map((item) => item.id)).toEqual(['b', 'a'])
   })
 
   it('builds preview order and layout shifts while dragging', () => {
@@ -78,10 +91,14 @@ describe('list-note helpers', () => {
     expect(shifts.get('c')).toBe(0)
   })
 
-  it('keeps pinned items fixed while reordering others', () => {
-    const locked = new Set(['p'])
-    expect(buildPreviewIds(['p', 'a', 'b'], 'b', 'a', locked)).toEqual(['p', 'b', 'a'])
-    expect(buildPreviewIds(['p', 'a', 'b'], 'p', 'a', locked)).toEqual(['p', 'a', 'b'])
+  it('reorders unpinned items without moving pinned ones', () => {
+    const items: ListNoteItem[] = [
+      { id: 'p', text: 'pinned', order: 10, pinnedAt: 1, archivedAt: null },
+      { id: 'a', text: 'one', order: 20, archivedAt: null },
+      { id: 'b', text: 'two', order: 30, archivedAt: null },
+    ]
+    const next = reorderActiveListItems(items, 'b', 'a')
+    expect(sortedActiveListItems(listNote(next)).map((item) => item.id)).toEqual(['p', 'b', 'a'])
   })
 
   it('reorders active items and writes new order values', () => {
@@ -111,5 +128,18 @@ describe('list-note helpers', () => {
     expect(isItemPinned(pinned[0])).toBe(true)
     const unpinned = toggleItemTimestamp(pinned, 'a', 'pinnedAt', 101)
     expect(isItemPinned(unpinned[0])).toBe(false)
+  })
+
+  it('moves order when pinning and unpinning', () => {
+    const items: ListNoteItem[] = [
+      { id: 'a', text: 'one', order: 10, archivedAt: null },
+      { id: 'b', text: 'two', order: 20, archivedAt: null },
+    ]
+    const pinned = toggleItemPin(items, 'b', 100)
+    expect(pinned.find((item) => item.id === 'b')?.pinnedAt).toBe(100)
+    expect(pinned.find((item) => item.id === 'b')?.order).toBe(10)
+    const unpinned = toggleItemPin(pinned, 'b', 101)
+    expect(unpinned.find((item) => item.id === 'b')?.pinnedAt).toBeNull()
+    expect(unpinned.find((item) => item.id === 'b')?.order).toBe(20)
   })
 })

@@ -215,7 +215,7 @@ describe('list notes', () => {
         ?.filter((item) => item.archivedAt == null)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
         .map((item) => item.id),
-    ).toEqual([third, second, first])
+    ).toEqual([second, third, first])
 
     await reorderListItem(id, second, first)
     expect(
@@ -223,7 +223,7 @@ describe('list notes', () => {
         ?.items?.filter((item) => item.archivedAt == null)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
         .map((item) => item.id),
-    ).toEqual([third, second, first])
+    ).toEqual([second, third, first])
 
     await toggleListItemPin(id, second)
     expect((await db().notes.get(id))?.items?.find((item) => item.id === second)?.pinnedAt).toBeNull()
