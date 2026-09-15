@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Archive, ArrowLeft, CornerDownLeft, Flag, Pin, Trash2 } from 'lucide-react'
 import { Checkbox } from '@/components/common/checkbox'
 import { IconButton } from '@/components/common/icon-button'
@@ -40,7 +40,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
   const [title, setTitle] = useState(note.title)
   const [screen, setScreen] = useState<ListScreen>('active')
   const [editingId, setEditingId] = useState<Id | null>(null)
-  const titleRef = useRef(note.title)
+  const lastWrittenTitle = useRef(note.title)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const path = folderPath(folders, note.folderId)
 
@@ -56,31 +56,31 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
 
   const active = activeListItems(note)
   const archived = archivedListItems(note)
+  const visibleScreen: ListScreen =
+    screen === 'archive' && archived.length === 0 ? 'active' : screen
 
   useEffect(() => {
-    if (archived.length === 0 && screen === 'archive') setScreen('active')
-  }, [archived.length, screen])
-
-  useEffect(() => {
-    if (title === titleRef.current) return
+    if (title === lastWrittenTitle.current) return
     const id = window.setTimeout(() => {
-      titleRef.current = title
+      lastWrittenTitle.current = title
       void updateNote(note.id, { title })
     }, 400)
     return () => window.clearTimeout(id)
   }, [title, note.id])
 
+  // Adopt title renames from elsewhere (folder tree) without writing stale text back.
   useEffect(() => {
+    if (note.title === lastWrittenTitle.current) return
+    lastWrittenTitle.current = note.title
     setTitle(note.title)
-    titleRef.current = note.title
   }, [note.title])
 
   useEffect(() => {
-    if (screen !== 'active') return
+    if (visibleScreen !== 'active') return
     composerRef.current?.focus()
-  }, [note.id, screen])
+  }, [note.id, visibleScreen])
 
-  if (screen === 'archive') {
+  if (visibleScreen === 'archive') {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="mb-4 flex items-center gap-2">
@@ -249,16 +249,16 @@ function ListItemDraftForm({
   onBlur?: () => void
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void
 }) {
-  function resize() {
+  const resize = useCallback(() => {
     const node = inputRef.current
     if (!node) return
     node.style.height = 'auto'
     node.style.height = `${Math.min(node.scrollHeight, 132)}px`
-  }
+  }, [inputRef])
 
   useEffect(() => {
     resize()
-  }, [draft, inputRef])
+  }, [draft, resize])
 
   useEffect(() => {
     if (!autoFocus) return
@@ -267,7 +267,7 @@ function ListItemDraftForm({
     node.focus()
     node.setSelectionRange(node.value.length, node.value.length)
     resize()
-  }, [autoFocus, inputRef])
+  }, [autoFocus, inputRef, resize])
 
   return (
     <form
@@ -375,6 +375,69 @@ function ListItemComposer({
   )
 }
 
+function ListItemEditRow({
+  item,
+  onSaveText,
+  onEndEdit,
+}: {
+  item: ListNoteItem
+  onSaveText: (text: string) => void
+  onEndEdit: () => void
+}) {
+  const [draft, setDraft] = useState(item.text)
+  const editRef = useRef<HTMLTextAreaElement>(null)
+  const savingEdit = useRef(false)
+  const dismissEdit = useRef(false)
+
+  function commitEdit() {
+    if (savingEdit.current || dismissEdit.current) {
+      dismissEdit.current = false
+      return
+    }
+    const next = draft.trim()
+    if (!next) {
+      onEndEdit()
+      return
+    }
+    savingEdit.current = true
+    if (next !== item.text) onSaveText(next)
+    onEndEdit()
+    savingEdit.current = false
+  }
+
+  function cancelEdit() {
+    dismissEdit.current = true
+    onEndEdit()
+  }
+
+  return (
+    <ListItemDraftForm
+      fieldId={`edit-${item.id}`}
+      draft={draft}
+      onDraftChange={setDraft}
+      inputRef={editRef}
+      placeholder="Type a note, idea, or paragraph…"
+      submitLabel="Save"
+      submitAriaLabel="Edit list item"
+      hint="Enter to save · Shift+Enter for a new line · Esc to cancel"
+      active
+      autoFocus
+      onSubmit={commitEdit}
+      onBlur={commitEdit}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          cancelEdit()
+        }
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault()
+          commitEdit()
+        }
+      }}
+    />
+  )
+}
+
 function ListItemRow({
   item,
   done = false,
@@ -403,65 +466,11 @@ function ListItemRow({
   const hasHover = useHasHover()
   const flagged = isItemFlagged(item)
   const pinned = isItemPinned(item)
-  const [draft, setDraft] = useState(item.text)
-  const editRef = useRef<HTMLTextAreaElement>(null)
-  const savingEdit = useRef(false)
-  const dismissEdit = useRef(false)
-
-  useEffect(() => {
-    if (!editing) setDraft(item.text)
-  }, [item.text, editing])
-
-  function commitEdit() {
-    if (savingEdit.current || dismissEdit.current) {
-      dismissEdit.current = false
-      return
-    }
-    const next = draft.trim()
-    if (!next) {
-      setDraft(item.text)
-      onEndEdit()
-      return
-    }
-    savingEdit.current = true
-    if (next !== item.text) onSaveText(next)
-    onEndEdit()
-    savingEdit.current = false
-  }
-
-  function cancelEdit() {
-    dismissEdit.current = true
-    setDraft(item.text)
-    onEndEdit()
-  }
 
   if (editing) {
     return (
       <li className="border-b border-line last:border-b-0">
-        <ListItemDraftForm
-          fieldId={`edit-${item.id}`}
-          draft={draft}
-          onDraftChange={setDraft}
-          inputRef={editRef}
-          placeholder="Type a note, idea, or paragraph…"
-          submitLabel="Save"
-          submitAriaLabel="Edit list item"
-          hint="Enter to save · Shift+Enter for a new line · Esc to cancel"
-          active
-          autoFocus
-          onSubmit={commitEdit}
-          onBlur={commitEdit}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault()
-              cancelEdit()
-            }
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              commitEdit()
-            }
-          }}
-        />
+        <ListItemEditRow item={item} onSaveText={onSaveText} onEndEdit={onEndEdit} />
       </li>
     )
   }
