@@ -137,6 +137,8 @@ export interface ListNoteItem {
   order?: number
   /** Set when the item is pinned to the top of the active list. */
   pinnedAt?: Instant | null
+  /** Set when the item is marked important. */
+  importantAt?: Instant | null
   archivedAt?: Instant | null
 }
 

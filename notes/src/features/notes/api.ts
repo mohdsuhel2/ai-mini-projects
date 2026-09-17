@@ -8,6 +8,7 @@ import {
   removeListItem,
   reorderActiveListItems,
   toggleItemPin,
+  toggleItemTimestamp,
   UNTITLED_LIST,
   withArchivedAt,
 } from './list-note'
@@ -171,6 +172,7 @@ export async function addListItem(noteId: Id, text: string): Promise<Id> {
       order: nextListItemOrder(items),
       archivedAt: null,
       pinnedAt: null,
+      importantAt: null,
     },
   ])
   return itemId
@@ -187,6 +189,13 @@ export async function restoreListItem(noteId: Id, itemId: Id): Promise<void> {
 export async function toggleListItemPin(noteId: Id, itemId: Id): Promise<void> {
   const stamp = now()
   await mutateListItems(noteId, (items) => toggleItemPin(items, itemId, stamp))
+}
+
+export async function toggleListItemImportant(noteId: Id, itemId: Id): Promise<void> {
+  const stamp = now()
+  await mutateListItems(noteId, (items) =>
+    toggleItemTimestamp(items, itemId, 'importantAt', stamp),
+  )
 }
 
 export async function reorderListItem(

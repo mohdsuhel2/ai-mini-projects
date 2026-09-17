@@ -10,6 +10,10 @@ export function isItemPinned(item: ListNoteItem): boolean {
   return item.pinnedAt != null
 }
 
+export function isItemImportant(item: ListNoteItem): boolean {
+  return item.importantAt != null
+}
+
 function itemSortKey(item: ListNoteItem): number {
   return item.order ?? item.createdAt ?? 0
 }
@@ -172,7 +176,7 @@ export function sortArchivedLast(items: ListNoteItem[]): ListNoteItem[] {
 export function patchListItem(
   items: ListNoteItem[],
   itemId: Id,
-  patch: Partial<Pick<ListNoteItem, 'text' | 'archivedAt' | 'pinnedAt' | 'order'>>,
+  patch: Partial<Pick<ListNoteItem, 'text' | 'archivedAt' | 'pinnedAt' | 'importantAt' | 'order'>>,
 ): ListNoteItem[] {
   return items.map((item) => (item.id === itemId ? { ...item, ...patch } : item))
 }
@@ -188,7 +192,7 @@ export function withArchivedAt(items: ListNoteItem[], itemId: Id, archivedAt: In
 export function toggleItemTimestamp(
   items: ListNoteItem[],
   itemId: Id,
-  field: 'pinnedAt',
+  field: 'pinnedAt' | 'importantAt',
   stamp: Instant,
 ): ListNoteItem[] {
   return items.map((item) => {

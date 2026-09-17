@@ -5,13 +5,16 @@ import {
   ArchiveIcon,
   ArrowDownLeftIcon,
   ChevronLeftIcon,
+  EllipsisIcon,
   GripVerticalIcon,
   ICON_STROKE_STRONG,
   PinIcon,
+  StarIcon,
   Trash2Icon,
 } from '@/lib/app-icons'
 import { Checkbox } from '@/components/common/checkbox'
 import { IconButton } from '@/components/common/icon-button'
+import { Popover, PopoverItem } from '@/components/common/popover'
 import {
   addListItem,
   archiveListItem,
@@ -19,19 +22,20 @@ import {
   reorderListItem,
   restoreListItem,
   restoreListItemSnapshot,
+  toggleListItemImportant,
   toggleListItemPin,
   updateListItemText,
   updateNote,
 } from '@/features/notes/api'
 import {
   archivedListItems,
+  isItemImportant,
   isItemPinned,
   pinnedListItems,
   unpinnedListItems,
 } from '@/features/notes/list-note'
 import { folderPath } from '@/features/notes/tree'
 import { formatInstantStamp } from '@/lib/date/format'
-import { useHasHover } from '@/hooks/use-media-query'
 import { usePointerListReorder } from '@/hooks/use-pointer-list-reorder'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
@@ -187,7 +191,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
             </button>
           </div>
           <p className="mt-1 text-[12px] text-fg-subtle">
-            Pin to keep items at the top. Drag others to reorder, tap text to edit, or archive when done.
+            Use ⋯ for pin, important, or delete. Drag to reorder, tap text to edit, or archive when done.
           </p>
         </div>
       </header>
@@ -210,6 +214,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
                 actionLabel={`Mark done: ${previewLabel(item.text)}`}
                 onToggle={() => void archiveListItem(note.id, item.id)}
                 onTogglePin={() => void toggleListItemPin(note.id, item.id)}
+                onToggleImportant={() => void toggleListItemImportant(note.id, item.id)}
                 onStartEdit={() => setEditingId(item.id)}
                 onEndEdit={() => setEditingId(null)}
                 onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
@@ -237,6 +242,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
               actionLabel={`Mark done: ${previewLabel(item.text)}`}
               onToggle={() => void archiveListItem(note.id, item.id)}
               onTogglePin={() => void toggleListItemPin(note.id, item.id)}
+              onToggleImportant={() => void toggleListItemImportant(note.id, item.id)}
               onStartEdit={() => setEditingId(item.id)}
               onEndEdit={() => setEditingId(null)}
               onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
@@ -276,10 +282,12 @@ function ListSection({
   children: ReactNode
 }) {
   return (
-    <section className={cn(title ? 'mb-3' : '')}>
+    <section className={cn(title ? 'mb-3' : '')} data-tone={variant === 'pinned' ? 'blue' : undefined}>
       {title && (
         <h3 className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">
-          {variant === 'pinned' && <PinIcon size="xs" className="text-accent" strokeWidth={ICON_STROKE_STRONG} />}
+          {variant === 'pinned' && (
+            <PinIcon size="xs" className="text-[var(--tone-fg)]" strokeWidth={ICON_STROKE_STRONG} />
+          )}
           {title}
         </h3>
       )}
@@ -287,7 +295,7 @@ function ListSection({
         aria-label={label}
         className={cn(
           'overflow-hidden rounded-2xl border border-card-line bg-surface shadow-[0_1px_0_rgba(15,23,42,0.04)]',
-          variant === 'pinned' && 'border-accent-line/70 bg-accent-soft/20',
+          variant === 'pinned' && 'border-[var(--tone-line)] bg-[var(--tone-wash)]',
         )}
       >
         {children}
@@ -538,6 +546,7 @@ function ListItemRow({
   actionLabel,
   onToggle,
   onTogglePin,
+  onToggleImportant,
   onStartEdit,
   onEndEdit,
   onSaveText,
@@ -557,15 +566,18 @@ function ListItemRow({
   actionLabel: string
   onToggle: () => void
   onTogglePin?: () => void
+  onToggleImportant?: () => void
   onStartEdit: () => void
   onEndEdit: () => void
   onSaveText: (text: string) => void
   onDelete: () => void
   onGripPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void
 }) {
-  const hasHover = useHasHover()
+  const [menuOpen, setMenuOpen] = useState(false)
   const pinned = isItemPinned(item)
+  const important = isItemImportant(item)
   const createdLabel = formatInstantStamp(item.createdAt)
+  const label = previewLabel(item.text)
 
   if (editing) {
     return (
@@ -578,15 +590,24 @@ function ListItemRow({
   return (
     <li
       ref={rowRef}
+      data-tone={
+        important && !done
+          ? 'amber'
+          : showPinnedBadge && pinned && !done
+            ? 'blue'
+            : undefined
+      }
       className={cn(
-        'group/row relative flex items-start gap-2 border-b border-line px-2.5 py-2.5 last:border-b-0 sm:px-3.5 sm:py-3',
+        'group/row relative flex items-start gap-2 border-b border-line py-2.5 last:border-b-0 sm:py-3',
+        important && !done ? 'pl-3 pr-2.5 sm:pl-3.5 sm:pr-3.5' : 'px-2.5 sm:px-3.5',
         dragging
           ? 'z-20 touch-none rounded-xl border-transparent bg-surface shadow-pop ring-1 ring-accent/20'
           : cn(
               'transition-[transform,colors] duration-200 ease-out hover:bg-surface-hover',
               reordering && layoutShiftY !== 0 && 'relative z-10',
             ),
-        showPinnedBadge && pinned && !done && !dragging && 'bg-accent-soft/20',
+        showPinnedBadge && pinned && !done && !dragging && 'bg-[var(--tone-wash)]',
+        important && !done && !dragging && 'bg-[var(--tone-wash)]',
       )}
       style={{
         transform: dragging
@@ -596,6 +617,14 @@ function ListItemRow({
             : undefined,
       }}
     >
+      {important && !done && (
+        <span
+          data-tone="amber"
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full bg-[var(--tone-solid)]"
+        />
+      )}
+
       <Checkbox
         checked={done}
         onChange={onToggle}
@@ -636,39 +665,67 @@ function ListItemRow({
         )}
       </button>
 
-      <div
-        className={cn(
-          'flex shrink-0 items-center gap-0.5 transition-opacity',
-          hasHover
-            ? cn(
-                'opacity-0 group-hover/row:opacity-100 focus-within:opacity-100',
-                pinned && 'opacity-100',
-              )
-            : 'opacity-100',
-        )}
-      >
-        {onTogglePin && !done && (
-          <IconButton
-            label={pinned ? `Unpin “${previewLabel(item.text)}”` : `Pin “${previewLabel(item.text)}”`}
-            size="sm"
-            onClick={onTogglePin}
-            className={cn(pinned && 'text-accent hover:bg-accent-soft hover:text-accent')}
-          >
-            <PinIcon
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Popover
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          align="end"
+          side="top"
+          portal
+          trigger={
+            <IconButton
+              label={`Options for “${label}”`}
               size="sm"
-              className={cn(pinned && 'text-accent')}
-              strokeWidth={pinned ? ICON_STROKE_STRONG : undefined}
-            />
-          </IconButton>
-        )}
-        <IconButton
-          label={`Delete “${previewLabel(item.text)}”`}
-          size="sm"
-          onClick={onDelete}
-          className="text-danger hover:bg-danger-soft hover:text-danger"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <EllipsisIcon size="md" />
+            </IconButton>
+          }
         >
-          <Trash2Icon size="sm" />
-        </IconButton>
+          {!done && onTogglePin && (
+            <PopoverItem
+              onClick={() => {
+                setMenuOpen(false)
+                onTogglePin()
+              }}
+            >
+              <PinIcon
+                size="sm"
+                className={cn(pinned && 'text-accent')}
+                strokeWidth={pinned ? ICON_STROKE_STRONG : undefined}
+              />
+              {pinned ? 'Unpin' : 'Pin to top'}
+            </PopoverItem>
+          )}
+          {!done && onToggleImportant && (
+            <PopoverItem
+              onClick={() => {
+                setMenuOpen(false)
+                onToggleImportant()
+              }}
+            >
+              <StarIcon
+                size="sm"
+                className={cn(important && 'text-amber-600')}
+                strokeWidth={important ? ICON_STROKE_STRONG : undefined}
+              />
+              {important ? 'Remove important' : 'Mark important'}
+            </PopoverItem>
+          )}
+          {(!done && (onTogglePin || onToggleImportant)) && <div className="my-1 h-px bg-line" />}
+          <PopoverItem
+            onClick={() => {
+              setMenuOpen(false)
+              onDelete()
+            }}
+            className="text-danger hover:bg-danger-soft"
+          >
+            <Trash2Icon size="sm" />
+            Delete
+          </PopoverItem>
+        </Popover>
         {sortable && (
           <button
             type="button"
@@ -678,8 +735,6 @@ function ListItemRow({
               'mt-0.5 inline-flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-fg-faint transition-[color,background-color,box-shadow,transform]',
               'hover:bg-bg-sunk hover:text-fg-subtle active:cursor-grabbing',
               dragging && 'cursor-grabbing bg-bg-sunk text-fg',
-              hasHover ? 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100' : 'opacity-100',
-              (pinned || dragging) && 'opacity-100',
             )}
           >
             <GripVerticalIcon size="md" />

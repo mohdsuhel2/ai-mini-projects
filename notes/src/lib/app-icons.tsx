@@ -46,6 +46,7 @@ import {
   Search,
   Settings2,
   Sparkles,
+  Star,
   Strikethrough,
   Sun,
   Tag,
@@ -156,6 +157,7 @@ export const RepeatIcon = lineIcon(Repeat)
 export const SearchIcon = lineIcon(Search)
 export const Settings2Icon = lineIcon(Settings2)
 export const SparklesIcon = lineIcon(Sparkles)
+export const StarIcon = lineIcon(Star)
 export const StrikethroughIcon = lineIcon(Strikethrough)
 export const SunIcon = lineIcon(Sun)
 export const TagIcon = lineIcon(Tag)

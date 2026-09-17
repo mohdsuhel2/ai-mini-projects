@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useDismiss } from '@/hooks/use-dismiss'
 import { useIsPhone } from '@/hooks/use-media-query'
@@ -14,17 +14,37 @@ interface PopoverProps {
   align?: 'start' | 'end'
   /** Which way it opens. A trigger near the bottom edge has to open upward. */
   side?: 'bottom' | 'top'
+  /** Render the anchored menu in a portal so it escapes overflow clipping. */
+  portal?: boolean
   className?: string
+}
+
+const GAP = 6
+const EDGE = 8
+
+function menuClassName(
+  side: 'bottom' | 'top',
+  align: 'start' | 'end',
+  className?: string,
+  portalled = false,
+) {
+  return cn(
+    'min-w-[13rem] rounded-lg border border-line bg-surface p-1 shadow-[var(--shadow-pop)] animate-pop',
+    !portalled && 'z-50',
+    !portalled && (side === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'),
+    !portalled && (align === 'end' ? 'right-0' : 'left-0'),
+    className,
+  )
 }
 
 /**
  * A menu anchored to its trigger on a pointer screen, and a sheet up from the
  * bottom edge on a phone.
  *
- * The anchored form is not portalled: those popovers are small and always sit
- * next to what they belong to, so a portal would buy nothing but a positioning
- * bug. The sheet is the opposite case — it must escape every ancestor's
- * clipping and stacking to cover the screen, so it goes to the body.
+ * By default the anchored form is not portalled: those popovers are small and
+ * sit next to what they belong to. Pass `portal` when an ancestor clips overflow
+ * (e.g. a rounded list card). The sheet always portals — it must escape every
+ * ancestor's clipping to cover the screen.
  */
 export function Popover({
   open,
@@ -33,15 +53,75 @@ export function Popover({
   children,
   align = 'start',
   side = 'bottom',
+  portal = false,
   className,
 }: PopoverProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  const sheetRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const isPhone = useIsPhone()
-  useDismiss([ref, sheetRef], open, onClose)
+  const usePortal = portal && !isPhone
+  const [portalStyle, setPortalStyle] = useState<CSSProperties>({ visibility: 'hidden' })
+
+  useDismiss(usePortal ? [rootRef, menuRef] : rootRef, open, onClose)
+
+  const measurePortal = useCallback(() => {
+    const trigger = rootRef.current
+    const menu = menuRef.current
+    if (!trigger || !menu) return
+
+    const triggerRect = trigger.getBoundingClientRect()
+    const menuRect = menu.getBoundingClientRect()
+    const width = menuRect.width || menu.offsetWidth
+    const height = menuRect.height || menu.offsetHeight
+
+    let left = align === 'end' ? triggerRect.right - width : triggerRect.left
+    let top = side === 'bottom' ? triggerRect.bottom + GAP : triggerRect.top - height - GAP
+
+    left = Math.max(EDGE, Math.min(left, window.innerWidth - width - EDGE))
+    top = Math.max(EDGE, Math.min(top, window.innerHeight - height - EDGE))
+
+    setPortalStyle({ position: 'fixed', left, top, zIndex: 60, visibility: 'visible' })
+  }, [align, side])
+
+  const portalMenuRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      menuRef.current = node
+      if (node && open && usePortal) measurePortal()
+    },
+    [open, usePortal, measurePortal],
+  )
+
+  useEffect(() => {
+    if (!open || !usePortal) {
+      setPortalStyle({ visibility: 'hidden' })
+      return
+    }
+    measurePortal()
+    const close = () => onClose()
+    window.addEventListener('resize', measurePortal)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('resize', measurePortal)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [open, usePortal, measurePortal, onClose])
+
+  const menuPanel = (
+    <div
+      ref={usePortal ? portalMenuRef : undefined}
+      role="dialog"
+      style={usePortal ? portalStyle : undefined}
+      className={cn(
+        usePortal ? 'fixed' : 'absolute',
+        menuClassName(side, align, className, usePortal),
+      )}
+    >
+      {children}
+    </div>
+  )
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={rootRef} className="relative">
       {trigger}
 
       {open &&
@@ -54,7 +134,7 @@ export function Popover({
                   className="absolute inset-0 bg-black/25 backdrop-blur-[2px] animate-fade-in"
                 />
                 <div
-                  ref={sheetRef}
+                  ref={menuRef}
                   role="dialog"
                   aria-modal="true"
                   className={cn(
@@ -64,8 +144,6 @@ export function Popover({
                     className,
                   )}
                 >
-                  {/* The handle is the affordance that says this came up from
-                      the edge and can go back down to it. */}
                   <span
                     aria-hidden="true"
                     className="mx-auto mb-2 block h-1 w-9 rounded-full bg-line"
@@ -75,20 +153,9 @@ export function Popover({
               </div>,
               document.body,
             )
-          : (
-              <div
-                role="dialog"
-                className={cn(
-                  'absolute z-50 min-w-[13rem] rounded-lg border border-line',
-                  'bg-surface p-1 shadow-[var(--shadow-pop)] animate-pop',
-                  side === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]',
-                  align === 'end' ? 'right-0' : 'left-0',
-                  className,
-                )}
-              >
-                {children}
-              </div>
-            ))}
+          : usePortal
+            ? createPortal(menuPanel, document.body)
+            : menuPanel)}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   activeListItems,
   archivedListItems,
+  isItemImportant,
   isItemPinned,
   listNotePreview,
   buildPreviewIds,
@@ -120,6 +121,12 @@ describe('list-note helpers', () => {
       { id: 'b', text: 'two', order: 40, archivedAt: null },
     ]
     expect(nextListItemOrder(items)).toBe(50)
+  })
+
+  it('toggles important timestamps', () => {
+    const items: ListNoteItem[] = [{ id: 'a', text: 'one', archivedAt: null }]
+    const important = toggleItemTimestamp(items, 'a', 'importantAt', 200)
+    expect(isItemImportant(important[0])).toBe(true)
   })
 
   it('toggles pin timestamps', () => {
