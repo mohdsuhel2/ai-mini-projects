@@ -92,10 +92,7 @@ export function Popover({
   )
 
   useEffect(() => {
-    if (!open || !usePortal) {
-      setPortalStyle({ visibility: 'hidden' })
-      return
-    }
+    if (!open || !usePortal) return
     measurePortal()
     const close = () => onClose()
     window.addEventListener('resize', measurePortal)
