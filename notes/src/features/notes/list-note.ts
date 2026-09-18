@@ -134,16 +134,20 @@ export function reorderActiveListItems(
 ): ListNoteItem[] {
   const active = activeItemsFrom(items)
   const dragged = active.find((item) => item.id === draggedId)
-  if (!dragged || isItemPinned(dragged)) return items
+  if (!dragged) return items
 
   const pinned = active.filter(isItemPinned)
   const unpinned = active.filter((item) => !isItemPinned(item))
-  const previewUnpinned = buildPreviewIds(
-    unpinned.map((item) => item.id),
-    draggedId,
-    insertBeforeId,
-  )
-  const previewIds = [...pinned.map((item) => item.id), ...previewUnpinned]
+
+  const previewIds = isItemPinned(dragged)
+    ? [
+        ...buildPreviewIds(pinned.map((item) => item.id), draggedId, insertBeforeId),
+        ...unpinned.map((item) => item.id),
+      ]
+    : [
+        ...pinned.map((item) => item.id),
+        ...buildPreviewIds(unpinned.map((item) => item.id), draggedId, insertBeforeId),
+      ]
 
   const orderById = new Map(previewIds.map((id, index) => [id, (index + 1) * 10]))
   return items.map((item) => (orderById.has(item.id) ? { ...item, order: orderById.get(item.id) } : item))

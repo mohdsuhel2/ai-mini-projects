@@ -102,6 +102,19 @@ describe('list-note helpers', () => {
     expect(sortedActiveListItems(listNote(next)).map((item) => item.id)).toEqual(['p', 'b', 'a'])
   })
 
+  it('reorders pinned items without moving unpinned ones', () => {
+    const items: ListNoteItem[] = [
+      { id: 'p1', text: 'pinned one', order: 10, pinnedAt: 1, archivedAt: null },
+      { id: 'p2', text: 'pinned two', order: 20, pinnedAt: 2, archivedAt: null },
+      { id: 'a', text: 'open', order: 30, archivedAt: null },
+    ]
+    const next = reorderActiveListItems(items, 'p2', 'p1')
+    expect(sortedActiveListItems(listNote(next)).map((item) => item.id)).toEqual(['p2', 'p1', 'a'])
+    expect(next.find((item) => item.id === 'p2')?.order).toBe(10)
+    expect(next.find((item) => item.id === 'p1')?.order).toBe(20)
+    expect(next.find((item) => item.id === 'a')?.order).toBe(30)
+  })
+
   it('reorders active items and writes new order values', () => {
     const items: ListNoteItem[] = [
       { id: 'a', text: 'one', order: 10, archivedAt: null },

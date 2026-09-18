@@ -80,9 +80,24 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
     [note.id],
   )
 
-  const { draggingId, dragDeltaY, layoutShiftById, setRowRef, startDrag } = usePointerListReorder(
-    unpinned.map((item) => item.id),
-    (draggedId, beforeId) => void commitReorder(draggedId, beforeId),
+  const {
+    draggingId: unpinnedDraggingId,
+    dragDeltaY: unpinnedDragDeltaY,
+    layoutShiftById: unpinnedLayoutShiftById,
+    setRowRef: setUnpinnedRowRef,
+    startDrag: startUnpinnedDrag,
+  } = usePointerListReorder(unpinned.map((item) => item.id), (draggedId, beforeId) =>
+    void commitReorder(draggedId, beforeId),
+  )
+
+  const {
+    draggingId: pinnedDraggingId,
+    dragDeltaY: pinnedDragDeltaY,
+    layoutShiftById: pinnedLayoutShiftById,
+    setRowRef: setPinnedRowRef,
+    startDrag: startPinnedDrag,
+  } = usePointerListReorder(pinned.map((item) => item.id), (draggedId, beforeId) =>
+    void commitReorder(draggedId, beforeId),
   )
   const archived = archivedListItems(note)
   const visibleScreen: ListScreen =
@@ -191,7 +206,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
             </button>
           </div>
           <p className="mt-1 text-[12px] text-fg-subtle">
-            Use ⋯ for pin, important, or delete. Drag to reorder, tap text to edit, or archive when done.
+            Use ⋯ for pin, important, or delete. Drag within each section to reorder, tap text to edit, or archive when done.
           </p>
         </div>
       </header>
@@ -209,8 +224,14 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
               <ListItemRow
                 key={item.id}
                 item={item}
+                rowRef={(node) => setPinnedRowRef(item.id, node)}
                 editing={editingId === item.id}
                 showPinnedBadge={false}
+                sortable={editingId !== item.id}
+                dragging={pinnedDraggingId === item.id}
+                dragDeltaY={pinnedDraggingId === item.id ? pinnedDragDeltaY : 0}
+                layoutShiftY={pinnedLayoutShiftById.get(item.id) ?? 0}
+                reordering={pinnedDraggingId != null}
                 actionLabel={`Mark done: ${previewLabel(item.text)}`}
                 onToggle={() => void archiveListItem(note.id, item.id)}
                 onTogglePin={() => void toggleListItemPin(note.id, item.id)}
@@ -219,6 +240,11 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
                 onEndEdit={() => setEditingId(null)}
                 onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
                 onDelete={() => void handleDeleteItem(item)}
+                onGripPointerDown={(event) => {
+                  event.preventDefault()
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  startPinnedDrag(item.id, event.clientY)
+                }}
               />
             ))}
           </ListSection>
@@ -232,13 +258,13 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
             <ListItemRow
               key={item.id}
               item={item}
-              rowRef={(node) => setRowRef(item.id, node)}
+              rowRef={(node) => setUnpinnedRowRef(item.id, node)}
               editing={editingId === item.id}
               sortable={editingId !== item.id}
-              dragging={draggingId === item.id}
-              dragDeltaY={draggingId === item.id ? dragDeltaY : 0}
-              layoutShiftY={layoutShiftById.get(item.id) ?? 0}
-              reordering={draggingId != null}
+              dragging={unpinnedDraggingId === item.id}
+              dragDeltaY={unpinnedDraggingId === item.id ? unpinnedDragDeltaY : 0}
+              layoutShiftY={unpinnedLayoutShiftById.get(item.id) ?? 0}
+              reordering={unpinnedDraggingId != null}
               actionLabel={`Mark done: ${previewLabel(item.text)}`}
               onToggle={() => void archiveListItem(note.id, item.id)}
               onTogglePin={() => void toggleListItemPin(note.id, item.id)}
@@ -250,7 +276,7 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
               onGripPointerDown={(event) => {
                 event.preventDefault()
                 event.currentTarget.setPointerCapture(event.pointerId)
-                startDrag(item.id, event.clientY)
+                startUnpinnedDrag(item.id, event.clientY)
               }}
             />
           ))}
