@@ -30,6 +30,7 @@ import {
 } from '@/features/notes/api'
 import { promoteListItemToTodo } from '@/features/todos/api'
 import { LinkChip } from '@/components/common/link-chip'
+import { LinkifiedText } from '@/components/common/linkified-text'
 import { LinkedTodosPanel } from '@/components/notes/linked-todos-panel'
 import { NoteDayPin } from '@/components/notes/note-day-pin'
 import { useTodosLinkedToNote } from '@/hooks/use-data'
@@ -699,18 +700,29 @@ function ListItemRow({
       />
 
       <div className="min-w-0 flex-1">
-        <button
-          type="button"
-          onClick={onStartEdit}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('a')) return
+            onStartEdit()
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              onStartEdit()
+            }
+          }}
           className={cn(
-            'w-full rounded-lg py-0.5 text-left transition-colors hover:bg-bg-sunk/80',
+            'w-full cursor-text rounded-lg py-0.5 text-left transition-colors hover:bg-bg-sunk/80',
             'text-fg',
           )}
         >
-          <span className="block text-[14px] font-[450] leading-[1.45] whitespace-pre-wrap">
-            {item.text}
-          </span>
-        </button>
+          <LinkifiedText
+            text={item.text}
+            className="block text-[14px] font-[450] leading-[1.45]"
+          />
+        </div>
         {(createdLabel || linkedTask || (showPinnedBadge && pinned && !done)) && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {createdLabel && (
