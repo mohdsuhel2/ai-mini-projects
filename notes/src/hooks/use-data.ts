@@ -26,7 +26,8 @@ import {
   type StreakInfo,
   type WeekdayLoad,
 } from '@/features/analytics/insights'
-import { listFolders, listNotes } from '@/features/notes/api'
+import { listFolders, listNotes, notesPinnedForDay } from '@/features/notes/api'
+import { buildWeeklyReview, type WeeklyReview } from '@/features/analytics/review'
 import { buildFolderTree, rootNotes } from '@/features/notes/tree'
 import type {
   Activity,
@@ -35,6 +36,7 @@ import type {
   DayKey,
   Folder,
   FolderNode,
+  Id,
   Note,
   Settings,
   TimerState,
@@ -88,6 +90,19 @@ export function useFolders(): Folder[] | undefined {
 
 export function useNotes(): Note[] | undefined {
   return useLiveQuery(() => listNotes(), [])
+}
+
+export function useNotesPinnedForDay(day: DayKey): Note[] | undefined {
+  const notes = useNotes()
+  return useMemo(() => (notes ? notesPinnedForDay(notes, day) : undefined), [notes, day])
+}
+
+export function useTodosLinkedToNote(noteId: Id | null): Todo[] | undefined {
+  return useLiveQuery(async () => {
+    if (!noteId) return []
+    const rows = await db().todos.toArray()
+    return liveOnly(rows).filter((t) => t.linkedNoteId === noteId && t.status === 'OPEN')
+  }, [noteId])
 }
 
 export function useNote(id: string | null): Note | undefined {
@@ -215,4 +230,19 @@ export function useDeepInsights(range: RangeId): DeepInsights | undefined {
       plan: planVsDone(todos, window),
     }
   }, [activities, allActivities, todos, categories, days, today])
+}
+
+export function useWeeklyReview(range: RangeId): WeeklyReview | undefined {
+  const days = useMemo(() => rangeDays(RANGE_DAYS[range]), [range])
+  const today = days[days.length - 1]
+  const activities = useLiveQuery(
+    () => listActivitiesBetween(days[0], days[days.length - 1]),
+    [days],
+  )
+  const todos = useLiveQuery(() => db().todos.toArray().then(liveOnly), [])
+
+  return useMemo(() => {
+    if (!activities || !todos) return undefined
+    return buildWeeklyReview(todos, activities, days, today)
+  }, [activities, todos, days, today])
 }

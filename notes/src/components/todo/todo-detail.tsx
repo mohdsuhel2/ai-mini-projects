@@ -7,7 +7,9 @@ import { CategoryPicker } from './category-picker'
 import { DateChips } from './date-chips'
 import { RepeatPicker } from './repeat-picker'
 import { DurationChips } from '@/components/common/duration-chips'
+import { NoteLinkPicker } from '@/components/notes/note-link-picker'
 import { updateTodo } from '@/features/todos/api'
+import { useUi } from '@/store/ui-context'
 import { formatClock } from '@/lib/date/format'
 import type { Id, Todo } from '@/types'
 
@@ -65,6 +67,8 @@ function TodoDetailForm({
   const [duration, setDuration] = useState<number | null>(todo.estimatedDuration ?? null)
   const [recurrence, setRecurrence] = useState(todo.recurrence ?? null)
   const [categoryId, setCategoryId] = useState<Id | null>(todo.categoryId ?? null)
+  const [linkedNoteId, setLinkedNoteId] = useState<Id | null>(todo.linkedNoteId ?? null)
+  const { openNote } = useUi()
 
   async function save() {
     const trimmed = title.trim()
@@ -77,6 +81,9 @@ function TodoDetailForm({
       estimatedDuration: duration,
       recurrence,
       categoryId,
+      linkedNoteId,
+      linkedListItemId:
+        linkedNoteId && linkedNoteId === todo.linkedNoteId ? (todo.linkedListItemId ?? null) : null,
     })
     onClose()
   }
@@ -136,6 +143,16 @@ function TodoDetailForm({
         <div className="space-y-2">
           <span className="text-[12px] font-medium text-fg-muted">Expected to take</span>
           <DurationChips value={duration} onChange={setDuration} />
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-[12px] font-medium text-fg-muted">Linked note</span>
+          <NoteLinkPicker value={linkedNoteId} onChange={setLinkedNoteId} />
+          {linkedNoteId && (
+            <Button variant="ghost" size="sm" onClick={() => openNote(linkedNoteId)}>
+              Open linked note
+            </Button>
+          )}
         </div>
 
         <div className="space-y-1.5">

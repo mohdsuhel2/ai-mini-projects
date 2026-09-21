@@ -6,7 +6,8 @@ import { ActivityComposer } from '@/components/activity/activity-composer'
 import { DailySummary } from '@/components/dashboard/daily-summary'
 import { Timeline } from '@/components/timeline/timeline'
 import { IconButton } from '@/components/common/icon-button'
-import { useDailySummary, useDaySchedule } from '@/hooks/use-data'
+import { PinnedNotesPanel } from '@/components/notes/pinned-notes-panel'
+import { useDailySummary, useDaySchedule, useNotesPinnedForDay } from '@/hooks/use-data'
 import { shiftDay, todayKey } from '@/lib/date/day-key'
 import { formatDayFull, formatDayLabel } from '@/lib/date/format'
 import { track } from '@/lib/analytics'
@@ -26,6 +27,7 @@ interface TodayPaneProps {
 export function TodayPane({ day, onDayChange }: TodayPaneProps) {
   const summary = useDailySummary(day)
   const schedule = useDaySchedule(day)
+  const pinnedNotes = useNotesPinnedForDay(day)
   const today = todayKey()
   const isToday = day === today
   // Held here, not in either child: tapping a row lights the matching block on
@@ -83,6 +85,12 @@ export function TodayPane({ day, onDayChange }: TodayPaneProps) {
           highlightId={selectedId}
         />
       </header>
+
+      {pinnedNotes && pinnedNotes.length > 0 && (
+        <div className="mt-5">
+          <PinnedNotesPanel day={day} notes={pinnedNotes} />
+        </div>
+      )}
 
       <div className="mt-6">
         <Timeline

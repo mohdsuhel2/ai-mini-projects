@@ -13,7 +13,7 @@ import {
   withArchivedAt,
 } from './list-note'
 import { canMoveFolder, descendantIds } from './tree'
-import type { Folder, Id, ListNoteItem, Note } from '@/types'
+import type { DayKey, Folder, Id, ListNoteItem, Note } from '@/types'
 
 export async function listFolders(): Promise<Folder[]> {
   return liveOnly(await db().folders.toArray())
@@ -142,7 +142,7 @@ export async function createListNote(input: { title?: string; folderId?: Id | nu
 
 export async function updateNote(
   id: Id,
-  patch: Partial<Pick<Note, 'title' | 'body' | 'folderId' | 'items'>>,
+  patch: Partial<Pick<Note, 'title' | 'body' | 'folderId' | 'items' | 'pinnedDay'>>,
 ): Promise<void> {
   const note = await getNote(id)
   const next: Partial<Note> = { ...patch, updatedAt: now() }
@@ -316,6 +316,20 @@ export async function duplicateFolder(id: Id): Promise<Id | null> {
   })
 
   return remapped.get(id) as Id
+}
+
+export function notesPinnedForDay(notes: Note[], day: DayKey): Note[] {
+  return notes
+    .filter((note) => note.pinnedDay === day)
+    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+}
+
+export async function pinNoteForDay(noteId: Id, day: DayKey): Promise<void> {
+  await updateNote(noteId, { pinnedDay: day })
+}
+
+export async function unpinNoteFromDay(noteId: Id): Promise<void> {
+  await updateNote(noteId, { pinnedDay: null })
 }
 
 /** Case-insensitive substring match over titles and bodies. */

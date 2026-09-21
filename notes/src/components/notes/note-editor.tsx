@@ -15,6 +15,8 @@ import {
 } from '@/lib/app-icons'
 import { IconButton } from '@/components/common/icon-button'
 import { updateNote } from '@/features/notes/api'
+import { LinkedTodosPanel } from '@/components/notes/linked-todos-panel'
+import { NoteDayPin } from '@/components/notes/note-day-pin'
 import { folderPath } from '@/features/notes/tree'
 import { renderMarkdown } from '@/lib/markdown/render'
 import { htmlToMarkdown } from '@/lib/markdown/serialize'
@@ -101,6 +103,7 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
 
   return (
     <article className="flex min-h-0 flex-1 flex-col">
+      <LinkedTodosPanel noteId={note.id} />
       <header className="rounded-2xl border border-card-line bg-surface px-4 py-3.5">
         <div className="flex items-start gap-3">
           {onBack && (
@@ -133,6 +136,9 @@ export function NoteEditor({ note, folders, onBack }: NoteEditorProps) {
                 {dirty ? 'Saving…' : 'Saved'}
               </span>
             </p>
+            <div className="mt-2">
+              <NoteDayPin note={note} />
+            </div>
           </div>
         </div>
 

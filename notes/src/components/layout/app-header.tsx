@@ -1,6 +1,6 @@
 'use client'
 
-import { CalendarDaysIcon, MoonIcon, Settings2Icon, SunIcon } from '@/lib/app-icons'
+import { CalendarDaysIcon, MoonIcon, SearchIcon, Settings2Icon, SunIcon } from '@/lib/app-icons'
 import { BrandMark } from './brand'
 import { IconButton } from '@/components/common/icon-button'
 import { SegmentedControl } from '@/components/common/segmented-control'
@@ -19,7 +19,7 @@ import { useNow } from '@/hooks/use-now'
  */
 export function AppHeader() {
   const { resolved, toggle } = useTheme()
-  const { mode, pane, setPane, openSettings } = useUi()
+  const { mode, pane, setPane, openGlobalSearch, openSettings } = useUi()
   const isWide = useIsWide()
   // Seconds are on show, so this ticks every one of them. It also carries the
   // date over midnight, which a static render would not.
@@ -68,6 +68,14 @@ export function AppHeader() {
             </span>
             <span className="tnum">{formatWallClock(clock)}</span>
           </p>
+
+          <IconButton
+            label="Search everything"
+            onClick={openGlobalSearch}
+            className="size-9 rounded-full"
+          >
+            <SearchIcon size="lg" />
+          </IconButton>
 
           <IconButton
             label={resolved === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}

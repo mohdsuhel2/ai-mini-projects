@@ -4,6 +4,7 @@ import { useState } from 'react'
 import {
   ClockIcon,
   EllipsisIcon,
+  FileTextIcon,
   ICON_STROKE_STRONG,
   PenLineIcon,
   PlayIcon,
@@ -13,6 +14,7 @@ import {
 import { useHasHover } from '@/hooks/use-media-query'
 import { useLongPress } from '@/hooks/use-long-press'
 import { CategoryBadge } from '@/components/common/category-badge'
+import { LinkChip } from '@/components/common/link-chip'
 import { shortRecurrence } from '@/features/todos/recurrence'
 import { Checkbox } from '@/components/common/checkbox'
 import { IconButton } from '@/components/common/icon-button'
@@ -20,6 +22,7 @@ import { Popover, PopoverItem } from '@/components/common/popover'
 import { CompleteMenu } from './complete-menu'
 import { formatClock, formatDayLabel, formatDuration } from '@/lib/date/format'
 import { todayKey } from '@/lib/date/day-key'
+import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
 import type { Category, Todo } from '@/types'
 
@@ -46,6 +49,7 @@ export function TodoRow({
   onStartTimer,
 }: TodoRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { openNote } = useUi()
   const hasHover = useHasHover()
   // Without a pointer there is no hover to reveal the row's controls, so the
   // whole row becomes the handle: press and hold opens what the ⋯ would.
@@ -94,22 +98,24 @@ export function TodoRow({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={onEdit}
-        className="min-w-0 flex-1 text-left"
-        aria-label={`Edit ${todo.title}`}
-      >
-        <p
-          className={cn(
-            'text-[14px] font-[450] leading-[1.35] transition-[color,opacity] duration-300',
-            done ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg',
-          )}
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="w-full text-left"
+          aria-label={`Edit ${todo.title}`}
         >
-          {todo.title}
-        </p>
+          <p
+            className={cn(
+              'text-[14px] font-[450] leading-[1.35] transition-[color,opacity] duration-300',
+              done ? 'text-fg-subtle line-through decoration-fg-faint' : 'text-fg',
+            )}
+          >
+            {todo.title}
+          </p>
+        </button>
 
-        {(category || meta.length > 0) && (
+        {(category || meta.length > 0 || todo.recurrence || todo.linkedNoteId) && (
           <div className="mt-[3px] flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] font-medium leading-[19px]">
             <CategoryBadge category={category} />
             {meta.length > 0 && (
@@ -126,9 +132,18 @@ export function TodoRow({
                 {shortRecurrence(todo.recurrence)}
               </span>
             )}
+            {todo.linkedNoteId && (
+              <LinkChip
+                label="Open linked note"
+                onClick={() => openNote(todo.linkedNoteId!)}
+              >
+                <FileTextIcon size="xs" aria-hidden="true" />
+                Note
+              </LinkChip>
+            )}
           </div>
         )}
-      </button>
+      </div>
 
       <div
         className={cn(
@@ -185,6 +200,17 @@ export function TodoRow({
             <PenLineIcon size="sm" className="text-fg-subtle" />
             Edit details
           </PopoverItem>
+          {todo.linkedNoteId && (
+            <PopoverItem
+              onClick={() => {
+                setMenuOpen(false)
+                openNote(todo.linkedNoteId!)
+              }}
+            >
+              <FileTextIcon size="sm" className="text-fg-subtle" />
+              Open linked note
+            </PopoverItem>
+          )}
           {!done && (
             <PopoverItem
               onClick={() => {

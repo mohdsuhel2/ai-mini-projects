@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { SegmentedControl } from '@/components/common/segmented-control'
 import { EmptyState } from '@/components/common/empty-state'
 import { PaneSkeleton } from '@/components/common/skeleton'
+import { WeeklyReviewPanel } from '@/components/insights/weekly-review-panel'
 import { useDeepInsights, useRangeSummary } from '@/hooks/use-data'
 import { formatDayLabel, formatDuration, formatHourLabel } from '@/lib/date/format'
 import { fromDayKey } from '@/lib/date/day-key'
@@ -25,8 +26,11 @@ function busiestHour(hours: { hour: number; minutes: number }[]): string | undef
  * it was. Everything here is the same tracked minutes seen from further back —
  * no new data, only a longer lens.
  */
+type InsightsView = 'overview' | 'review'
+
 export function InsightsPane() {
   const [range, setRange] = useState<RangeId>('week')
+  const [view, setView] = useState<InsightsView>('overview')
   const summary = useRangeSummary(range)
   const deep = useDeepInsights(range)
 
@@ -36,23 +40,41 @@ export function InsightsPane() {
         <div className="min-w-0">
           <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-fg">Insights</h2>
           <p className="mt-1 text-[13px] text-fg-muted">
-            {range === 'week' ? 'The last seven days' : 'The last thirty days'}, as they were logged.
+            {view === 'review'
+              ? 'A weekly check-in on plan, logging, and what to carry forward.'
+              : range === 'week'
+                ? 'The last seven days, as they were logged.'
+                : 'The last thirty days, as they were logged.'}
           </p>
         </div>
 
-        <SegmentedControl<RangeId>
-          aria-label="Range"
-          value={range}
-          onChange={setRange}
-          className="flex w-full [&>button]:flex-1 [&>button]:justify-center sm:w-auto sm:[&>button]:flex-none"
-          options={[
-            { value: 'week', label: 'Week' },
-            { value: 'month', label: 'Month' },
-          ]}
-        />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <SegmentedControl<InsightsView>
+            aria-label="Insights view"
+            value={view}
+            onChange={setView}
+            className="flex w-full [&>button]:flex-1 [&>button]:justify-center sm:w-auto sm:[&>button]:flex-none"
+            options={[
+              { value: 'overview', label: 'Overview' },
+              { value: 'review', label: 'Review' },
+            ]}
+          />
+          <SegmentedControl<RangeId>
+            aria-label="Range"
+            value={range}
+            onChange={setRange}
+            className="flex w-full [&>button]:flex-1 [&>button]:justify-center sm:w-auto sm:[&>button]:flex-none"
+            options={[
+              { value: 'week', label: 'Week' },
+              { value: 'month', label: 'Month' },
+            ]}
+          />
+        </div>
       </div>
 
-      {!summary ? (
+      {view === 'review' ? (
+        <WeeklyReviewPanel range={range} />
+      ) : !summary ? (
         <PaneSkeleton rows={4} />
       ) : summary.totalMinutes === 0 ? (
         <EmptyState

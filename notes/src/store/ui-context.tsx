@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react'
 import { modeToTab, parseTab, tabToMode, urlForTab, type Mode } from '@/lib/tab-url'
+import type { DayKey, Id } from '@/types'
 
 export type Pane = 'plan' | 'today'
 export type QuickAddMode = 'todo' | 'activity'
@@ -42,6 +43,17 @@ interface UiContextValue {
   setPane: (pane: Pane) => void
   /** Switches to the day surface and selects a pane in one step. */
   showDay: (pane: Pane) => void
+  /** NotesPane registers this so other surfaces can jump to a note. */
+  registerNoteNavigator: (navigate: ((noteId: Id) => void) | null) => void
+  openNote: (noteId: Id) => void
+  globalSearchOpen: boolean
+  globalSearchSession: number
+  openGlobalSearch: () => void
+  closeGlobalSearch: () => void
+  /** Jump to Plan with a day in view (used from search / review). */
+  focusPlanDay: DayKey | null
+  openPlanForDay: (day: DayKey) => void
+  clearFocusPlanDay: () => void
   quickAddOpen: boolean
   /** The mode the palette should open in, when the caller knows it. */
   quickAddMode: QuickAddMode | null
@@ -100,6 +112,10 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [quickAddMode, setQuickAddMode] = useState<QuickAddMode | null>(null)
   const [compose, setCompose] = useState<ComposeIntent | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const noteNavigatorRef = useRef<((noteId: Id) => void) | null>(null)
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+  const [globalSearchSession, setGlobalSearchSession] = useState(0)
+  const [focusPlanDay, setFocusPlanDay] = useState<DayKey | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const nextId = useRef(1)
 
@@ -126,6 +142,27 @@ export function UiProvider({ children }: { children: ReactNode }) {
         setMode('day')
         setPane(next)
       },
+      registerNoteNavigator: (navigate) => {
+        noteNavigatorRef.current = navigate
+      },
+      openNote: (noteId: Id) => {
+        setMode('notes')
+        noteNavigatorRef.current?.(noteId)
+      },
+      globalSearchOpen,
+      globalSearchSession,
+      openGlobalSearch: () => {
+        setGlobalSearchSession((session) => session + 1)
+        setGlobalSearchOpen(true)
+      },
+      closeGlobalSearch: () => setGlobalSearchOpen(false),
+      focusPlanDay,
+      openPlanForDay: (day: DayKey) => {
+        setFocusPlanDay(day)
+        setMode('day')
+        setPane('plan')
+      },
+      clearFocusPlanDay: () => setFocusPlanDay(null),
       quickAddOpen,
       quickAddMode,
       compose,
@@ -143,7 +180,21 @@ export function UiProvider({ children }: { children: ReactNode }) {
       notify,
       dismissToast,
     }),
-    [mode, setMode, pane, quickAddOpen, quickAddMode, compose, settingsOpen, toasts, notify, dismissToast],
+    [
+      mode,
+      setMode,
+      pane,
+      quickAddOpen,
+      quickAddMode,
+      compose,
+      settingsOpen,
+      globalSearchOpen,
+      globalSearchSession,
+      focusPlanDay,
+      toasts,
+      notify,
+      dismissToast,
+    ],
   )
 
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>

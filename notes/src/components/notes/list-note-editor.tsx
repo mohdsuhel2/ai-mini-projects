@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import {
   ArchiveIcon,
   ArrowDownLeftIcon,
@@ -8,6 +8,7 @@ import {
   EllipsisIcon,
   GripVerticalIcon,
   ICON_STROKE_STRONG,
+  ListTodoIcon,
   PinIcon,
   StarIcon,
   Trash2Icon,
@@ -27,6 +28,12 @@ import {
   updateListItemText,
   updateNote,
 } from '@/features/notes/api'
+import { promoteListItemToTodo } from '@/features/todos/api'
+import { LinkChip } from '@/components/common/link-chip'
+import { LinkedTodosPanel } from '@/components/notes/linked-todos-panel'
+import { NoteDayPin } from '@/components/notes/note-day-pin'
+import { useTodosLinkedToNote } from '@/hooks/use-data'
+import { shiftDay, todayKey } from '@/lib/date/day-key'
 import {
   archivedListItems,
   isItemImportant,
@@ -35,11 +42,11 @@ import {
   unpinnedListItems,
 } from '@/features/notes/list-note'
 import { folderPath } from '@/features/notes/tree'
-import { formatInstantStamp } from '@/lib/date/format'
+import { formatDayLabel, formatInstantStamp } from '@/lib/date/format'
 import { usePointerListReorder } from '@/hooks/use-pointer-list-reorder'
 import { useUi } from '@/store/ui-context'
 import { cn } from '@/lib/utils/cn'
-import type { Folder, Id, ListNoteItem, Note } from '@/types'
+import type { DayKey, Folder, Id, ListNoteItem, Note, Todo } from '@/types'
 
 interface ListNoteEditorProps {
   note: Note
@@ -50,13 +57,21 @@ interface ListNoteEditorProps {
 type ListScreen = 'active' | 'archive'
 
 export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
-  const { notify } = useUi()
+  const { notify, showDay } = useUi()
   const [title, setTitle] = useState(note.title)
   const [screen, setScreen] = useState<ListScreen>('active')
   const [editingId, setEditingId] = useState<Id | null>(null)
   const lastWrittenTitle = useRef(note.title)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const path = folderPath(folders, note.folderId)
+
+  async function handlePromoteItem(item: ListNoteItem, plannedDate: DayKey) {
+    await promoteListItemToTodo(note.id, item.id, item.text, plannedDate)
+    notify(`Added to ${formatDayLabel(plannedDate)}`, {
+      label: 'View plan',
+      onClick: () => showDay('plan'),
+    })
+  }
 
   async function handleDeleteItem(item: ListNoteItem) {
     if (editingId === item.id) setEditingId(null)
@@ -71,6 +86,14 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
   const pinned = pinnedListItems(note)
   const unpinned = unpinnedListItems(note)
   const hasActive = pinned.length > 0 || unpinned.length > 0
+  const linkedTodos = useTodosLinkedToNote(note.id)
+  const linkedTaskByItemId = useMemo(() => {
+    const map = new Map<Id, Todo>()
+    for (const todo of linkedTodos ?? []) {
+      if (todo.linkedListItemId) map.set(todo.linkedListItemId, todo)
+    }
+    return map
+  }, [linkedTodos])
 
   const commitReorder = useCallback(
     async (draggedId: Id, insertBeforeId: Id | null) => {
@@ -205,13 +228,17 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
               )}
             </button>
           </div>
-          <p className="mt-1 text-[12px] text-fg-subtle">
-            Use ⋯ for pin, important, or delete. Drag within each section to reorder, tap text to edit, or archive when done.
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="text-[12px] text-fg-subtle">
+              Use ⋯ for pin, important, add to plan, or delete. Drag within each section to reorder.
+            </p>
+            <NoteDayPin note={note} />
+          </div>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+        <LinkedTodosPanel noteId={note.id} />
         {!hasActive && archived.length > 0 && (
           <p className="mb-3 px-1 text-center text-[13px] text-fg-subtle">
             No active items. Use Archive on the right to see or restore earlier notes.
@@ -236,6 +263,9 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
                 onToggle={() => void archiveListItem(note.id, item.id)}
                 onTogglePin={() => void toggleListItemPin(note.id, item.id)}
                 onToggleImportant={() => void toggleListItemImportant(note.id, item.id)}
+                onAddToToday={() => void handlePromoteItem(item, todayKey())}
+                onAddToTomorrow={() => void handlePromoteItem(item, shiftDay(todayKey(), 1))}
+                linkedTask={linkedTaskByItemId.get(item.id)}
                 onStartEdit={() => setEditingId(item.id)}
                 onEndEdit={() => setEditingId(null)}
                 onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
@@ -269,6 +299,9 @@ export function ListNoteEditor({ note, folders, onBack }: ListNoteEditorProps) {
               onToggle={() => void archiveListItem(note.id, item.id)}
               onTogglePin={() => void toggleListItemPin(note.id, item.id)}
               onToggleImportant={() => void toggleListItemImportant(note.id, item.id)}
+              onAddToToday={() => void handlePromoteItem(item, todayKey())}
+              onAddToTomorrow={() => void handlePromoteItem(item, shiftDay(todayKey(), 1))}
+              linkedTask={linkedTaskByItemId.get(item.id)}
               onStartEdit={() => setEditingId(item.id)}
               onEndEdit={() => setEditingId(null)}
               onSaveText={(text) => void updateListItemText(note.id, item.id, text)}
@@ -573,6 +606,9 @@ function ListItemRow({
   onToggle,
   onTogglePin,
   onToggleImportant,
+  onAddToToday,
+  onAddToTomorrow,
+  linkedTask,
   onStartEdit,
   onEndEdit,
   onSaveText,
@@ -593,12 +629,16 @@ function ListItemRow({
   onToggle: () => void
   onTogglePin?: () => void
   onToggleImportant?: () => void
+  onAddToToday?: () => void
+  onAddToTomorrow?: () => void
+  linkedTask?: Todo
   onStartEdit: () => void
   onEndEdit: () => void
   onSaveText: (text: string) => void
   onDelete: () => void
   onGripPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void
 }) {
+  const { showDay } = useUi()
   const [menuOpen, setMenuOpen] = useState(false)
   const pinned = isItemPinned(item)
   const important = isItemImportant(item)
@@ -658,19 +698,21 @@ function ListItemRow({
         className="mt-0.5"
       />
 
-      <button
-        type="button"
-        onClick={onStartEdit}
-        className={cn(
-          'min-w-0 flex-1 rounded-lg py-0.5 text-left transition-colors hover:bg-bg-sunk/80',
-          'text-fg',
-        )}
-      >
-        <span className="block text-[14px] font-[450] leading-[1.45] whitespace-pre-wrap">
-          {item.text}
-        </span>
-        {(createdLabel || (showPinnedBadge && pinned && !done)) && (
-          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onStartEdit}
+          className={cn(
+            'w-full rounded-lg py-0.5 text-left transition-colors hover:bg-bg-sunk/80',
+            'text-fg',
+          )}
+        >
+          <span className="block text-[14px] font-[450] leading-[1.45] whitespace-pre-wrap">
+            {item.text}
+          </span>
+        </button>
+        {(createdLabel || linkedTask || (showPinnedBadge && pinned && !done)) && (
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {createdLabel && (
               <time
                 dateTime={new Date(item.createdAt!).toISOString()}
@@ -678,6 +720,15 @@ function ListItemRow({
               >
                 Added {createdLabel}
               </time>
+            )}
+            {linkedTask && !done && (
+              <LinkChip
+                label={`Open linked task “${linkedTask.title}”`}
+                onClick={() => showDay('plan')}
+              >
+                <ListTodoIcon size="xs" aria-hidden="true" />
+                In plan
+              </LinkChip>
             )}
             {showPinnedBadge && pinned && !done && (
               <span
@@ -687,9 +738,9 @@ function ListItemRow({
                 Pinned
               </span>
             )}
-          </span>
+          </div>
         )}
-      </button>
+      </div>
 
       <div className="flex shrink-0 items-center gap-0.5">
         <Popover
@@ -740,7 +791,31 @@ function ListItemRow({
               {important ? 'Remove important' : 'Mark important'}
             </PopoverItem>
           )}
-          {(!done && (onTogglePin || onToggleImportant)) && <div className="my-1 h-px bg-line" />}
+          {!done && onAddToToday && (
+            <PopoverItem
+              onClick={() => {
+                setMenuOpen(false)
+                onAddToToday()
+              }}
+            >
+              <ListTodoIcon size="sm" />
+              Add to today
+            </PopoverItem>
+          )}
+          {!done && onAddToTomorrow && (
+            <PopoverItem
+              onClick={() => {
+                setMenuOpen(false)
+                onAddToTomorrow()
+              }}
+            >
+              <ListTodoIcon size="sm" />
+              Add to tomorrow
+            </PopoverItem>
+          )}
+          {(!done && (onTogglePin || onToggleImportant || onAddToToday)) && (
+            <div className="my-1 h-px bg-line" />
+          )}
           <PopoverItem
             onClick={() => {
               setMenuOpen(false)

@@ -55,7 +55,7 @@ type Selection = { kind: 'note'; note: Note } | { kind: 'folder'; node: FolderNo
 
 export function NotesPane() {
   const { roots, unfiled, folders, notes, loading } = useNotesTree()
-  const { notify, compose, clearCompose } = useUi()
+  const { notify, compose, clearCompose, registerNoteNavigator } = useUi()
   const isWide = useIsWide()
 
   const [selectedId, setSelectedId] = useState<Id | null>(null)
@@ -102,6 +102,11 @@ export function NotesPane() {
   // Latched, because clearing the intent is a state update that has not landed
   // by the time the effect can run again — under StrictMode's double invoke
   // that produced two notes from one tap.
+  useEffect(() => {
+    registerNoteNavigator((noteId) => setSelectedId(noteId))
+    return () => registerNoteNavigator(null)
+  }, [registerNoteNavigator])
+
   const handledNote = useRef(false)
   useEffect(() => {
     if (compose !== 'note') {

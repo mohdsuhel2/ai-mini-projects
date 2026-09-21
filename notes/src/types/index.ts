@@ -83,6 +83,10 @@ export interface Todo {
    */
   seriesId?: Id | null
   notes?: string | null
+  /** A note this task is tied to — meeting prep, a list, a reference doc. */
+  linkedNoteId?: Id | null
+  /** When promoted from a list item, the source row inside `linkedNoteId`. */
+  linkedListItemId?: Id | null
   createdAt: Instant
   completedAt?: Instant | null
   /** Minutes actually spent, if the user recorded or timed it. */
@@ -153,6 +157,8 @@ export interface Note {
   items?: ListNoteItem[]
   /** Null means the note sits at the root, outside any folder. */
   folderId: Id | null
+  /** When set, the note is surfaced on that day's Today view. */
+  pinnedDay?: DayKey | null
   createdAt: Instant
   updatedAt: Instant
   deletedAt?: Instant | null

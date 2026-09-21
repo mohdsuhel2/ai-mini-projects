@@ -38,6 +38,17 @@ export class SimplyNotesDatabase extends Dexie {
       folders: 'id, parentId, order',
     })
 
+    // v3: optional cross-surface links (todo↔note, note pinned to a day).
+    this.version(3).stores({
+      todos: 'id, plannedDate, status, categoryId, order, updatedAt, linkedNoteId, [status+plannedDate]',
+      activities: 'id, date, categoryId, source, todoId, updatedAt',
+      categories: 'id, name, scope, order',
+      settings: 'id',
+      timer: 'id',
+      notes: 'id, folderId, pinnedDay, updatedAt',
+      folders: 'id, parentId, order',
+    })
+
     this.on('populate', () => {
       const now = Date.now()
       void this.categories.bulkAdd(buildDefaultCategories(now))

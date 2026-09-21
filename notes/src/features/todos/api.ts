@@ -15,6 +15,8 @@ export interface NewTodoInput {
   /** Set only when one occurrence spawns the next; a new series makes its own. */
   seriesId?: Id | null
   notes?: string | null
+  linkedNoteId?: Id | null
+  linkedListItemId?: Id | null
 }
 
 function sortTodos(todos: Todo[]): Todo[] {
@@ -63,6 +65,8 @@ export async function createTodo(input: NewTodoInput): Promise<Id> {
     // next one can be recognised as the same thing rather than a lookalike.
     seriesId: input.recurrence ? (input.seriesId ?? newId()) : null,
     notes: input.notes ?? null,
+    linkedNoteId: input.linkedNoteId ?? null,
+    linkedListItemId: input.linkedListItemId ?? null,
     createdAt: stamp,
     completedAt: null,
     actualDuration: null,
@@ -253,4 +257,25 @@ export async function rollOverOverdue(target: DayKey = todayKey()): Promise<numb
     }
   })
   return overdue.length
+}
+
+export async function linkTodoToNote(todoId: Id, noteId: Id | null): Promise<void> {
+  await updateTodo(todoId, {
+    linkedNoteId: noteId,
+    ...(noteId ? {} : { linkedListItemId: null }),
+  })
+}
+
+export async function promoteListItemToTodo(
+  noteId: Id,
+  itemId: Id,
+  text: string,
+  plannedDate: DayKey,
+): Promise<Id> {
+  return createTodo({
+    title: text.trim(),
+    plannedDate,
+    linkedNoteId: noteId,
+    linkedListItemId: itemId,
+  })
 }

@@ -11,6 +11,7 @@ import { TodayPane } from './today-pane'
 import { FocusTimer } from '@/components/timer/focus-timer'
 import { QuickAdd } from '@/components/quick-add/quick-add'
 import { SettingsDialog } from '@/components/settings/settings-dialog'
+import { GlobalSearchDialog } from '@/components/search/global-search-dialog'
 import { Toaster } from '@/components/common/toaster'
 import { SegmentedControl } from '@/components/common/segmented-control'
 import { PaneSkeleton } from '@/components/common/skeleton'
@@ -33,7 +34,16 @@ import { cn } from '@/lib/utils/cn'
  * header, and below 640px a bottom bar. Surfaces themselves live in the rail.
  */
 function Workspace() {
-  const { mode, setMode, pane, setPane, openQuickAdd, openSettings } = useUi()
+  const {
+    mode,
+    setMode,
+    pane,
+    setPane,
+    openQuickAdd,
+    openGlobalSearch,
+    openSettings,
+    globalSearchSession,
+  } = useUi()
   const isWide = useIsWide()
   const [day, setDay] = useState(() => todayKey())
   const openTodos = useOpenTodos()
@@ -54,6 +64,7 @@ function Workspace() {
   const hotkeys = useMemo<Hotkey[]>(
     () => [
       { key: 'k', meta: true, handler: () => openQuickAdd() },
+      { key: 'k', meta: true, shift: true, handler: () => openGlobalSearch() },
       { key: 'n', handler: () => openQuickAdd('todo') },
       {
         key: 'a',
@@ -74,7 +85,7 @@ function Workspace() {
       { key: 'i', handler: () => setMode(mode === 'insights' ? 'day' : 'insights') },
       { key: '?', shift: true, handler: openSettings },
     ],
-    [openQuickAdd, openSettings, setPane, setMode, mode],
+    [openQuickAdd, openGlobalSearch, openSettings, setPane, setMode, mode],
   )
   useHotkeys(hotkeys)
 
@@ -172,6 +183,7 @@ function Workspace() {
 
       <BottomNav openCount={todayCount} />
       <QuickAdd />
+      <GlobalSearchDialog key={globalSearchSession} />
       <SettingsDialog />
       <Toaster />
     </div>
